@@ -22910,6 +22910,16 @@ window.GAME_DATA.MAPS_2D = {
         "appearance": "baigu_jing",
         "icon": "💀",
         "dialogueKey": "baigujing_encounter"
+      },
+      {
+        "id": "npc_baihu_wukong",
+        "name": "孙悟空",
+        "title": "【白虎岭战利保管】",
+        "x": 608,
+        "y": 352,
+        "appearance": "sun_wukong",
+        "icon": "🐒",
+        "dialogueKey": "baigujing_reward_ready"
       }
     ],
     "monsters": [

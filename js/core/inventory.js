@@ -104,6 +104,20 @@ class Inventory {
     return true;
   }
 
+  // 预检指定物品列表能否全量放入行囊（不修改当前实际背包）
+  canAddItems(items = []) {
+    if (!Array.isArray(items) || items.some(item => !item || !window.GAME_DATA.ITEMS[item.itemId] ||
+      !Number.isSafeInteger(item.count) || item.count <= 0)) {
+      return false;
+    }
+    const draft = new Inventory(this.slots.map(slot => ({ ...slot })));
+    draft.maxSlots = this.maxSlots;
+    for (const item of items) {
+      if (!draft.addItem(item.itemId, item.count)) return false;
+    }
+    return true;
+  }
+
   // 在副本中尝试整批入包，全部成功才提交；失败不留下部分物品。
   addItemsAtomically(items = []) {
     if (!Array.isArray(items) || items.some(item => !item || !window.GAME_DATA.ITEMS[item.itemId] ||

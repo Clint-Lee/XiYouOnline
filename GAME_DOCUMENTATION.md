@@ -1,12 +1,30 @@
 # 《汉风西游》正统2D神话RPG全景技术架构与项目交接白皮书
 > **PROJECT HANDOFF & COMPREHENSIVE ARCHITECTURE SPECIFICATION (FOR AI DEVELOPERS)**
 > 
-> *版本 (Version)*: 6.3.0-VISUAL-STORY-IDENTITY
+> *版本 (Version)*: 6.3.2-REWARD-COMPLETE-SAFETY
 > *工程定位*: 正统怀旧 MRP 2D 自由探索与回合制神话 RPG（《汉风西游》殿堂级复刻升维版）  
 > *技术栈*: 原生 HTML5 / Canvas API / Modern CSS3 / Node.js 极简静态服务（零第三方外部大引擎包袱）  
 > *代码仓库*: `https://github.com/Libaoyun/XiYouOnline.git` (分支: `develop`)  
 > *本地服务*: `http://localhost:5173/` (运行终端: `pnpm dev` 或 `node server.js`)  
-> *自动化测试*: `node test_suite.js`（2026-10-08：1694/1694 项断言通过）
+> *自动化测试*: `node test_suite.js`（2026-10-11：1745/1745 项断言通过）
+
+---
+
+## 2026-10-11 全链奖励原子化、移动手感与存档防御边界（当前接手入口）
+
+1. **玩家移动手感与深海减速移除**：基础行走速度由 140 提升至 180，坐骑乘骑速度加成维持相应比例，告别慢速拖沓；全面移除了龙宫等深海海域的地形减速惩罚，水下场景行动如履平地。
+2. **序章至长安主线链路自检修复**：全链梳理天宫贬谪、陈塘关混混及总兵交互、刘家村采樵捕鼠、同赴长安与茶肆阿婆主线，修复寻路卡顿、对白关闭状态及小地图信标指示。
+3. **全链旧奖励原子化与容量预检收官**：
+   - `Inventory.prototype.canAddItems(items = [])`：新增无副作用容量预检 API，供所有领取/采摘/拆装入口在前置校验。
+   - **东海深海试炼三件战利**：覆海蛟龙王战胜后记录持久化事件 `donghai_trial_won`，满包保留胜利状态、不提前发放三件神兵与 6000 银两/经验；敖广对话动态分发至 `aoguang_trial_reward_ready`；腾出 3 格后调用 `claimDonghaiTrialReward()` 一次性发放神珍铁、紫金红葫芦与避水珠并结清赏银经验；领取后对话切换至安澜致谢 `aoguang_trial_cleared`，不可重复领取；旧档自动迁移补齐。
+   - **唐太宗御赐文牒与神丹**：`grantTaizongGift()` 整批原子发放通关文牒、雪莲丹与赏银经验；满包时不消耗、不提前推进阶段；腾格后入包并推进阶段，防重复领取。
+   - **钟馗捉鬼除魔**：`submitZhongkuiGhostQuest()` 满包安全拦截拒绝领赏，保留捉鬼完成态，不吞金柳露；腾格后交差入包并结清赏银。
+   - **蟠桃园收获**：`eatPeach()` 满包防丢失拦截，不消耗今日采摘次数；腾格后采摘成功并消耗次数。
+   - **宝石拆卸防丢失**：`unsocketEquippedGem()` 满包预检，孔位宝石完好保留，腾格安全返还。
+4. **存档与数据防御边界强化**：
+   - `SaveManager.loadGame` / `loadGameFullState` 增强非对象与损坏 JSON 防御，防止游戏白屏或崩溃；
+   - `loadAutoSavedProgress` 补充对 `taizong_gift` 和 `donghai_trial` 跨章节旧档的平滑自动修复补齐。
+5. **自动化测试**：`node test_suite.js` 扩展至 **1745/1745 (100.0%)**，覆盖上述全量防丢与容量边界断言。
 
 ---
 

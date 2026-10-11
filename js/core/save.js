@@ -28,7 +28,8 @@ class SaveManager {
       const raw = localStorage.getItem(this.SAVE_KEY_PREFIX + slotIndex);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return parsed.data;
+      if (!parsed || typeof parsed !== 'object') return null;
+      return (parsed.data && typeof parsed.data === 'object') ? parsed.data : null;
     } catch (e) {
       console.error('读档失败:', e);
       return null;
@@ -63,7 +64,8 @@ class SaveManager {
       const raw = localStorage.getItem(this.SAVE_KEY_PREFIX + 'auto_progress');
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return parsed.data || null;
+      if (!parsed || typeof parsed !== 'object') return null;
+      return (parsed.data && typeof parsed.data === 'object') ? parsed.data : null;
     } catch (e) {
       console.error('读档异常:', e);
       return null;

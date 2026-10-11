@@ -707,6 +707,44 @@ class GameApp2D {
         // 兼容更新前停在战后对白的旧档，仍须读完救树对白才可领取。
         this.playerData.storyEvents.wuzhuang_trial_won = true;
       }
+      // 旧档只对已经越过相应章节的进度补领讫标记；战后未领奖的存档保留重试资格。
+      const phaseIndex = phase => ['huangfeng_cleared', 'liusha_cleared', 'wuzhuang_cleared',
+        'baihu_first_cleared', 'baihu_second_cleared', 'baihu_cleared', 'baoxiang_seek_princess',
+        'baoxiang_boss_ready', 'baoxiang_cleared', 'pingding_scout_cleared',
+        'pingding_silver_cleared', 'pingding_gold_cleared', 'pingding_cleared',
+        'huoyun_cleared', 'poer_cleared', 'chedi_cleared', 'tongtian_cleared',
+        'huoyan_cleared', 'pansi_cleared', 'shituo_cleared', 'journey_completed'].indexOf(phase);
+      const pastStarter = (state.storyPhase?.startsWith('liujiacun_') && state.storyPhase !== 'liujiacun_start') ||
+        /^(changan_|chentang_|donghai_|longgong_|wuxing|yingchou_|gaolao_|huangfeng_|liusha_|wuzhuang_|baihu_|baoxiang_|pingding_|huoyun_|poer_|chedi_|tongtian_|huoyan_|pansi_|shituo_|journey_)/.test(state.storyPhase || '');
+      if (pastStarter) this.playerData.storyRewards.liuboqin_starter = true;
+      const pastGuanyin = /^(wuxing|yingchou_|gaolao_|huangfeng_|liusha_|wuzhuang_|baihu_|baoxiang_|pingding_|huoyun_|poer_|chedi_|tongtian_|huoyan_|pansi_|shituo_|journey_)/.test(state.storyPhase || '');
+      if (pastGuanyin) this.playerData.storyRewards.guanyin_gift = true;
+      if (pastGuanyin || ['chentang_guanyin_revelation', 'changan_meet_xuanzang',
+        'changan_meet_taizong', 'changan_farewell'].includes(state.storyPhase)) {
+        this.playerData.storyRewards.longgong_armor = true;
+      }
+      const pastTaizong = /^(wuxing|yingchou_|gaolao_|huangfeng_|liusha_|wuzhuang_|baihu_|baoxiang_|pingding_|huoyun_|poer_|chedi_|tongtian_|huoyan_|pansi_|shituo_|journey_)/.test(state.storyPhase || '') ||
+        ['changan_farewell'].includes(state.storyPhase);
+      if (pastTaizong) this.playerData.storyRewards.taizong_gift = true;
+      if (this.inventory?.getItemCount?.('dinghai_shenzhen') > 0 ||
+          this.playerData.equipment?.weapon?.itemId === 'dinghai_shenzhen') {
+        this.playerData.storyRewards.donghai_trial = true;
+        this.playerData.storyEvents.donghai_trial_won = true;
+      }
+      if (phaseIndex(state.storyPhase) >= phaseIndex('liusha_cleared')) {
+        this.playerData.storyRewards.shaseng_join = true;
+        this.playerData.storyEvents.shaseng_battle_won = true;
+      } else if (state.pendingStoryDialogue?.key === 'shaseng_post_battle') {
+        this.playerData.storyEvents.shaseng_battle_won = true;
+      }
+      if (phaseIndex(state.storyPhase) >= phaseIndex('baihu_cleared')) {
+        this.playerData.storyRewards.baigu_final = true;
+        this.playerData.storyEvents.baigu_final_won = true;
+      }
+      if (phaseIndex(state.storyPhase) >= phaseIndex('baoxiang_cleared')) {
+        this.playerData.storyRewards.huangpao_final = true;
+        this.playerData.storyEvents.huangpao_battle_won = true;
+      }
       if (state.storyPhase === 'pingding_cleared') this.playerData.storyRewards.pingding_laojun = true;
       if (this.playerData.sideQuests?.sq_sanling_demon?.step === 'done') {
         this.playerData.storyRewards.sanling_completion = true;
@@ -1048,12 +1086,17 @@ class GameApp2D {
 
     // 7. 白虎岭白骨夫人：必须在五庄观之后 (wuzhuang_cleared 及之后) 出现
     if (npcId === 'npc_baigujing' || npcId === 'npc_baigu_furen') {
-      return currentWeight >= phaseWeights.wuzhuang_cleared && currentWeight < phaseWeights.baihu_cleared;
+      return currentWeight >= phaseWeights.wuzhuang_cleared && currentWeight < phaseWeights.baihu_cleared &&
+        !this.playerData?.storyEvents?.baigu_final_won;
+    }
+    if (npcId === 'npc_baihu_wukong') {
+      return storyPhase === 'baihu_second_cleared' && !!this.playerData?.storyEvents?.baigu_final_won &&
+        !this.playerData?.storyRewards?.baigu_final;
     }
 
     // 8. 宝象国黄袍怪与公主：必须在三打白骨精之后 (baihu_cleared 及之后) 出现
     if (npcId === 'npc_huangpao_guai' || npcId === 'npc_huangpao_boss') {
-      return storyPhase === 'baoxiang_boss_ready';
+      return storyPhase === 'baoxiang_boss_ready' && !this.playerData?.storyEvents?.huangpao_battle_won;
     }
     if (npcId === 'npc_baihuaxiu') {
       return currentWeight >= phaseWeights.baoxiang_seek_princess;
@@ -1175,7 +1218,7 @@ class GameApp2D {
       return storyPhase === 'donghai_dragon_arrived';
     }
     if (npcId === 'npc_aoguang') {
-      return storyPhase === 'longgong_visit';
+      return true;
     }
 
     // 13. 陈塘关主线 NPC 显隐（混混头目、观音雕像、显圣观音、侍侧龙王）
@@ -1480,10 +1523,10 @@ class GameApp2D {
       'liusha_cleared': 'npc_zhenyuanzi',
       'wuzhuang_cleared': 'npc_baigujing',
       'baihu_first_cleared': 'npc_baigujing',
-      'baihu_second_cleared': 'npc_baigujing',
+      'baihu_second_cleared': this.playerData?.storyEvents?.baigu_final_won ? 'npc_baihu_wukong' : 'npc_baigujing',
       'baihu_cleared': 'npc_baoxiang_king',
       'baoxiang_seek_princess': 'npc_baihuaxiu',
-      'baoxiang_boss_ready': 'npc_huangpao_boss',
+      'baoxiang_boss_ready': this.playerData?.storyEvents?.huangpao_battle_won ? 'npc_baoxiang_king' : 'npc_huangpao_boss',
       'baoxiang_cleared': 'npc_xiaozuanfeng',
       'pingding_scout_cleared': 'npc_yinjiao_boss',
       'pingding_silver_cleared': 'npc_jinjiao_boss',
@@ -2323,9 +2366,24 @@ class GameApp2D {
       npc.dialogueKey = this.storyPhase === 'baihu_first_cleared' ? 'baigujing_second_encounter' :
         this.storyPhase === 'baihu_second_cleared' ? 'baigujing_third_encounter' : 'baigujing_encounter';
     }
+    if (npc.id === 'npc_shawujing' && this.playerData.storyEvents?.shaseng_battle_won) {
+      npc.dialogueKey = 'shaseng_reward_ready';
+    }
+    if (npc.id === 'npc_baihu_wukong') npc.dialogueKey = 'baigujing_reward_ready';
     if (npc.id === 'npc_zhenyuanzi' && this.storyPhase === 'liusha_cleared') {
       npc.dialogueKey = this.playerData.storyEvents?.wuzhuang_tree_restored ? 'zhenyuanzi_gift_ready' :
         this.playerData.storyEvents?.wuzhuang_trial_won ? 'zhenyuanzi_post_battle' : 'zhenyuanzi_encounter';
+    }
+    if (npc.id === 'npc_aoguang') {
+      if (this.storyPhase === 'longgong_visit') {
+        npc.dialogueKey = 'longgong_receive_armor';
+      } else if (this.playerData.storyEvents?.donghai_trial_won && !this.playerData.storyRewards?.donghai_trial) {
+        npc.dialogueKey = 'aoguang_trial_reward_ready';
+      } else if (this.playerData.storyRewards?.donghai_trial) {
+        npc.dialogueKey = 'aoguang_trial_cleared';
+      } else {
+        npc.dialogueKey = 'aoguang_talk';
+      }
     }
     if (npc.id === 'npc_changan_tea' && this.storyPhase !== 'changan_arrived') {
       window.Dialogue.start({
@@ -2342,6 +2400,8 @@ class GameApp2D {
     if (this.storyPhase === 'baoxiang_cleared' && npc.id === 'npc_baoxiang_king') {
       npc.dialogueKey = 'baoxiang_king_reunion';
     }
+    if (this.storyPhase === 'baoxiang_boss_ready' && npc.id === 'npc_baoxiang_king' &&
+        this.playerData.storyEvents?.huangpao_battle_won) npc.dialogueKey = 'huangpao_reward_ready';
     if (npc.id === 'npc_huangpao_boss' && this.storyPhase !== 'baoxiang_boss_ready') {
       window.Dialogue.start({
         steps: [{
@@ -4507,20 +4567,25 @@ class GameApp2D {
 
   unsocketEquippedGem(slotKey, socketIdx) {
     const equip = this.playerData.equipment[slotKey];
-    if (!equip || !equip.sockets) return;
+    if (!equip || !equip.sockets) return false;
     const gemId = equip.sockets[socketIdx];
-    if (!gemId) return;
+    if (!gemId) return false;
 
-    if (this.inventory.slots.length >= this.inventory.maxSlots) {
+    if (!this.inventory.canAddItems([{ itemId: gemId, count: 1 }])) {
       window.showGameMessage('背包已满，无法拆除宝石！', 'warning');
-      return;
+      return false;
+    }
+    const added = this.inventory.addItem(gemId, 1);
+    if (!added) {
+      window.showGameMessage('包裹空间不足，拆除宝石失败！', 'warning');
+      return false;
     }
     equip.sockets[socketIdx] = null;
-    this.inventory.addItem(gemId, 1);
     this.playerData.recalculateStats(false);
     this.updatePlayerHud();
     window.Sound.playSuccess();
     window.showGameMessage(`已拆除第 ${socketIdx + 1} 孔宝石并放入背包！`, 'success');
+    return true;
   }
 
   // =========================================================================
@@ -4874,20 +4939,21 @@ class GameApp2D {
   }
 
   buyMedicine(itemId, price) {
+    if (!window.GAME_DATA.ITEMS[itemId] || !Number.isSafeInteger(price) || price < 0) return false;
     if (this.playerData.silver < price) {
       window.showGameMessage('身上银两不足！', 'warning');
-      return;
+      return false;
     }
-    if (this.inventory.slots.length >= this.inventory.maxSlots && this.inventory.getItemCount(itemId) === 0) {
+    if (!this.inventory?.addItem(itemId, 1)) {
       window.showGameMessage('储物背包已满，无法容纳新物品！', 'warning');
-      return;
+      return false;
     }
     this.playerData.silver -= price;
-    this.inventory.addItem(itemId, 1);
     this.updatePlayerHud();
     window.Sound.playSuccess();
     const item = window.GAME_DATA.ITEMS[itemId];
     window.showGameMessage(`购买成功！获得【${item.name}】*1，已放入背包！`, 'success');
+    return true;
   }
 
   setHomeResidence(mapId) {
@@ -5260,9 +5326,6 @@ class GameApp2D {
   collectMushroom() {
     if (window.Dialogue) window.Dialogue.close();
     if (!this.questKills) this.questKills = { mushrooms: 0, trees: 0, rats: 0 };
-    this.questKills.mushrooms = (this.questKills.mushrooms || 0) + 1;
-    this.inventory.addItem('item_fresh_mushroom', 1);
-    if (window.Sound) window.Sound.playSuccess();
 
     // 拾取距离玩家最近的蘑菇实体并永久移除，绝不重复刷新
     let nearestMushroom = null;
@@ -5276,6 +5339,12 @@ class GameApp2D {
         }
       }
     }
+    if (!nearestMushroom || !this.inventory?.addItem('item_fresh_mushroom', 1)) {
+      window.showGameMessage('蘑菇还在地上；先靠近木牌旁的蘑菇，并给行囊腾出位置。', 'warning');
+      return false;
+    }
+    this.questKills.mushrooms = (this.questKills.mushrooms || 0) + 1;
+    if (window.Sound) window.Sound.playSuccess();
     if (nearestMushroom) {
       if (!this.collectedProps) this.collectedProps = new Set();
       this.collectedProps.add(nearestMushroom.id);
@@ -5292,17 +5361,25 @@ class GameApp2D {
     }
     this.updatePlayerHud();
     this.saveAutoProgress();
+    return true;
   }
 
   // 4. 刘伯钦资助
   grantStarterItems() {
-    this.inventory.addItem('eq_wp_wood', 1);
-    this.inventory.addItem('eq_bt_straw', 1);
-    this.inventory.addItem('jinchuang_yao', 5);
+    if (this.storyPhase !== 'liujiacun_start') return false;
+    const result = this.playerData.claimStoryReward('liuboqin_starter', {
+      items:[{itemId:'eq_wp_wood',count:1},{itemId:'eq_bt_straw',count:1},{itemId:'jinchuang_yao',count:5}]
+    }, this.inventory);
+    if (!result.success) {
+      if (result.reason === 'already_claimed') return true;
+      window.showGameMessage('行囊装不下太保的短剑与草鞋，腾出空位再来领。', 'warning');
+      return false;
+    }
     this.playerData.equipItem('weapon', { itemId: 'eq_wp_wood', star: 0 });
     window.Sound.playSuccess();
     this.updatePlayerHud();
     window.showGameMessage('【获得刘伯钦资助】已佩戴【青铜短剑】与【行路草鞋】，获得金创药*5！', 'success', 3500);
+    return true;
   }
 
   // 5. 触发猛兽与恶鬼战斗 (支持砍柴伐树与刘家村除害计数)
@@ -5588,6 +5665,7 @@ class GameApp2D {
 
   // 7. 东海龙王宝库：赠送整套初级龙神战装 (武器、铠甲、头盔、靴子、项链)
   grantLonggongArmorSet() {
+    if (this.storyPhase !== 'longgong_visit') return false;
     if (window.Dialogue) {
       window.Dialogue.close();
     }
@@ -5598,20 +5676,27 @@ class GameApp2D {
       'longgong_boots',
       'longgong_necklace'
     ];
-    setPieces.forEach(itemId => {
-      this.inventory.addItem(itemId, 1);
-      const itemData = window.GAME_DATA.ITEMS[itemId];
-      if (itemData && itemData.slot) {
-        this.playerData.equipItem(itemData.slot, { itemId, star: 0, sockets: [null, null, null] });
+    const result = this.playerData.claimStoryReward('longgong_armor', {
+      items:setPieces.map(itemId=>({itemId,count:1})), exp:800, healToFull:true
+    }, this.inventory);
+    if (!result.success && result.reason !== 'already_claimed') {
+      window.showGameMessage('龙王的五件战装暂放宝库，整理出五个格子后再向敖广领取。', 'warning', 5000);
+      return false;
+    }
+    if (result.success) {
+      for (const itemId of setPieces) {
+        const slot = this.inventory.slots.find(s=>s.itemId===itemId);
+        if (slot && this.playerData.level >= window.GAME_DATA.ITEMS[itemId].reqLevel) {
+          this.inventory.equip(slot.instanceId,this.playerData);
+        }
       }
-    });
+    }
     this.playerData.recalculateStats(true);
     this.playerData.hp = this.playerData.maxHp;
     this.playerData.mp = this.playerData.maxMp;
-    this.playerData.gainExp(800);
     if (window.Sound) window.Sound.playCrit();
     this.updatePlayerHud();
-    window.showGameMessage('💎【龙神神装全套】已装备【覆海点钢枪、龙鳞轻钢甲、碧水定海盔、踏浪穿云靴、龙珠凝霜佩】！战力与气血大幅飞跃！', 'success', 5000);
+    window.showGameMessage('💎【龙神神装全套】已领取【覆海点钢枪、龙鳞轻钢甲、碧水定海盔、踏浪穿云靴、龙珠凝霜佩】！符合等级的装备已自动穿戴。', 'success', 5000);
 
     this.storyPhase = 'chentang_guanyin_revelation';
     this.loadMap('chentangguan', { x: 576, y: 384 }, {
@@ -5622,17 +5707,49 @@ class GameApp2D {
       }
     });
     window.showGameMessage('☁️ 返回陈塘关！天际祥云缭绕，仙乐阵阵！', 'info', 3500);
+    return true;
   }
 
   // 8. 观音赐宝 (五行山前)
   grantGuanyinGift() {
-    this.inventory.addItem('eq_nk_dinghun', 1);
-    this.inventory.addItem('feixing_fu', 5);
-    this.inventory.addItem('jiuzhuan_dan', 3);
+    if (this.storyPhase !== 'chentang_guanyin_revelation') return false;
+    const result = this.playerData.claimStoryReward('guanyin_gift', {
+      items:[{itemId:'eq_nk_dinghun',count:1},{itemId:'feixing_fu',count:5},{itemId:'jiuzhuan_dan',count:3}]
+    }, this.inventory);
+    if (!result.success && result.reason !== 'already_claimed') {
+      window.showGameMessage('菩萨的法宝先由她保管，整理行囊后再来领取。', 'warning');
+      return false;
+    }
     this.storyPhase = 'wuxingshan_ready';
     window.Sound.playSuccess();
     this.updatePlayerHud();
     window.showGameMessage('【菩萨赐宝】获得【九转定魂珠】、飞行神符*5、九转还魂丹*3！前往五行山解救大圣！', 'success', 4000);
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 9. 唐太宗御赐文牒与神丹 (长安金銮殿)
+  grantTaizongGift() {
+    if (this.storyPhase !== 'changan_meet_taizong') return false;
+    const result = this.playerData.claimStoryReward('taizong_gift', {
+      items: [
+        { itemId: 'feixing_fu', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 1000,
+      silver: 500
+    }, this.inventory);
+    if (!result.success && result.reason !== 'already_claimed') {
+      window.showGameMessage('太宗御赐重宝暂由内侍监保管，整理出行囊空位后再向陛下领旨谢恩。', 'warning', 5000);
+      return false;
+    }
+    this.storyPhase = 'changan_farewell';
+    window.Sound.playSuccess();
+    this.updatePlayerHud();
+    window.showGameMessage('📜 获得太宗御赐通关文牒、飞行符*5、九转金丹*3、经验+1000、银两+500！', 'success', 5000);
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
   }
 
   // 6. 五行山金符揭下 (防重入、即时瓦片置换、彻底杜绝死循环)
@@ -5850,6 +5967,7 @@ class GameApp2D {
 
   // === 第七章：流沙河沙悟净战 ===
   triggerShasengBattle() {
+    if (this.storyPhase !== 'huangfeng_cleared' || this.playerData.storyEvents?.shaseng_battle_won) return;
     if (window.Dialogue) window.Dialogue.close();
     const boss = {
       id: 'boss_shaseng',
@@ -5867,13 +5985,23 @@ class GameApp2D {
       skills: ['金刚护体', '水攻', '大闹天宫']
     };
     this.start2DBattle([boss], () => {
+      this.playerData.storyEvents.shaseng_battle_won = true;
+      this.saveAutoProgress();
       this.scheduleStoryDialogue('shaseng_post_battle');
     });
   }
 
   joinShasengToParty() {
-    if (this.storyPhase === 'huangfeng_cleared') this.storyPhase = 'liusha_cleared';
-    if (this.companions.some(p => p.id === 'companion_shaseng')) return;
+    if (this.storyPhase !== 'huangfeng_cleared' || !this.playerData.storyEvents?.shaseng_battle_won) return false;
+    const result = this.playerData.claimStoryReward('shaseng_join', {
+      items: [{itemId:'qingquan_jiu',count:30}, {itemId:'liusha_speed_boots',count:1},
+        {itemId:'wukong_eyelash',count:1}, {itemId:'xuelian_dan',count:5}, {itemId:'jiuzhuan_dan',count:3}],
+      silver:5000, exp:45000
+    }, this.inventory);
+    if (!result.success && result.reason !== 'already_claimed') {
+      window.showGameMessage('沙师弟已归队，战利品先由他保管。整理行囊后再找他领取，无须重新交手。', 'warning', 5000);
+      return false;
+    }
     const shasengPet = {
       id: 'companion_shaseng',
       name: '卷帘大将沙和尚',
@@ -5890,26 +6018,15 @@ class GameApp2D {
       spd: 35,
       skills: ['金刚护体', '水攻', '高级神佑复生']
     };
-    this.companions.push(shasengPet);
+    if (!this.companions.some(p => p.id === 'companion_shaseng')) this.companions.push(shasengPet);
 
-    // 查缴行李战利品犒赏大将军 (清泉酒30瓶、流沙逐风靴、大圣假睫毛、灵药盘缠)
-    if (this.inventory) {
-      this.inventory.addItem('qingquan_jiu', 30);
-      this.inventory.addItem('liusha_speed_boots', 1);
-      this.inventory.addItem('wukong_eyelash', 1);
-      this.inventory.addItem('xuelian_dan', 5);
-      this.inventory.addItem('jiuzhuan_dan', 3);
-    }
-    if (this.playerData) {
-      this.playerData.silver += 5000;
-      this.playerData.exp += 45000;
-      this.playerData.recalculateStats(false);
-    }
+    this.storyPhase = 'liusha_cleared';
 
     window.Sound.playLevelUp();
     this.updatePlayerHud();
     this.saveAutoProgress();
     window.showGameMessage('🎉【卷帘大将沙和尚】入队！查缴战利：清泉酒×30、流沙逐风靴×1、大圣防风睫毛、金丹与银两！', 'success', 5000);
+    return true;
   }
 
   // === 第八章：浮屠山乌巢禅师传心经 ===
@@ -5999,6 +6116,7 @@ class GameApp2D {
   // === 第十章：白虎岭白骨夫人战 ===
   triggerBaigujingBattle() {
     if (!['wuzhuang_cleared', 'baihu_first_cleared', 'baihu_second_cleared'].includes(this.storyPhase)) return;
+    if (this.playerData.storyEvents?.baigu_final_won && this.storyPhase === 'baihu_second_cleared') return;
     if (window.Dialogue) window.Dialogue.close();
     const stage = this.storyPhase === 'baihu_first_cleared' ? 2 :
       this.storyPhase === 'baihu_second_cleared' ? 3 : 1;
@@ -6034,24 +6152,36 @@ class GameApp2D {
         this.scheduleStoryDialogue(stage === 1 ? 'baigujing_first_aftermath' : 'baigujing_second_aftermath');
         return;
       }
-      this.npcs = this.npcs.filter(n => n.id !== 'npc_baigujing');
-      this.storyPhase = 'baihu_cleared';
-      this.playerData.gainExp(45000);
-      this.playerData.silver += 8000;
-      if (this.inventory) {
-        this.inventory.addItem('eq_ring_baigu', 1);
-        this.inventory.addItem('jin_liu_lu', 2);
-      }
-      this.updatePlayerHud();
+      this.playerData.storyEvents.baigu_final_won = true;
       this.saveAutoProgress();
-      window.Sound.playLevelUp();
-      this.scheduleStoryDialogue('baigujing_final_aftermath');
-      window.showGameMessage('🎉【三打白骨精】幽冥真身已破！获赠【千年白骨幽魂戒】与【金柳露】*2！', 'success', 5000);
+      this.claimBaiguFinalReward();
     });
+  }
+
+  claimBaiguFinalReward() {
+    if (this.storyPhase !== 'baihu_second_cleared' || !this.playerData.storyEvents?.baigu_final_won) return false;
+    const result = this.playerData.claimStoryReward('baigu_final', {
+      items: [{itemId:'eq_ring_baigu',count:1}, {itemId:'jin_liu_lu',count:2}],
+      exp:45000, silver:8000
+    }, this.inventory);
+    if (!result.success && result.reason !== 'already_claimed') {
+      if (typeof this.refreshMapNpcs === 'function') this.refreshMapNpcs();
+      window.showGameMessage('白骨夫人已伏诛。悟空替你看着战利品，整理行囊后找他领取，不必重打。', 'warning', 5000);
+      return false;
+    }
+    this.storyPhase = 'baihu_cleared';
+    if (typeof this.refreshMapNpcs === 'function') this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    this.scheduleStoryDialogue('baigujing_final_aftermath');
+    window.showGameMessage('🎉【三打白骨精】幽冥真身已破！获赠【千年白骨幽魂戒】与【金柳露】×2！', 'success', 5000);
+    return true;
   }
 
   // === 第十一章：宝象国波月洞奎木狼黄袍怪战 ===
   triggerHuangpaoBattle() {
+    if (this.storyPhase !== 'baoxiang_boss_ready' || this.playerData.storyEvents?.huangpao_battle_won) return;
     if (window.Dialogue) window.Dialogue.close();
     const boss = {
       id: 'boss_huangpao',
@@ -6071,20 +6201,31 @@ class GameApp2D {
       skills: ['雷霆万钧', '舍生取义', '飞沙走石']
     };
     this.start2DBattle([boss], () => {
-      this.npcs = this.npcs.filter(n => n.id !== 'npc_huangpao_boss');
-      this.storyPhase = 'baoxiang_cleared';
-      this.playerData.gainExp(55000);
-      this.playerData.silver += 12000;
-      if (this.inventory) {
-        this.inventory.addItem('eq_wp_lengyue', 1);
-        this.inventory.addItem('book_high_critical', 1);
-      }
-      this.updatePlayerHud();
+      this.playerData.storyEvents.huangpao_battle_won = true;
       this.saveAutoProgress();
-      window.Sound.playLevelUp();
-      this.scheduleStoryDialogue('huangpao_aftermath');
-      window.showGameMessage('🎉【大破波月洞】降伏奎木狼还朝！救出百花羞公主，获赠神兵【冷月追魂宝刀】与【高级必杀兽诀】！', 'success', 5000);
+      this.claimHuangpaoReward();
     });
+  }
+
+  claimHuangpaoReward() {
+    if (this.storyPhase !== 'baoxiang_boss_ready' || !this.playerData.storyEvents?.huangpao_battle_won) return false;
+    const result = this.playerData.claimStoryReward('huangpao_final', {
+      items: [{itemId:'eq_wp_lengyue',count:1}, {itemId:'book_high_critical',count:1}],
+      exp:55000, silver:12000
+    }, this.inventory);
+    if (!result.success && result.reason !== 'already_claimed') {
+      if (typeof this.refreshMapNpcs === 'function') this.refreshMapNpcs();
+      window.showGameMessage('奎木狼已归案。宝象国国王替你保管赏赐，整理行囊后入宫领取。', 'warning', 5000);
+      return false;
+    }
+    this.storyPhase = 'baoxiang_cleared';
+    if (typeof this.refreshMapNpcs === 'function') this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    this.scheduleStoryDialogue('huangpao_aftermath');
+    window.showGameMessage('🎉【大破波月洞】降伏奎木狼还朝！救出百花羞公主，获赠神兵【冷月追魂宝刀】与【高级必杀兽诀】！', 'success', 5000);
+    return true;
   }
 
   // === 第十二回：平顶山·莲花洞主线战斗与太上道祖点化 ===
@@ -10455,23 +10596,59 @@ class GameApp2D {
   }
 
   buyDragonShopItem(itemId, price) {
+    if (!window.GAME_DATA.ITEMS[itemId] || !Number.isSafeInteger(price) || price < 0) return false;
     if (this.playerData.silver < price) {
       window.showGameMessage(`银两不足！购买该珍宝需 ${price} 两白银。`, 'warning');
-      return;
+      return false;
+    }
+    if (!this.inventory?.addItem(itemId, 1)) {
+      window.showGameMessage('行囊已满，珍宝阁暂替你留着宝物；腾出空位再购买。', 'warning');
+      return false;
     }
     this.playerData.silver -= price;
-    this.inventory.addItem(itemId, 1);
     const it = window.GAME_DATA.ITEMS[itemId];
     window.Sound.playSuccess();
     window.showGameMessage(`🎉 成功从龙宫珍宝阁购得【${it ? it.name : '宝物'}】*1！`, 'success');
     this.updatePlayerHud();
     this.openDragonShopModal();
+    return true;
   }
 
   // =========================================================================
   // 4. 东海龙宫深海试炼 Boss 战 (战覆海蛟龙，夺定海神针)
   // =========================================================================
+  claimDonghaiTrialReward() {
+    if (!this.playerData.storyEvents?.donghai_trial_won || this.playerData.storyRewards?.donghai_trial) return false;
+    const result = this.playerData.claimStoryReward('donghai_trial', {
+      items: [
+        { itemId: 'dinghai_shenzhen', count: 1 },
+        { itemId: 'gold_gourd', count: 1 },
+        { itemId: 'bishui_zhu', count: 1 }
+      ],
+      exp: 8000,
+      silver: 6000
+    }, this.inventory);
+    if (!result.success) {
+      window.showGameMessage('龙宫三件神兵重宝先由敖广保管，整理出行囊空位后再向龙王领取。', 'warning', 5000);
+      return false;
+    }
+    if (window.Sound) window.Sound.playCrit();
+    this.updatePlayerHud();
+    window.showGameMessage('🎉【深海试炼通关】力斩覆海蛟龙王！龙王大喜，赠予神兵【定海神针铁·仿】、【紫金红葫芦】、【避水神珠】并赐银6000两！', 'success', 6000);
+    this.saveAutoProgress();
+    return true;
+  }
+
   triggerDonghaiTrialBattle() {
+    if (this.playerData.storyRewards?.donghai_trial) {
+      window.showGameMessage('少侠已荡平覆海蛟龙王并领受神针重宝，深海结界安稳如初！', 'info', 4000);
+      return;
+    }
+    if (this.playerData.storyEvents?.donghai_trial_won) {
+      this.claimDonghaiTrialReward();
+      return;
+    }
+
     const jiaolong = {
       id: 'boss_jiaolong_wang',
       name: '覆海蛟龙王',
@@ -10508,14 +10685,9 @@ class GameApp2D {
     };
 
     this.start2DBattle([jiaolong, yecha], () => {
-      this.inventory.addItem('dinghai_shenzhen', 1);
-      this.inventory.addItem('gold_gourd', 1);
-      this.inventory.addItem('bishui_zhu', 1);
-      this.playerData.gainExp(8000);
-      this.playerData.silver += 6000;
-      window.Sound.playCrit();
-      this.updatePlayerHud();
-      window.showGameMessage('🎉【深海试炼通关】力斩覆海蛟龙王！龙王大喜，赠予神兵【定海神针铁·仿】、【紫金红葫芦】、【避水神珠】并赐银6000两！', 'success', 6000);
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.donghai_trial_won = true;
+      this.claimDonghaiTrialReward();
     });
   }
 
@@ -10561,23 +10733,29 @@ class GameApp2D {
   submitZhongkuiGhostQuest() {
     if (!this.ghostQuest || !this.ghostQuest.active) {
       window.showGameMessage('钟馗：“少侠尚未接取任何伏魔通缉令，可先接取任务再行除魔！”', 'warning');
-      return;
+      return false;
     }
     if (!this.ghostQuest.completed) {
       window.showGameMessage(`钟馗：“那【${this.ghostQuest.targetName}】仍在【${this.ghostQuest.mapName}】作恶，少侠切莫懈怠，速速前去诛之！”`, 'warning');
-      return;
+      return false;
+    }
+
+    if (this.inventory && !this.inventory.canAddItems([{ itemId: 'jin_liu_lu', count: 1 }])) {
+      window.showGameMessage('钟馗：“少侠行囊已满，无法容纳仙水【金柳露】！请先清理背包再来领赏。”', 'warning', 4500);
+      return false;
     }
 
     // 发放奖励
     this.playerData.gainExp(3500);
     this.playerData.silver += 2000;
-    this.inventory.addItem('jin_liu_lu', 1);
+    this.inventory?.addItem('jin_liu_lu', 1);
     this.ghostQuest.active = false;
     this.ghostQuest.completed = false;
 
     window.Sound.playCrit();
     this.updatePlayerHud();
     window.showGameMessage('🎉【伏魔圆满】钟馗奏表天庭！获得修为经验+3500、纹银+2000两，并赏赐仙家圣水【金柳露】*1！', 'success', 5500);
+    return true;
   }
 
   trackZhongkuiGhostTarget() {
@@ -10631,11 +10809,17 @@ class GameApp2D {
       }
     ];
 
-    const route = escortRoutes[Math.floor(Math.random() * escortRoutes.length)];
-    this.playerData.silver -= 1000;
-    if (this.inventory) {
-      this.inventory.addItem('biao_letter', 1);
+    const reachableRoutes = escortRoutes.filter(route=>this.isNpcVisibleInStoryPhase(route.targetNpc,this.storyPhase,route.targetMap));
+    if (!reachableRoutes.length) {
+      window.showGameMessage('目前没有可送达的镖路，先推进主线再来接令。', 'warning');
+      return false;
     }
+    if (!this.inventory?.addItem('biao_letter', 1)) {
+      window.showGameMessage('行囊已满，放不下镖银凭信；腾出空位后再接令，押金尚未收取。', 'warning');
+      return false;
+    }
+    const route = reachableRoutes[Math.floor(Math.random() * reachableRoutes.length)];
+    this.playerData.silver -= 1000;
 
     this.escortQuest = {
       active: true,
@@ -10652,7 +10836,9 @@ class GameApp2D {
 
     window.Sound.playSuccess();
     this.updatePlayerHud();
+    this.saveAutoProgress();
     window.showGameMessage(`🚩【领取大唐军饷押运令】程咬金：“请少侠一路警惕，速将这批重金军饷送达【${route.targetMapName}】交付【${route.targetNpcName}】！”`, 'success', 5000);
+    return true;
   }
 
   submitEscortQuest(targetNpcId) {
@@ -10671,25 +10857,32 @@ class GameApp2D {
       return;
     }
 
-    // 扣除镖银凭信
-    this.inventory.removeItem('biao_letter', 1);
-
+    // 奖品只抽一次并写进镖令；满包重试不能换一本书。
+    const bookPool = ['book_high_critical', 'book_high_vampire', 'book_high_rebirth', 'book_high_speed', 'book_high_sneak'];
+    const rewardedBookId = bookPool.includes(this.escortQuest.rewardedBookId) ? this.escortQuest.rewardedBookId :
+      bookPool[Math.floor(Math.random() * bookPool.length)];
+    this.escortQuest.rewardedBookId = rewardedBookId;
+    const draft = new window.Inventory(this.inventory.slots.map(slot=>({...slot})));
+    draft.maxSlots = this.inventory.maxSlots;
+    if (!draft.removeItem('biao_letter',1) || !draft.addItem(rewardedBookId,1)) {
+      window.showGameMessage('凭信与军饷仍由你保管。行囊腾出空位后再向收镖人交付，押金和赏赐都不会丢。', 'warning', 5000);
+      this.saveAutoProgress();
+      return false;
+    }
+    this.inventory.slots = draft.slots;
     // 退还 1000 押金 + 额外发放 3500 赏银 = 4500 两
     this.playerData.silver += 4500;
     this.playerData.gainExp(this.escortQuest.rewardExp || 4000);
-
-    // 随机赏赐一本稀世魔兽要诀！
-    const bookPool = ['book_high_critical', 'book_high_vampire', 'book_high_rebirth', 'book_high_speed', 'book_high_sneak'];
-    const rewardedBookId = bookPool[Math.floor(Math.random() * bookPool.length)];
     const bookDef = window.GAME_DATA.ITEMS[rewardedBookId] || { name: '魔兽要诀·高级必杀' };
-    this.inventory.addItem(rewardedBookId, 1);
 
     const prevTargetName = this.escortQuest.targetNpcName;
     this.escortQuest = null;
 
     window.Sound.playCrit();
     this.updatePlayerHud();
+    this.saveAutoProgress();
     window.showGameMessage(`🎉【押镖大功告成】${prevTargetName} 喜收军饷！退还押金1000两并赏银3500两、修行经验+4000，并重金赐予《${bookDef.name}》！`, 'success', 5500);
+    return true;
   }
 
   checkEscortStatus() {
@@ -10939,21 +11132,23 @@ class GameApp2D {
       ordealName = '白虎岭绝壁 · 三打白骨精';
       ordealDesc = '白骨夫人狡黠多变，先后化作村姑、老妪、老翁戏弄唐僧离间师徒。需火眼金睛识破幻术，三打白骨彻底除根！';
       chapter = '第十回 · 尸魔幻象';
-      stepName = sp === 'baihu_first_cleared' ? '识破白骨老妪' : (sp === 'baihu_second_cleared' ? '识破白骨老翁' : '诛灭白骨精真身');
-      stepTarget = '连续击破白骨夫人化身，荡平白虎岭妖氛';
-      stepProgress = sp === 'baihu_cleared' ? '妖氛已荡平' : (sp === 'baihu_second_cleared' ? '已击破2重化身' : '已击破1重化身');
-      stepProgressRatio = sp === 'baihu_cleared' ? 1 : (sp === 'baihu_second_cleared' ? 0.66 : 0.33);
+      const rewardPending = sp === 'baihu_second_cleared' && this.playerData.storyEvents?.baigu_final_won;
+      stepName = rewardPending ? '领取白骨岭战利品' : sp === 'baihu_first_cleared' ? '识破白骨老妪' : (sp === 'baihu_second_cleared' ? '识破白骨老翁' : '诛灭白骨精真身');
+      stepTarget = rewardPending ? '整理行囊，到白虎岭找悟空领取白骨戒与金柳露' : '连续击破白骨夫人化身，荡平白虎岭妖氛';
+      stepProgress = rewardPending ? '真身已破，战利品待领取' : sp === 'baihu_cleared' ? '妖氛已荡平' : (sp === 'baihu_second_cleared' ? '已击破2重化身' : '已击破1重化身');
+      stepProgressRatio = rewardPending ? 0.9 : sp === 'baihu_cleared' ? 1 : (sp === 'baihu_second_cleared' ? 0.66 : 0.33);
       stepHint = '白虎岭怪石嶙峋，留心路旁求助者';
       isDone = sp === 'baihu_cleared';
     } else if (sp.startsWith('baoxiang_')) {
+      const rewardPending = sp === 'baoxiang_boss_ready' && this.playerData.storyEvents?.huangpao_battle_won;
       ordealNumber = '【第十一难·宝象救主】';
       ordealName = '波月洞救难 · 黄袍降伏';
       ordealDesc = '二十八宿奎木狼私自下界化作黄袍怪，强掳宝象国百花羞公主十三载。降伏奎宿，解救公主与宝象国黎民。';
       chapter = '第十一回 · 宝象风云';
-      stepName = '降伏黄袍怪救回百花羞';
-      stepTarget = '攻入波月洞降伏黄袍怪，护送百花羞公主回宝象国王宫';
-      stepProgress = sp === 'baoxiang_cleared' ? '功德圆满' : '进行中';
-      stepProgressRatio = sp === 'baoxiang_cleared' ? 1 : 0.5;
+      stepName = rewardPending ? '入宫领取救主赏赐' : '降伏黄袍怪救回百花羞';
+      stepTarget = rewardPending ? '整理行囊，找宝象国国王领取冷月宝刀与兽诀' : '攻入波月洞降伏黄袍怪，护送百花羞公主回宝象国王宫';
+      stepProgress = rewardPending ? '妖王已降，赏赐待领' : sp === 'baoxiang_cleared' ? '功德圆满' : '进行中';
+      stepProgressRatio = rewardPending ? 0.9 : sp === 'baoxiang_cleared' ? 1 : 0.5;
       stepHint = '宝象国王宫与波月洞之间奔行救难';
       isDone = sp === 'baoxiang_cleared';
     } else if (sp.startsWith('pingding_')) {

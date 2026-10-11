@@ -706,7 +706,7 @@ window.GAME_DATA.STORY_DIALOGUES = {
         speakerIcon: '🏹',
         text: '灶里有火，锅里缺菜。村中青蘑菇是乡亲种的，木牌旁采 2 朵【野生青蘑菇】回来。短剑和皮靴拿着，别光脚去跟荆棘讲道理。',
         action: () => {
-          window.App2D.grantStarterItems();
+          if (!window.App2D.grantStarterItems()) return;
           window.App2D.storyPhase = 'liujiacun_find_mushrooms';
           window.showGameMessage('🍄 请在刘家村草地上寻找并拾取 2 朵【野生青蘑菇】！', 'info', 4000);
           if (window.App2D.showChapterBanner) {
@@ -1262,14 +1262,9 @@ window.GAME_DATA.STORY_DIALOGUES = {
           {
             text: '【📜 领旨谢恩，誓保玄奘西天求得真经！】',
             action: () => {
-              window.App2D.inventory.addItem('feixing_fu', 5);
-              window.App2D.inventory.addItem('jiuzhuan_dan', 3);
-              window.App2D.playerData.gainExp(1000);
-              window.App2D.playerData.silver += 500;
-              window.App2D.storyPhase = 'changan_farewell';
-              window.Sound.playSuccess();
-              window.showGameMessage('📜 获得太宗御赐通关文牒、飞行符*5、九转金丹*3、经验+1000、银两+500！', 'success', 5000);
-              window.App2D.refreshMapNpcs();
+              if (window.App2D) {
+                window.App2D.grantTaizongGift();
+              }
             }
           }
         ]
@@ -1796,6 +1791,13 @@ window.GAME_DATA.STORY_DIALOGUES = {
     ]
   },
 
+  shaseng_reward_ready: {
+    steps: [{ speaker:'沙和尚', speakerTitle:'【行李点清】', speakerIcon:'🌊',
+      text:'人已经上船，账还没入行囊。将军腾出地方，我把清泉酒、逐风靴和丹药一并交给你；不收第二次账。',
+      options:[{text:'【领取战利品，让悟净入队】', action:()=>window.App2D.joinShasengToParty()}]
+    }]
+  },
+
   // =========================================================================
   // 第八章：浮屠山·乌巢禅林剧情
   // =========================================================================
@@ -1957,6 +1959,12 @@ window.GAME_DATA.STORY_DIALOGUES = {
       { speaker: '威灵大将', speakerTitle: '【西行再启】', text: '白虎岭妖雾已散。前方宝象国传来求援国书，奎木狼的旧事，恐怕还牵着天上的星宿。' }
     ]
   },
+  baigujing_reward_ready: {
+    steps: [{ speaker:'孙悟空', speakerTitle:'【白虎岭善后】', speakerIcon:'🐒',
+      text:'妖身已破，戒指和金柳露俺替你看着。行囊腾出空位再领，放心，俺老孙可没打算戴那戒指。',
+      options:[{text:'【领取白骨岭战利品】', action:()=>window.App2D.claimBaiguFinalReward()}]
+    }]
+  },
 
   // =========================================================================
   // 第十回：宝象国剧情 (战黄袍怪奎木狼；当前无独立波月洞地图)
@@ -2010,6 +2018,12 @@ window.GAME_DATA.STORY_DIALOGUES = {
       { speaker: '百花羞公主', speakerTitle: '【重见天日】', text: '前世如何，我如今已是宝象国的女儿。请让我自己选择归路，不必再以星宿旧盟替我作主。' },
       { speaker: '威灵大将', speakerTitle: '【护法之道】', text: '你既知错，便归天庭领罪。公主随我们回国，宝象王城的灯火还等着她。西行人也该继续上路了。' }
     ]
+  },
+  huangpao_reward_ready: {
+    steps: [{ speaker:'宝象国国王', speakerTitle:'【救主赏赐】', speakerIcon:'👑',
+      text:'奎木狼已被押回天庭，王儿也终于能自己选归路。冷月宝刀与兽诀已备好；将军腾出行囊，再来领便是。',
+      options:[{text:'【领取宝象国赏赐】', action:()=>window.App2D.claimHuangpaoReward()}]
+    }]
   },
   baihuaxiu_homecoming: {
     steps: [
@@ -2604,6 +2618,37 @@ window.GAME_DATA.STORY_DIALOGUES = {
             }
           }
         ]
+      }
+    ]
+  },
+
+  aoguang_trial_reward_ready: {
+    steps: [
+      {
+        speaker: '东海龙王敖广',
+        speakerTitle: '【四海龙尊】',
+        speakerIcon: '🐉',
+        text: '大将军神威盖世，已斩灭深海覆海蛟龙王！那【天河定海神珍铁·仿】、【紫金红葫芦】与【避水神珠】快快收下吧！',
+        options: [
+          {
+            text: '【🌊 领取深海试炼赏赐：天河神珍铁、紫金红葫芦与避水神珠】',
+            action: () => {
+              if (window.Dialogue) window.Dialogue.close();
+              if (window.App2D) window.App2D.claimDonghaiTrialReward();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  aoguang_trial_cleared: {
+    steps: [
+      {
+        speaker: '东海龙王敖广',
+        speakerTitle: '【四海龙尊】',
+        speakerIcon: '🐉',
+        text: '覆海蛟龙王已降伏，东海龙脉万年安澜！多亏少侠出手相助，老龙与四海水族永铭大恩！'
       }
     ]
   },

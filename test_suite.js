@@ -1585,12 +1585,16 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     // 3. 采摘青蘑菇互动与计数推进验证
     app.storyPhase = 'liujiacun_find_mushrooms';
     app.questKills = { mushrooms: 0, trees: 0, rats: 0 };
+    const priorMushroomNpcs = app.npcs;
+    app.npcs = [{id:'prop_mushroom_test_1',x:app.playerChar.x,y:app.playerChar.y},
+      {id:'prop_mushroom_test_2',x:app.playerChar.x+32,y:app.playerChar.y}];
     assert(typeof app.collectMushroom === 'function', 'App2D 挂载有采摘蘑菇方法 (collectMushroom)');
     app.collectMushroom();
     assert(app.questKills.mushrooms === 1, '采摘 1 朵青蘑菇，计数累加为 1');
     app.collectMushroom();
     assert(app.questKills.mushrooms === 2, '采摘 2 朵青蘑菇，计数累加为 2');
     assert(app.storyPhase === 'liujiacun_mushrooms_collected', '采齐 2 朵蘑菇后，主线自动推进至【liujiacun_mushrooms_collected】');
+    app.npcs = priorMushroomNpcs;
 
     // 4. 东海之滨与龙宫大殿主线验证
     const dhc = allMaps['donghai_coast'];
@@ -1604,6 +1608,7 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     // 5. 龙王赠送整套神装并自动穿戴验证
     const oldAtk = app.playerData.atk;
     const oldDef = app.playerData.def;
+    app.storyPhase = 'longgong_visit';
     app.grantLonggongArmorSet();
     assert(app.playerData.equipment.weapon.itemId === 'longgong_weapon', '玩家自动装备【覆海点钢枪】');
     assert(app.playerData.equipment.armor.itemId === 'longgong_armor', '玩家自动装备【龙鳞轻钢甲】');
@@ -2887,16 +2892,17 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     assert(!app.isNpcVisibleInStoryPhase('npc_huangpao_boss', 'baoxiang_cleared', 'baoxiangguo'), '降伏奎木狼后妖王不会重刷');
 
     const stages = [];
-    const fake = {
+    const fake = Object.assign(Object.create(app), {
       storyPhase: 'wuzhuang_cleared',
       npcs: [{ id: 'npc_baigujing', questStatus: null }],
       interactedNpcSet: new Set(['npc_baigujing']),
-      playerData: { silver: 0, gainExp() {} },
-      inventory: { addItem() {} },
+      playerData: new window.Player({level:42}),
+      inventory: new window.Inventory(),
       start2DBattle(enemies, onVictory) { stages.push(enemies[0]); onVictory(); },
       scheduleStoryDialogue() {},
-      saveAutoProgress() {}, updatePlayerHud() {}
-    };
+      saveAutoProgress() {}, updatePlayerHud() {},
+      refreshMapNpcs() { this.npcs = this.npcs.filter(n => n.id !== 'npc_baigujing'); }
+    });
     const originalTimeout = global.setTimeout;
     global.setTimeout = () => 0; // 对话演出异步部分不属于此同步状态机测试
     try {
@@ -3319,6 +3325,8 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
 
     // 6. 验证沙僧入队奖励发放 (清泉酒30瓶、流沙逐风靴、大圣假睫毛、灵药盘缠)
     const prevSilver = app.playerData.silver || 0;
+    app.storyPhase = 'huangfeng_cleared';
+    app.playerData.storyEvents.shaseng_battle_won = true;
     app.joinShasengToParty();
     assert(app.inventory.getItemCount('qingquan_jiu') === 30, '收服沙僧后玩家包裹立即到账【清泉酒】×30');
     assert(app.inventory.getItemCount('liusha_speed_boots') === 1, '收服沙僧后玩家包裹立即到账【流沙逐风靴】×1');
@@ -5044,6 +5052,7 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
   await require('./test_shanhai.js')(assert);
   await require('./test_presentation.js')(assert);
   await require('./test_visual_identity.js')(assert);
+  await require('./test_story_rewards.js')(assert);
 
   console.log('\n======================================================');
   console.log(`🎉 全部自动化测试执行完毕！通过率: ${passedTests}/${totalTests} (${totalTests ? (passedTests / totalTests * 100).toFixed(1) : 0}%)`);

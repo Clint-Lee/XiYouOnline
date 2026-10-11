@@ -16,6 +16,20 @@
     },
     {
       "baiguStagesConsistent": true
+    },
+    {
+      "shasengRetryVisible": true,
+      "shasengRetryDialogue": true
+    },
+    {
+      "baiguRetryVisible": true,
+      "baiguBossGone": true,
+      "baiguRetryDialogue": true
+    },
+    {
+      "huangpaoRetryVisible": true,
+      "huangpaoBossGone": true,
+      "huangpaoRetryDialogue": true
     }
   ]
 }

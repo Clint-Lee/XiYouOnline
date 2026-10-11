@@ -440,7 +440,10 @@ class MiniMapEngine {
 
     // 16. 白虎岭 -> 目标：白骨夫人 (幽冥尸魔)
     if (mapId === 'baihuling' && ['wuzhuang_cleared', 'baihu_first_cleared', 'baihu_second_cleared'].includes(storyPhase)) {
+      const rewardPending = storyPhase === 'baihu_second_cleared' && window.App2D?.playerData?.storyEvents?.baigu_final_won;
+      if (rewardPending) return { npcId:'npc_baihu_wukong', x:608, y:352, name:'孙悟空', desc:'整理行囊后领取白骨岭战利品' };
       return {
+        npcId: 'npc_baigujing',
         x: 608,
         y: 352,
         name: storyPhase === 'wuzhuang_cleared' ? '送斋饭的村姑' :
@@ -459,7 +462,9 @@ class MiniMapEngine {
         x: 480, y: 96, name: '百花羞公主', desc: '寻得公主，问明奎木狼的旧缘与罪行'
       };
       if (storyPhase === 'baoxiang_boss_ready') return {
-        x: 928, y: 672, name: '黄袍怪 (奎木狼)', desc: '大破波月洞，护公主重返宝象国'
+        ...(window.App2D?.playerData?.storyEvents?.huangpao_battle_won ?
+          {npcId:'npc_baoxiang_king', x:288, y:256, name:'宝象国国王', desc:'入宫领取救主赏赐'} :
+          {npcId:'npc_huangpao_boss', x:928, y:672, name:'黄袍怪 (奎木狼)', desc:'大破波月洞，护公主重返宝象国'})
       };
     }
 

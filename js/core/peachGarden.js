@@ -39,6 +39,10 @@ class PeachGarden {
     const tierInfo = PeachGarden.TIERS[peachTier];
     if (!tierInfo) return { success: false, msg: '未知的蟠桃品类！' };
 
+    if (tierInfo.bonusItem && inventory && !inventory.canAddItems([{ itemId: tierInfo.bonusItem, count: 1 }])) {
+      return { success: false, msg: '行囊已满，无法容纳采摘蟠桃掉落的仙品重宝！请先整理背包。' };
+    }
+
     this.usedChancesToday += 1;
 
     // 给予经验奖励与物品
