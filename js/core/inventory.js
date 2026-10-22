@@ -265,6 +265,17 @@ class Inventory {
       return { success: false, msg: `穿戴需要角色等级达到 ${item.reqLevel} 级！` };
     }
 
+    // 先确认换下的旧装备放得回背包，避免"新装备没穿上、旧装备已消失"的静默丢失。
+    // 注意：新装备从背包移出会腾出一格，但旧装备随即占用这一格，
+    // 因此换装后可用格数 = 当前空格数，不能把"即将腾出的那一格"算作余量。
+    const currentEquip = player.equipment ? player.equipment[item.slot] : null;
+    if (currentEquip) {
+      const freeSlots = Math.max(0, this.maxSlots - this.slots.length);
+      if (freeSlots < 1) {
+        return { success: false, msg: '储物背包已满，无法换下身上的装备；请先腾出一格。' };
+      }
+    }
+
     // 从背包移除当前装备
     this.slots.splice(slotIdx, 1);
 
@@ -276,12 +287,17 @@ class Inventory {
       sockets: (slotData.equipData && slotData.equipData.sockets) || [null, null, null]
     });
 
-    // 旧装备入包
+    // 旧装备入包：放不进去必须回滚，不能悄悄吞掉玩家财产
     if (oldEquip) {
-      this.addItem(oldEquip.itemId, 1, {
+      const ok = this.addItem(oldEquip.itemId, 1, {
         star: oldEquip.star || 0,
         sockets: oldEquip.sockets || [null, null, null]
       });
+      if (!ok) {
+        player.equipItem(item.slot, oldEquip);
+        this.slots.splice(slotIdx, 0, slotData);
+        return { success: false, msg: '背包空间不足，已保留原装备，请整理后再穿戴。' };
+      }
     }
 
     window.Sound.playSuccess();

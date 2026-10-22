@@ -2203,6 +2203,1382 @@ window.GAME_DATA.STORY_DIALOGUES = {
     ]
   },
 
+
+  // =========================================================================
+  // 第十二回：号山·枯松涧火云洞（圣婴大王红孩儿）
+  // =========================================================================
+  chedi_monk_appeal: {
+  steps: [
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '长老留步。车迟国敬道灭僧已二十余年，举国寺院尽拆，僧众编为苦役，日搬砖石、夜守丹炉。我等非不能走，是走不得——国门有符，出城即擒。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '三大仙自称呼风唤雨、点石成金，国王奉若神明，佛法则为禁谈。同门中有不堪驱役而亡者，骨未寒而名已销。我今日斗胆拦路，只为求一句公道。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '苦役至死、禁绝一宗，此非敬道，乃假神道以逞私。师父慈悲，此事不可绕行。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '好个“呼风唤雨”的大仙！老孙倒要会一会。你且宽心，这申诉老孙接下了——要停役、要见证、要当面问个明白。',
+      options: [
+        {
+          text: '【接下申诉，面见国王！】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_audience';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🏛️ 前往王城面见国王，约定停役与斗法条件。', 'info', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_royal_terms: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '东土高僧远来。朕非无端灭僧——二十年前大旱三载，赤地千里，唯三位仙长祈雨得应，万民方活。自此朕信道而疏佛，亦是不得已。'
+    },
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '陛下所言极是。那些秃头只会念经讨饭，于国何益？倒是这几个远来的，不知天高地厚。'
+    },
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '既敢登殿，想必有些本事。不如斗法三场——胜者立为国教，败者……自去领罚便是。'
+    },
+    {
+      speaker: '羊力大仙',
+      speakerTitle: '【灰毛羊力大仙】',
+      speakerIcon: '🐑',
+      text: '祈雨、辨物、斗术，三场定胜负。陛下以为如何？'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '斗便斗！只是老孙有两条——斗法须当众公开见证，输赢由天下人看；再者，自今日起，受役僧人一律停罚，不得再加苦楚。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '陛下既重天意，便请以天意为证。三场既定，请先验第一场——祈雨。',
+      options: [
+        {
+          text: '【登台立约，开始第一场】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_rain';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🌧️ 第一场斗法：祈雨验术！', 'info', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_rain_trial: {
+  steps: [
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '看本仙祈雨！令牌一响，风、云、雷、雨四事齐备，缺一不成。你这猴头可看仔细了——先后次第，一步也错不得。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '令牌老孙替你使了。诸位看真——风不至则云不聚，云不聚则雷不响，雷不响则雨不落。要落雨，须先验风云，后验雷雨，次第不可乱。',
+      options: [
+        {
+          text: '【第一步：先令风起、云合】',
+          nextStep: 2
+        },
+        {
+          text: '【直接喝令落雨】',
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '狂风骤起，黑云压城——风云已合。接下来当验何事？',
+      options: [
+        {
+          text: '【第二步：再令雷鸣、雨降】',
+          nextStep: 3
+        },
+        {
+          text: '【此时便可收法】',
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '霹雳一声，大雨如注！风、云、雷、雨四事次第分明，滴水不差。虎力之“独术”，原是人人可为之事。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '（旁有八戒嘟囔：这三位“清修”的大仙，供桌上鸡鸭鱼肉堆得比老猪的食槽还满，也好意思称清高？）这雨既是老孙唤来的，虎力独占国师的凭据，便到此为止了。'
+    },
+    {
+      speaker: '唐僧',
+      speakerTitle: '【御弟圣僧】',
+      speakerIcon: '🧘',
+      text: '风云未合，徒唤无雨。悟空，次第乱不得——且退回重验，先风云而后雷雨。',
+      options: [
+        {
+          text: '【静心重验，从风云看起】',
+          nextStep: 1
+        }
+      ]
+    },
+    {
+      speaker: '唐僧',
+      speakerTitle: '【御弟圣僧】',
+      speakerIcon: '🧘',
+      text: '雨泽已布，万民共见。第一场既明，当赴第二场坐禅辨物。',
+      options: [
+        {
+          text: '【移步第二场：坐禅辨物】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_discern';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🪷 第二场斗法：坐禅辨物！', 'success', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_discern_trial: {
+  steps: [
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '祈雨侥幸，辨物未必。隔板之后置一物，凭你神通也看不穿。猴头，若辨不出，便乖乖认输——怎么，心乱了？手都在抖罢？'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '激将无用，老孙心如止水。且慢——鹿力袖子里风声不断，分明是以袖风暗递消息、搅乱人心。此非道术，乃伎俩。先定住心神，再听物件线索。',
+      options: [
+        {
+          text: '【不理挑衅，静心辨物】',
+          nextStep: 2
+        },
+        {
+          text: '【被激动怒，隔空对骂】',
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '心定则听真。板后之物——触之坚且凉，非木非石，叩之有清响，形圆而中空。据此线索，当辨为何物？',
+      options: [
+        {
+          text: '【辨为：金钟（金属所铸）】',
+          nextStep: 3
+        },
+        {
+          text: '【辨为：木案（木器）】',
+          nextStep: 4
+        }
+      ]
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '板后果是一口金钟，分毫不差！鹿力，方才你袖中风声作何解释？堂堂道术，竟要暗递消息、扰人心神……朕，开始不得不疑你三人了。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '错了。线索明言“非木非石、叩之清响、形圆中空”——木器不凉、不清响，何来圆空？漏了关键，再辨一次。',
+      options: [
+        {
+          text: '【重听线索，细辨材质】',
+          nextStep: 2
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '心一乱，便入了鹿力圈套。先稳住心神，莫理其袖风挑衅，再回来辨物。',
+      options: [
+        {
+          text: '【收摄心神，重新静听】',
+          nextStep: 1
+        }
+      ]
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '（鹿力急改口：本仙本就说是“金钟”，是你们听岔了！虎力忙圆场：对对，分明是钟……羊力插嘴：方才你不是说铜鼎么？三仙你一言我一语，先自拆了台。）一句话——术不敌真，强辩只会越描越黑。',
+      options: [
+        {
+          text: '【三仙恼羞，竟要动武！】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_final_trial';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('⚔️ 三仙拒不认输，动起武来！', 'warning', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_final_challenge: {
+  steps: [
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '两场作数不得！本仙有大法：砍头可再生，断首复合如初，谅你学不来！'
+    },
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '本仙能剖腹剜心、挖去脏腑再安然如故！这等神通，秃驴可敢比试？'
+    },
+    {
+      speaker: '羊力大仙',
+      speakerTitle: '【灰毛羊力大仙】',
+      speakerIcon: '🐑',
+      text: '还有滚油锅内沐浴而无伤！三术俱全，看你如何应对……（话虽豪壮，其声已虚，邪气隐隐外泄。）'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '夸术而已。所谓再生、复合、无伤，皆是邪法护身的障眼之术——护身一破，原形自露。大圣，不必随其比那砍剖油烹，正面破其邪法即可。',
+      options: [
+        {
+          text: '【破除邪术，三仙同场决战！】',
+          action: () => {
+            window.Dialogue.close();
+            window.App2D.triggerChediFinalBattle();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_victory: {
+  steps: [
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '护身邪法一破，看你三个还往哪里藏！现出原形来罢。'
+    },
+    {
+      speaker: '三仙原形',
+      speakerTitle: '【原形毕露】',
+      speakerIcon: '🐾',
+      text: '（虎力化作黄毛虎，鹿力化作白毛鹿，羊力化作灰毛羊——邪气消散，妖术尽失，再无半分“仙长”模样。）'
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '朕……错了，且错得不浅。此非一句“误会”能抹。朕今日当众定下：即刻停止一切役僧之罚，开释在押僧众；拆毁的寺院照旧制重修归还；凡曾迫害僧人者，一律问责，严禁事后报复。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '陛下既有此诏，贫僧便直言所求：重修寺院之外，愿为枉死同门立碑记名，许僧众自由往来、不再编役。公道不在一时之赦，在往后再不复此祸。',
+      options: [
+        {
+          text: '【国王准诺，前往领取谢礼】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_reward_pending';
+            window.App2D.refreshMapNpcs();
+            window.App2D.saveAutoProgress();
+            window.showGameMessage('📜 三仙伏诛，可向国王领取谢礼与西行关文。', 'success', 5000);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_reward: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '长老一行廓清妖氛，朕感愧交并。前诏诸事——停役、释僧、重修归还寺院、禁绝报复，朕已下旨施行，立碑记名之请亦一并准了。'
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '薄礼已备，西行关文亦用印在此，聊表谢忱。请长老收纳，一路向西无阻。',
+      options: [
+        {
+          text: '【领取谢礼与西行关文】',
+          action: () => {
+            window.App2D.claimChediReward();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_after_clear: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '长老放心西去。车迟国自今释道并容，僧道各安其业，再不以神道假名行迫害之事。关文已通，四方驿路皆可凭验。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '寺院重修已动工，同门陆续获释归来。多年苦役，今日方见天光。长老之恩，车迟僧众永志不忘。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '正道既复，护法无憾。师父，前路尚远，就此启程罢。',
+      options: [
+        {
+          text: '【告别车迟，继续西行】',
+          action: () => {
+            window.App2D.saveAutoProgress();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+
+  // =========================================================================
+  // 第十二回：号山·枯松涧火云洞（圣婴大王红孩儿）
+  // =========================================================================
+  huoyun_tudi_warning: {
+    steps: [
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '客官留步！老土地在号山当方，近来连香火都要省着烧——只因这火云洞里出了个妖王。'
+      },
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '那妖王形貌是个孩童，自称圣婴大王。可莫要被这身量哄了，他在火焰山修行三百年，炼成一身三昧真火，寻常水火近身不得。'
+      },
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '他强征"火租"，交不出的便放火烧田。洞前那片焦土，三年不长一根草，底下埋的都是乡邻的血汗。'
+      },
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '客官若在枯松涧见着孩童求救，先别急着搭手——低头看看脚印，再看看火痕。火烧过的地方，骗不了人。',
+        options: [
+          {
+            text: '【记下警示，前往枯松涧探看】',
+            action: function() {
+              window.StoryState.storyPhase = 'huoyun_redboy_ready';
+              if (typeof refreshMapNpcs === 'function') refreshMapNpcs();
+              showGameMessage('🔥 号山枯松涧方向火气蒸腾，前路已开。', 'warning', 4000);
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  huoyun_redboy_trick: {
+    steps: [
+      {
+        speaker: '枯松涧孩童',
+        speakerTitle: '【枯松涧孩童】',
+        speakerIcon: '🧒',
+        text: '救命啊——过路的神仙救命！我被一阵妖风卷到这树上，上不得下不得，爹娘都寻不见了……呜呜……'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '（抽了抽鼻子）师父面前我不好说……这娃儿身上，不是人味，是火烧过的骨头味。老孙火眼金睛，先不动声色。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '将军且看那地上——只有一行向上的脚印，直通树梢，却无半分挣扎拖拽的痕迹。焦土更是自洞口向外烧，哪里是被妖风卷来的？'
+      },
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【圣婴大王】',
+        speakerIcon: '🔥',
+        text: '（拍手大笑，从树上一跃而下，童衣化作火甲）好眼力！哭了半个时辰，嗓子都哑了，你们倒看得这般仔细。'
+      },
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【圣婴大王】',
+        speakerIcon: '🔥',
+        text: '既识破了，便按规矩来——先报名号，再动手。本大王圣婴是也，这号山一草一木、焦土一寸，皆是本王的三年火租烧出来的！'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '小小年纪，规矩倒比天庭还多。烧的是别人家的田，你只管自己的火——这账，今日该清一清了。',
+        options: [
+          {
+            text: '【识破伪装，迎战圣婴大王！】',
+            action: function() {
+              window.Dialogue.close();
+              window.App2D.triggerHuoyunScoutBattle();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  huoyun_boss_encounter: {
+    steps: [
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【圣婴大王·三昧真身】',
+        speakerIcon: '🔥',
+        text: '（周身火焰暴涨，推出五辆小车按五行排开）金木水火土，五车一动，三昧真火便要出世了！这火，烧过山，也烧过人。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '仔细！这不是凡火，水浇不灭，越浇越旺。要破它，先破这五车之阵，断了火根再说！'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '末将愿为前阵，撞碎车阵！将军只管寻那真身破绽。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '挡不住也要挡——山下那片田，不能再烧第二遍。走！',
+        options: [
+          {
+            text: '【破车阵，决战三昧真火！】',
+            action: function() {
+              window.Dialogue.close();
+              window.App2D.triggerRedboyBattle();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  huoyun_aftermath: {
+    steps: [
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【力竭】',
+        speakerIcon: '🔥',
+        text: '（火甲尽碎，瘫坐于焦土）我的火……三百年的火……怎么就灭了……'
+      },
+      {
+        speaker: '观音菩萨',
+        speakerTitle: '【南海大慈大悲】',
+        speakerIcon: '🪷',
+        text: '（天罡刀化作莲台，金箍儿轻落其身）孩子，你不是生来为恶，是无人教你这火该怎么用。随我去南海，做个善财童子罢。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '菩萨慈悲。只是山下乡邻三年火租、焦田无数，这笔账……还望有个交代。'
+      },
+      {
+        speaker: '观音菩萨',
+        speakerTitle: '【南海大慈大悲】',
+        speakerIcon: '🪷',
+        text: '将军放心。他既入我门下，赔偿山下田亩之事，便由善财童子日后亲手一一偿还——火能毁田，也能暖土，这道理，我会教他。',
+        options: [
+          {
+            text: '【目送菩萨收童子，火云洞事了】',
+            action: function() {
+              window.StoryState.storyPhase = 'huoyun_cleared';
+              if (typeof refreshMapNpcs === 'function') refreshMapNpcs();
+              if (typeof saveAutoProgress === 'function') saveAutoProgress();
+              showGameMessage('🎉【火云洞功成】圣婴大王归依南海，号山焦土得偿有期。', 'success', 6000);
+            }
+          }
+        ]
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '善财童子……这名儿，比圣婴大王讲理多了。不过账还是要还的，一亩都不能少。'
+,
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          app.storyPhase = 'huoyun_cleared';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🎉【火云洞功成】三昧真火已息，号山焦土待复。西行大道重开。', 'success', 6000);
+        }      }
+    ]
+  },
+
+  huoyun_reward_ready: {
+    steps: [
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '火云洞的战利品，老孙先替将军收着了——这就点给你。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '拿好了，别嫌烫手。',
+        options: [
+          {
+            text: '【领取火云洞战利品】',
+            action: function() {
+              window.App2D.claimHuoyunReward();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+
+  // =========================================================================
+  // 第十二回：号山·枯松涧火云洞（圣婴大王红孩儿）
+  // =========================================================================
+  heishui_ferry_trap: {
+    steps: [
+      {
+        speaker: '摆渡船夫',
+        speakerTitle: '【黑水渡口】',
+        speakerIcon: '🛶',
+        text: '几位客官要渡黑水河么？这河水浑得见不着底，寻常舟子不敢撑篙，唯有老汉这一条船识得水路。'
+      },
+      {
+        speaker: '唐三藏',
+        speakerTitle: '【西行取经】',
+        speakerIcon: '🧘',
+        text: '阿弥陀佛，正要渡河。不知船资几何？贫僧师徒四人，还望艄公行个方便。'
+      },
+      {
+        speaker: '摆渡船夫',
+        speakerTitle: '【黑水渡口】',
+        speakerIcon: '🛶',
+        text: '船资好说、好说。只是这河上……咳，这船上，自然听我的。客官且安坐，莫要乱动，老汉撑篙便是。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【火眼起疑】',
+        speakerIcon: '🐒',
+        text: '师父，这厮话里有话。老孙总觉这河水浊得蹊跷，想看看河底是何名堂，偏生一片漆黑，照不进去。'
+      },
+      {
+        speaker: '摆渡船夫',
+        speakerTitle: '【鼍洁部下】',
+        speakerIcon: '🐊',
+        text: '嘿嘿，看不着便对了！船到河心——此处正是我黑水神府头上。得罪了，这两个且随我去见大王！'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【火眼起疑】',
+        speakerIcon: '🐒',
+        text: '不好！师父与八戒被卷下水去了！这妖浑水摄人，老孙一时追它不及。须得寻个熟知河情之人问个明白！',
+        action: function() {
+          window.App2D.storyPhase = 'heishui_captives_taken';
+          window.App2D.refreshMapNpcs();
+          window.App2D.saveAutoProgress();
+          window.showGameMessage('🌊 师父与八戒被摄走！速寻熟悉河情之人。', 'warning', 5000);
+        }
+      }
+    ]
+  },
+
+  heishui_rivergod_appeal: {
+    steps: [
+      {
+        speaker: '失府河神',
+        speakerTitle: '【无处安身】',
+        speakerIcon: '🌊',
+        text: '几位远来的神僧，可怜老朽！我本是这衡阳峪黑水河正神，守此一河清波已历百年，不想遭了横祸。'
+      },
+      {
+        speaker: '失府河神',
+        speakerTitle: '【无处安身】',
+        speakerIcon: '🌊',
+        text: '半年前来了个妖物，恃强夺我神府，将我逐出，连香火水族尽归他占。老朽告到何处都无门，只得流落河岸，栖身芦苇。'
+      },
+      {
+        speaker: '失府河神',
+        speakerTitle: '【无处安身】',
+        speakerIcon: '🌊',
+        text: '那妖名唤鼍洁，乃泾河龙王的第九个儿子，论起亲来，西海龙王敖闰是他嫡亲母舅。他正是倚着这门龙族声势，才敢如此横行。'
+      },
+      {
+        speaker: '沙僧',
+        speakerTitle: '【卷帘护法】',
+        speakerIcon: '🌊',
+        text: '师父与二师兄多半是被这鼍洁摄进水府了。老沙久在流沙河，颇识水性，愿随大师兄下水救人。老河神，那水府入口在何处？'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【急寻师父】',
+        speakerIcon: '🐒',
+        text: '好！老河神你指的入口，老孙记下了。沙师弟，你我这便探它个虚实，先摸清水府深浅，再作区处。',
+        action: function() {
+          window.App2D.storyPhase = 'heishui_scout_ready';
+          window.App2D.refreshMapNpcs();
+          window.showGameMessage('🔱 水府入口已明，随沙僧探府。', 'info', 4500);
+        }
+      }
+    ]
+  },
+
+  heishui_scout_challenge: {
+    steps: [
+      {
+        speaker: '水府守将',
+        speakerTitle: '【黑水拦路】',
+        speakerIcon: '🔱',
+        text: '来者何人！这黑水神府岂是尔等撒野之地？大王正设宴要请那取经的和尚，闲杂人速速退去，免得送了性命！'
+      },
+      {
+        speaker: '沙僧',
+        speakerTitle: '【卷帘护法】',
+        speakerIcon: '🌊',
+        text: '好个助纣为虐的东西！我师父师兄正是被你家大王所摄。这水府的门，今日老沙闯定了！大师兄，容我先会会他。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '沙僧勇猛可嘉，然水府守将不止一个，恐有埋伏。贫将愿同破此关——只待尊意，便可动手。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【急寻师父】',
+        speakerIcon: '🐒',
+        text: '不必多言，救人要紧！沙师弟，拿出你流沙河的本事来，随我破了这班水鬼！',
+        options: [
+          {
+            text: '【与沙僧同破水府守将！】',
+            action: function() {
+              window.Dialogue.close();
+              window.App2D.triggerHeishuiScoutBattle();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  heishui_scout_victory: {
+    steps: [
+      {
+        speaker: '沙僧',
+        speakerTitle: '【卷帘护法】',
+        speakerIcon: '🌊',
+        text: '这班守将不经打，已被我等杀退。大师兄，只是越往水府深处，那妖气越盛，怕是硬闯不得。'
+      },
+      {
+        speaker: '失府河神',
+        speakerTitle: '【无处安身】',
+        speakerIcon: '🌊',
+        text: '神僧有所不知，鼍洁占的是水府地利，又习得一身水势妖法。在这黑水之中，纵是天兵也要折了三分，万不可力敌。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【另谋良策】',
+        speakerIcon: '🐒',
+        text: '老孙晓得了。这鼍洁既是泾河龙王第九子、西海敖闰的外甥，便是龙族自家的孽障。水里斗它不占便宜，不如请它那表兄摩昂来，自家人管自家人最是便当。',
+        action: function() {
+          window.App2D.storyPhase = 'heishui_aid_needed';
+          window.App2D.refreshMapNpcs();
+          window.showGameMessage('🐒 悟空赴西海请援。', 'info', 4000);
+        }
+      }
+    ]
+  },
+
+  heishui_seek_west_sea_aid: {
+    steps: [
+      {
+        speaker: '失府河神',
+        speakerTitle: '【无处安身】',
+        speakerIcon: '🌊',
+        text: '神僧要去西海请援，这路子走得对。那鼍洁虽是泾河龙王所出，自幼却养在西海，归他母舅敖闰管束，论理敖闰断难推脱这管教不严之责。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【西海请援】',
+        speakerIcon: '🐒',
+        text: '正是这个理！老孙一个筋斗云往西海走一遭，当面与敖闰讲明：他外甥摄了取经人，占了河神府，这桩公案，他这做舅舅的焉能坐视？',
+        action: function() {
+          window.showGameMessage('🌊 悟空一筋斗云直往西海而去……', 'info', 3500);
+        }
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【西海请援】',
+        speakerIcon: '🐒',
+        text: '幸不辱命！敖闰听说此事，又惊又愧，当即差他亲儿摩昂太子领兵来擒。老孙先行回报——摩昂随后便至！'
+      },
+      {
+        speaker: '沙僧',
+        speakerTitle: '【卷帘护法】',
+        speakerIcon: '🌊',
+        text: '西海肯派太子出面，这便名正言顺了。大师兄，我等且在岸上列阵，静候摩昂太子到来。',
+        action: function() {
+          window.App2D.storyPhase = 'heishui_moang_arrived';
+          window.App2D.refreshMapNpcs();
+          window.showGameMessage('🐉 西海龙太子摩昂已至。', 'success', 4500);
+        }
+      }
+    ]
+  },
+
+  heishui_moang_briefing: {
+    steps: [
+      {
+        speaker: '摩昂',
+        speakerTitle: '【奉命擒妖】',
+        speakerIcon: '🐉',
+        text: '在下西海龙太子摩昂，奉家父敖闰之命，特来擒拿舍表弟鼍洁。他摄劫取经圣僧、强夺河神之府，坏了龙族声名，我此来必将他押回西海，按律问罪，绝不徇私。'
+      },
+      {
+        speaker: '摩昂',
+        speakerTitle: '【奉命擒妖】',
+        speakerIcon: '🐉',
+        text: '鼍洁素来倚仗水势逞凶，这黑水便是他的根基。我一出面，他未必肯束手就缚，少不得要动一场手。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '太子但请放心。贫将等愿为前驱，先挫其锐气、乱其水势，待他阵脚一松，便是太子下手擒拿之机。'
+      },
+      {
+        speaker: '沙僧',
+        speakerTitle: '【卷帘护法】',
+        speakerIcon: '🌊',
+        text: '太子大义灭亲、公道可敬。我等这便去牵制鼍洁、破他水阵，只等太子一声令下，合力拿他！',
+        action: function() {
+          window.App2D.storyPhase = 'heishui_boss_ready';
+          window.App2D.refreshMapNpcs();
+          window.showGameMessage('⚔️ 摩昂已备擒拿，可挑战鼍洁。', 'warning', 4500);
+        }
+      }
+    ]
+  },
+
+  heishui_tuojie_challenge: {
+    steps: [
+      {
+        speaker: '鼍洁',
+        speakerTitle: '【黑水大王】',
+        speakerIcon: '🐊',
+        text: '哪来的毛猴秃驴，敢闯我黑水神府！这一河上下，俱是我黑水大王的天地。我摄了那和尚，正要摆宴请我母舅来尝尝唐僧肉，谁敢坏我好事？'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【当面点破】',
+        speakerIcon: '🐒',
+        text: '呸！什么黑水大王，不过是泾河龙王第九个孽子、西海敖闰的外甥罢了。强夺河神之府、摄劫取经之人，你那表兄摩昂，已奉旨来拿你归案了！'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '此妖倚水为凶，正面硬拼难奈他何。须先破他这一河水势，摩昂太子方好趁隙下手——尊意如何？'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【当面点破】',
+        speakerIcon: '🐒',
+        text: '不必犹疑！你摆你的水势，老孙偏要搅它个底朝天，给摩昂太子腾出手来！',
+        options: [
+          {
+            text: '【破其水势，为摩昂创造擒拿之机！】',
+            action: function() {
+              window.Dialogue.close();
+              window.App2D.triggerTuojieBattle();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  heishui_tuojie_defeated: {
+    steps: [
+      {
+        speaker: '摩昂',
+        speakerTitle: '【奉命擒妖】',
+        speakerIcon: '🐉',
+        text: '水势一破，你这孽障还有何倚仗！表弟，束手就擒罢——这一绳，是替你押回西海，交家父发落。'
+      },
+      {
+        speaker: '鼍洁',
+        speakerTitle: '【束手就擒】',
+        speakerIcon: '🐊',
+        text: '表……表兄！小弟一时糊涂，占府摄人实是鬼迷了心窍！你我至亲，还望在舅父面前替小弟美言几句……'
+      },
+      {
+        speaker: '失府河神',
+        speakerTitle: '【复位谢恩】',
+        speakerIcon: '🌊',
+        text: '苍天有眼！这黑水河神府，老朽今日总算讨得回来了！多谢众位神僧、多谢太子，为老朽伸此一冤！'
+      },
+      {
+        speaker: '唐三藏',
+        speakerTitle: '【脱险获救】',
+        speakerIcon: '🧘',
+        text: '阿弥陀佛……徒弟们，为师与八戒被困水府，只道此番难逃，幸得你等奋力相救。善哉，善哉。'
+      },
+      {
+        speaker: '摩昂',
+        speakerTitle: '【奉命擒妖】',
+        speakerIcon: '🐉',
+        text: '人也救了，府也复了，正事已毕。鼍洁——那『黑水大王』的名号，往后不必报了，报你的本名罢。押回西海，听候家父处置。',
+        action: function() {
+          window.App2D.storyPhase = 'heishui_reward_pending';
+          window.App2D.refreshMapNpcs();
+          window.App2D.saveAutoProgress();
+          window.showGameMessage('🌊 河神复位，师徒脱险。可向河神领取谢礼。', 'success', 5000);
+        }
+      }
+    ]
+  },
+
+  heishui_reward_claim: {
+    steps: [
+      {
+        speaker: '黑水河神',
+        speakerTitle: '【复位谢恩】',
+        speakerIcon: '🌊',
+        text: '神僧搭救、复我神府，此恩老朽没齿难忘。略备些黑水河中珍藏的谢礼，聊表寸心，还望神僧莫要嫌弃。'
+      },
+      {
+        speaker: '黑水河神',
+        speakerTitle: '【复位谢恩】',
+        speakerIcon: '🌊',
+        text: '谢礼已在此处备下。若神僧行囊装得满了，也不妨先行收拾，稍后再来领取便是，老朽随时恭候。',
+        options: [
+          {
+            text: '【领取黑水河谢礼】',
+            action: function() {
+              window.App2D.claimHeishuiReward();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  heishui_crossing_epilogue: {
+    steps: [
+      {
+        speaker: '唐三藏',
+        speakerTitle: '【西行取经】',
+        speakerIcon: '🧘',
+        text: '黑水风波已平，河神复位，正好渡河。徒弟们，收拾行装，我等仍往西天去。'
+      },
+      {
+        speaker: '沙僧',
+        speakerTitle: '【卷帘护法】',
+        speakerIcon: '🌊',
+        text: '河神已遣了稳当的舟子相送，这一河清波再无诡谲。师父请上船，前路还长，咱们一步步走去便是。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '黑水一难已了，前方山水重重，仍需谨慎。贫将暗中护持，诸位但放心前行。',
+        action: function() {
+          window.App2D.saveAutoProgress();
+        }
+      }
+    ]
+  },
+
+
+  // =========================================================================
+  // 第十二回：号山·枯松涧火云洞（圣婴大王红孩儿）
+  // =========================================================================
+  chedi_monk_appeal: {
+  steps: [
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '长老留步。车迟国敬道灭僧已二十余年，举国寺院尽拆，僧众编为苦役，日搬砖石、夜守丹炉。我等非不能走，是走不得——国门有符，出城即擒。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '三大仙自称呼风唤雨、点石成金，国王奉若神明，佛法则为禁谈。同门中有不堪驱役而亡者，骨未寒而名已销。我今日斗胆拦路，只为求一句公道。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '苦役至死、禁绝一宗，此非敬道，乃假神道以逞私。师父慈悲，此事不可绕行。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '好个“呼风唤雨”的大仙！老孙倒要会一会。你且宽心，这申诉老孙接下了——要停役、要见证、要当面问个明白。',
+      options: [
+        {
+          text: '【接下申诉，面见国王！】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_audience';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🏛️ 前往王城面见国王，约定停役与斗法条件。', 'info', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_royal_terms: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '东土高僧远来。朕非无端灭僧——二十年前大旱三载，赤地千里，唯三位仙长祈雨得应，万民方活。自此朕信道而疏佛，亦是不得已。'
+    },
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '陛下所言极是。那些秃头只会念经讨饭，于国何益？倒是这几个远来的，不知天高地厚。'
+    },
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '既敢登殿，想必有些本事。不如斗法三场——胜者立为国教，败者……自去领罚便是。'
+    },
+    {
+      speaker: '羊力大仙',
+      speakerTitle: '【灰毛羊力大仙】',
+      speakerIcon: '🐑',
+      text: '祈雨、辨物、斗术，三场定胜负。陛下以为如何？'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '斗便斗！只是老孙有两条——斗法须当众公开见证，输赢由天下人看；再者，自今日起，受役僧人一律停罚，不得再加苦楚。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '陛下既重天意，便请以天意为证。三场既定，请先验第一场——祈雨。',
+      options: [
+        {
+          text: '【登台立约，开始第一场】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_rain';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🌧️ 第一场斗法：祈雨验术！', 'info', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_rain_trial: {
+  steps: [
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '看本仙祈雨！令牌一响，风、云、雷、雨四事齐备，缺一不成。你这猴头可看仔细了——先后次第，一步也错不得。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '令牌老孙替你使了。诸位看真——风不至则云不聚，云不聚则雷不响，雷不响则雨不落。要落雨，须先验风云，后验雷雨，次第不可乱。',
+      options: [
+        {
+          text: '【第一步：先令风起、云合】',
+          nextStep: 2
+        },
+        {
+          text: '【直接喝令落雨】',
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '狂风骤起，黑云压城——风云已合。接下来当验何事？',
+      options: [
+        {
+          text: '【第二步：再令雷鸣、雨降】',
+          nextStep: 3
+        },
+        {
+          text: '【此时便可收法】',
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '霹雳一声，大雨如注！风、云、雷、雨四事次第分明，滴水不差。虎力之“独术”，原是人人可为之事。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '（旁有八戒嘟囔：这三位“清修”的大仙，供桌上鸡鸭鱼肉堆得比老猪的食槽还满，也好意思称清高？）这雨既是老孙唤来的，虎力独占国师的凭据，便到此为止了。'
+    },
+    {
+      speaker: '唐僧',
+      speakerTitle: '【御弟圣僧】',
+      speakerIcon: '🧘',
+      text: '风云未合，徒唤无雨。悟空，次第乱不得——且退回重验，先风云而后雷雨。',
+      options: [
+        {
+          text: '【静心重验，从风云看起】',
+          nextStep: 1
+        }
+      ]
+    },
+    {
+      speaker: '唐僧',
+      speakerTitle: '【御弟圣僧】',
+      speakerIcon: '🧘',
+      text: '雨泽已布，万民共见。第一场既明，当赴第二场坐禅辨物。',
+      options: [
+        {
+          text: '【移步第二场：坐禅辨物】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_discern';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🪷 第二场斗法：坐禅辨物！', 'success', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_discern_trial: {
+  steps: [
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '祈雨侥幸，辨物未必。隔板之后置一物，凭你神通也看不穿。猴头，若辨不出，便乖乖认输——怎么，心乱了？手都在抖罢？'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '激将无用，老孙心如止水。且慢——鹿力袖子里风声不断，分明是以袖风暗递消息、搅乱人心。此非道术，乃伎俩。先定住心神，再听物件线索。',
+      options: [
+        {
+          text: '【不理挑衅，静心辨物】',
+          nextStep: 2
+        },
+        {
+          text: '【被激动怒，隔空对骂】',
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '心定则听真。板后之物——触之坚且凉，非木非石，叩之有清响，形圆而中空。据此线索，当辨为何物？',
+      options: [
+        {
+          text: '【辨为：金钟（金属所铸）】',
+          nextStep: 3
+        },
+        {
+          text: '【辨为：木案（木器）】',
+          nextStep: 4
+        }
+      ]
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '板后果是一口金钟，分毫不差！鹿力，方才你袖中风声作何解释？堂堂道术，竟要暗递消息、扰人心神……朕，开始不得不疑你三人了。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '错了。线索明言“非木非石、叩之清响、形圆中空”——木器不凉、不清响，何来圆空？漏了关键，再辨一次。',
+      options: [
+        {
+          text: '【重听线索，细辨材质】',
+          nextStep: 2
+        }
+      ]
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '心一乱，便入了鹿力圈套。先稳住心神，莫理其袖风挑衅，再回来辨物。',
+      options: [
+        {
+          text: '【收摄心神，重新静听】',
+          nextStep: 1
+        }
+      ]
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '（鹿力急改口：本仙本就说是“金钟”，是你们听岔了！虎力忙圆场：对对，分明是钟……羊力插嘴：方才你不是说铜鼎么？三仙你一言我一语，先自拆了台。）一句话——术不敌真，强辩只会越描越黑。',
+      options: [
+        {
+          text: '【三仙恼羞，竟要动武！】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_final_trial';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('⚔️ 三仙拒不认输，动起武来！', 'warning', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_final_challenge: {
+  steps: [
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '两场作数不得！本仙有大法：砍头可再生，断首复合如初，谅你学不来！'
+    },
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '本仙能剖腹剜心、挖去脏腑再安然如故！这等神通，秃驴可敢比试？'
+    },
+    {
+      speaker: '羊力大仙',
+      speakerTitle: '【灰毛羊力大仙】',
+      speakerIcon: '🐑',
+      text: '还有滚油锅内沐浴而无伤！三术俱全，看你如何应对……（话虽豪壮，其声已虚，邪气隐隐外泄。）'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '夸术而已。所谓再生、复合、无伤，皆是邪法护身的障眼之术——护身一破，原形自露。大圣，不必随其比那砍剖油烹，正面破其邪法即可。',
+      options: [
+        {
+          text: '【破除邪术，三仙同场决战！】',
+          action: () => {
+            window.Dialogue.close();
+            window.App2D.triggerChediFinalBattle();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_victory: {
+  steps: [
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '护身邪法一破，看你三个还往哪里藏！现出原形来罢。'
+    },
+    {
+      speaker: '三仙原形',
+      speakerTitle: '【原形毕露】',
+      speakerIcon: '🐾',
+      text: '（虎力化作黄毛虎，鹿力化作白毛鹿，羊力化作灰毛羊——邪气消散，妖术尽失，再无半分“仙长”模样。）'
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '朕……错了，且错得不浅。此非一句“误会”能抹。朕今日当众定下：即刻停止一切役僧之罚，开释在押僧众；拆毁的寺院照旧制重修归还；凡曾迫害僧人者，一律问责，严禁事后报复。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '陛下既有此诏，贫僧便直言所求：重修寺院之外，愿为枉死同门立碑记名，许僧众自由往来、不再编役。公道不在一时之赦，在往后再不复此祸。',
+      options: [
+        {
+          text: '【国王准诺，前往领取谢礼】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_reward_pending';
+            window.App2D.refreshMapNpcs();
+            window.App2D.saveAutoProgress();
+            window.showGameMessage('📜 三仙伏诛，可向国王领取谢礼与西行关文。', 'success', 5000);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_reward: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '长老一行廓清妖氛，朕感愧交并。前诏诸事——停役、释僧、重修归还寺院、禁绝报复，朕已下旨施行，立碑记名之请亦一并准了。'
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '薄礼已备，西行关文亦用印在此，聊表谢忱。请长老收纳，一路向西无阻。',
+      options: [
+        {
+          text: '【领取谢礼与西行关文】',
+          action: () => {
+            window.App2D.claimChediReward();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+  chedi_after_clear: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '长老放心西去。车迟国自今释道并容，僧道各安其业，再不以神道假名行迫害之事。关文已通，四方驿路皆可凭验。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '寺院重修已动工，同门陆续获释归来。多年苦役，今日方见天光。长老之恩，车迟僧众永志不忘。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '正道既复，护法无憾。师父，前路尚远，就此启程罢。',
+      options: [
+        {
+          text: '【告别车迟，继续西行】',
+          action: () => {
+            window.App2D.saveAutoProgress();
+          }
+        }
+      ]
+    }
+  ]
+},
+
   // =========================================================================
   // 支线任务：【苍茫三岭伏魔传】剧情与交互
   // =========================================================================
@@ -3155,6 +4531,33 @@ if (window.GAME_DATA) {
       seal: '莲花伏魔',
       triggerMap: 'pingdingshan',
       triggerPhase: 'baoxiang_cleared'
+    },
+    'chapter_12': {
+      id: 'chapter_12',
+      chapterNum: '第十二回',
+      title: '第十二回 · 火云烈焰',
+      subtitle: '号山枯松涧火起，圣婴假意诱取经人',
+      seal: '圣婴伏火',
+      triggerMap: 'huoyundong',
+      triggerPhase: 'huoyun_arrived'
+    },
+    'chapter_13': {
+      id: 'chapter_13',
+      chapterNum: '第十三回',
+      title: '第十三回 · 黑水擒龙',
+      subtitle: '黑水横流摄圣僧，龙子奉令擒妖鼍',
+      seal: '黑水伏鼍',
+      triggerMap: 'heishuihe',
+      triggerPhase: 'heishui_arrived'
+    },
+    'chapter_14': {
+      id: 'chapter_14',
+      chapterNum: '第十四回',
+      title: '第十四回 · 车迟斗法',
+      subtitle: '车迟三仙欺佛道，护僧斗法显威灵',
+      seal: '车迟显正',
+      triggerMap: 'chediguo',
+      triggerPhase: 'chedi_arrival'
     }
   };
 }

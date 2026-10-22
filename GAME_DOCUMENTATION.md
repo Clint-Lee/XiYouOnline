@@ -10,7 +10,95 @@
 
 ---
 
-## 2026-10-11 全链奖励原子化、移动手感与存档防御边界（当前接手入口）
+## 2026-10-22（四）第十四回车迟国 与 换甲接入（最新接手入口）
+
+基线 **2078/2078**。
+
+### 已落地
+
+1. **第十四回 车迟国全章闭环**：地图 `chediguo`（38×28，100% 可行走，无需重建）；7 阶段链 `chedi_arrival → chedi_audience → chedi_rain → chedi_discern → chedi_final_trial → chedi_reward_pending → chedi_cleared`；8 个对白节点；5 个 NPC（受役僧人/虎力/鹿力/羊力/国王）；终局战为三仙同场（虎力偏物攻、鹿力偏控制、羊力偏法攻）；章节奖励 `chedi_ch14_clear` 幂等 + 满包重试；新增奖励物品 `eq_nk_chedi`（【土】车迟伏仙佩）。
+2. **前两轮斗法不做新系统**：按 Astra 方案用「有线索的对白选项」表达。祈雨轮必须按「风→云→雷→雨」顺序，线索由悟空明示「风不至则云不聚」；辨物轮先稳心神、再听物件线索（"坚且凉，非木非石"）。错答返回观察步骤，**不扣资源、不降阶段、不随机换题**。
+3. **鼍洁黑水换甲接入真实结算链**：`applyArmorMitigation` 已接入玩家普攻与敌方行动计数，并新增「真实回合中换甲生效」断言（凝鳞下 326→216）。
+4. **三处禁笑区写入约定**：僧人诉苦（饥饿/伤病/羞辱不得做包袱）、三仙败亡（不做血腥喜剧）、国王纠错（不得用一句"误会"抹掉二十年迫害）。
+5. **章节地图连通性断言**：四个主线章节地图必须存在、38×28、有 NPC、且火云洞↔黑水河双向可达。
+
+### ⚠️ 本轮事故记录（重要，后续必须避免）
+
+**`git checkout js/data/storyQuests.js` 一次性冲掉了火云洞、黑水河、车迟国全部剧情数据**（约 950 行），随后 `git checkout js/data/maps2d.js` 又冲掉了整张 heishuihe 地图。
+
+原因：这些内容从未提交，checkout 会把未提交改动全部丢弃。已从 `scratch/*_keys.txt` 缓存 + 原重建脚本完整恢复。
+
+**新约定：项目处于"多章节并行开发、大量未提交内容"状态时，禁止用 `git checkout <file>` 修复单个文件。回滚必须用备份文件（`Copy-Item x x.bak`）或精确的字符串替换回退。**
+
+---
+
+## 2026-10-22（三）鼍洁「黑水换甲」机制与奖励物品审计
+
+基线 **1994/1994**。
+
+1. **黑水换甲（鼍洁专属）**：与红孩儿的五行车阵刻意区分——**没有蓄力、没有爆发窗口、没有即死惩罚**，核心张力是伤害类型选择。
+   - 凝鳞：物理防御提升（配置值 45%），法术防御正常 → 宜用法术
+   - 散流：法术防御提升，物理防御正常 → 宜用物理
+   - 每 2 次**有效行动**后切换；被封印/定身/乱魂拦下的行动不计数
+   - 减伤通过 `applyArmorMitigation(defender, rawDamage, isSpell)` 实时计算，**不改写基础 def/mdef**（否则切换与重试会永久叠加）
+   - 抗性不设免疫，同级玩家用任一路线都能击败
+2. **全项目奖励物品审计**：新增断言扫描 `app2d.js` 与 `storyQuests.js` 里所有 `itemId` 引用（当前 42 种），校验是否都在 `GAME_DATA.ITEMS` 定义。此前的 `eq_nk_huoyun` / `eq_nk_heishui` 缺口正是这类问题。
+
+### 补充约定
+
+- Boss 机制分两类：**时序型**（车阵，蓄力→爆发→恢复，需豁免通用 duration）与**姿态型**（换甲，实时伤害修正，同样需豁免通用 duration）。两者都不新增 step 类型。
+- 姿态型机制的防御修正必须从基础属性**实时计算**，禁止累加到 `enemy.def` / `enemy.mdef`。
+
+---
+
+## 2026-10-22（续）Boss 机制、地图重建与第十三回黑水河（最新接手入口）
+
+基线由 1847/1847 提升至 **1977/1977**。本节记录本轮后半段落地的内容，与上一节合并阅读。
+
+1. **五行车阵 Boss 机制（红孩儿专属）**：游戏内首个"可预告、可应对、失败可归因"的 Boss 机制。蓄力（不造成伤害）→ 爆发 → 两回合恢复的固定循环；两条应对路线为「抢攻累计 2100 伤害破阵」与「防御获得守息减伤 35%」；破阵窗口在爆发回合关闭；破阵后需完整喘息 ≥2 回合才重新蓄力。DOT/反伤/反击/闪避不计入破阵；守息与普通防御**取更强不叠乘**。
+2. **运行时缺陷修复**：`hh_cart_state` 曾被通用 buff 到期过滤删除（机制只活一轮），且 `duration` 被通用递减与 `advanceCartCycle` 双重递减（恢复期从 2 回合缩成 1 回合）。现车阵状态豁免通用递减与到期移除，生命周期由 `advanceCartCycle` 全权管理。**这两条是单元断言覆盖不到、只有真实回合集成测试才能发现的缺陷。**
+3. **火云洞地图重建**：原图是「911 格岩石中挖出一条 77 格水平直线」，可行走仅 7.2%，玩家只能左右单线移动。重建为前庭（枯松林）+ 涧道 + 主洞 + 车阵祭坛四段结构，可行走提至 **36.7%**，BFS 验证全图连通。
+4. **第十三回 黑水河**：新增地图 `heishuihe`（38×28，可行走 44.8%，四段闭环：西岸渡口 / 河神旧庙 / 水下神府 / 东岸出口），八阶段链 `heishui_arrived → captives_taken → scout_ready → aid_needed → moang_arrived → boss_ready → reward_pending → heishui_cleared` 闭环，10 个对白节点，2 场战斗，章节奖励幂等 + 满包重试。
+5. **章节奖励物品补齐**：`eq_nk_huoyun`（火云辟火珠）与 `eq_nk_heishui`（黑水辟水佩）此前只写进奖励却未在 `items.js` 定义，玩家会拿到 `invalid_items` 永远领不到。已补全并加断言。
+6. **西行出口打通**：火云洞新增通往黑水河的传送门，玩家不再卡在章节末尾。
+7. **史实修正**：按 Astra 校勘，**西海龙王为敖闰，敖顺是北海龙王**，黑水河相关对白统一采用正确称谓。
+
+### 本批确立的新约定
+
+- Boss 机制状态一律声明 `mechanicId` + `mechanicConfig`，运行状态放 `enemy.buffs`，**不得新增敌方运行字段**。
+- 常驻机制状态（如车阵）必须在 `settleRoundBuffs` 的通用 `duration` 递减与到期过滤中**显式豁免**，否则会被误删或双减。
+- 章节奖励的物品 ID 必须先在 `js/data/items.js` 定义；测试有断言防止"奖励发了不存在的物品"。
+- 新地图必须满足：尺寸 38×28（长安除外）、可行走 ≥35%、BFS 全连通、实体落点不在阻挡格、传送门目标地图存在。
+- 地图 NPC 外观必须使用 Character 渲染器有专属分支的键（分发用 includes 匹配，如 longwang 而非 dragon_king），否则回退天将并被断言拦截。
+
+---
+
+## 2026-10-22 全链缺陷修复、幽默优化与第十二回火云洞续写（当前接手入口）
+
+基线由 1745/1745 提升至 **1847/1847**（新增 102 条端到端回归断言，见 `test_fixes_regression.js`）。
+详细清单与验证方式见 [`HANDOFF_2026-10-22.md`](HANDOFF_2026-10-22.md)。
+
+1. **主线硬锁死修复（P0）**：`releaseWukong()` 曾调用不存在的对白键 `wuxing_freed`（实际为 `wukong_freed`），导致 `Dialogue.start(undefined)` 静默返回 → 大圣永不入队 → `storyPhase` 永久停在 `wuxingshan_ready` → 鹰愁涧之后全部门禁失效 → **西行主线整体中断且坏档自我延续**。已改键名，并在 `openPendingStoryDialogue` 增加对白键缺失兜底（明确报错 + 解除断点），杜绝任何键名笔误再次静默锁关。
+2. **战斗真实性与健壮性（P0）**：战斗用药改为校验持有量并**仅在产生疗效后扣除**（此前可无限吃药）；清除 `getAliveEnemies` 重复定义；目标全灭时指令安全失效；`maxHp` 补正与 `applyDamage` 数值防护；中毒/流血 DOT 补 NaN 防护、阵亡停止结算与复活链；变身到期还原法力上限与抗性（此前黄风怪每次变身永久膨胀并写档）。
+3. **天生抗性生效（P0）**：`INNATE_CLASS_RESISTANCES` 键名统一为 `res_phy`（原 `res_physical` 无消费方），`classId` 兼容 `xianren`/`shenxian`，且天生与门派抗性改为**累加而非覆盖**。此前金刚 20% 物理抗性与神仙全系天生抗性从未生效。
+4. **资产与存档安全（P0）**：换装满包回滚不再丢旧装；`SaveManager.storage` 一次性探测（隐私模式不再白屏）；导出/导入统一走 `auto_progress` 并校验结构；坐骑精训按实际可升级数计价。
+5. **天赋接线（P1）**：补齐 `getMpDrainRatio`/`getReductionRatio`/`getSlowRate`，金角「紫金吸魂」与银角「羊脂封魄」建立独立天赋（此前被错误别名指向黄眉与沙僧）；断速改为临时减益 + 新增 `BattleEngine.getEffectiveSpd()`（不再永久减速）；虚弱 `weakenRatio` 与隐身 `dodgeBonus` 接入伤害公式。
+6. **剧情与指引（P1）**：修正砍柴信标（改指五行山山道入口）、东海之滨战后目标、天宫三阶段兜底；恢复观音赐宝可达性；平顶山三战改走 `claimStoryReward` 幂等入口并加阶段守卫；任务卷轴补齐长安三分支；补第 11 回开幕动画；`npc_baihu_wukong` 改为战后收尾对话（不再是与胜战回调重复的死领奖点）。
+7. **渲染与输入（P1）**：新增 `syncCanvasSize()` + `getCanvasPointer()`（含 `devicePixelRatio` 与 contain 信箱换算）修复点击偏移；`hasExplorationModal` 补全升级/开幕/转场遮罩；修正 `m/M` 重复分支与 Escape 状态；掌机 dpad/九宫格实体按键接入；小地图地貌层离屏缓存。
+8. **趣味性优化**：按 40 节点配 8-10 处轻幽默的克制原则，新增平顶山红葫芦"该不该纠正名号"（八戒·认知错位）与双叉岭"兵器不陌生、走路还得请教"（主角·身份反差）；明确白骨精三打、波月洞囚禁、主角记忆回归三处禁笑区。
+9. **第十二回 号山·枯松涧火云洞**：新增章节配置 `chapter_12`、五个对白节点、`triggerHuoyunScoutBattle`/`triggerRedboyBattle`/`claimHuoyunReward`、阶段权重、NPC 显隐、主线感叹号、任务卷轴与小地图指引。阶段链 `pingding_cleared → huoyun_arrived → huoyun_redboy_ready → huoyun_boss_ready → huoyun_cleared` 已闭环。
+
+### 本轮确立的代码约定
+
+- 新增剧情阶段时，四张表必须同步：`phaseWeights`、`isNpcVisibleInStoryPhase`、`MAIN_QUEST_TARGETS`、`getOrdealAndQuestInfo`；地图侧还需补 `minimap.getCurrentQuestTarget`。
+- 剧情奖励一律走 `playerData.claimStoryReward(key, reward, inventory)`，并在战斗入口加阶段 + `storyEvents` 双守卫。
+- 任何 `scheduleStoryDialogue(key)` 的键名必须能在 `STORY_DIALOGUES` 中解析到，否则兜底会报错跳出（不再静默锁死）。
+- 抗性字典只用 `res_phy`/`res_shesheng`/`res_leiting`/`res_feisha`/`res_sanmei`/`res_wandu`/`res_fengyin`/`res_dingshen`/`res_luanhun`/`res_yinshen`/`res_xuanji`，新增键需确认战斗侧有消费方。
+- 位移类减益（断速/迟滞）必须走 buff + `getEffectiveSpd()`，禁止直接改写 `unit.spd`。
+
+---
+
+## 2026-10-11 全链奖励原子化、移动手感与存档防御边界（历史接手入口）
 
 1. **玩家移动手感与深海减速移除**：基础行走速度由 140 提升至 180，坐骑乘骑速度加成维持相应比例，告别慢速拖沓；全面移除了龙宫等深海海域的地形减速惩罚，水下场景行动如履平地。
 2. **序章至长安主线链路自检修复**：全链梳理天宫贬谪、陈塘关混混及总兵交互、刘家村采樵捕鼠、同赴长安与茶肆阿婆主线，修复寻路卡顿、对白关闭状态及小地图信标指示。

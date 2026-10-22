@@ -115,10 +115,17 @@ class Player {
     return Math.floor(this.level * this.level * 120 + this.level * 80);
   }
 
+  // 等级上限：仙宠表与技能表均按 100 级设计，超出会导致属性公式越界
+  static MAX_LEVEL = 100;
+
   gainExp(amount) {
-    this.exp += amount;
+    // 数值校验：旧档里的字符串/NaN 会让 while 条件失真或死循环
+    const gain = Number(amount);
+    if (!Number.isFinite(gain) || gain <= 0) return [];
+    this.exp = Math.max(0, Math.floor(Number(this.exp) || 0)) + Math.floor(gain);
+    this.level = Math.max(1, Math.min(Player.MAX_LEVEL, Math.floor(Number(this.level) || 1)));
     const levelUpEvents = [];
-    while (this.exp >= this.getNextLevelExp()) {
+    while (this.level < Player.MAX_LEVEL && this.exp >= this.getNextLevelExp()) {
       this.exp -= this.getNextLevelExp();
       this.level += 1;
       this.potentialPoints += 4;
@@ -131,6 +138,8 @@ class Player {
       this.silver = (this.silver || 0) + silverReward;
       levelUpEvents.push(this.level);
     }
+    // 满级后经验不再累积，避免数值无限增长与"伪升级"提示
+    if (this.level >= Player.MAX_LEVEL) this.exp = 0;
     this.recalculateStats(levelUpEvents.length > 0);
     if (levelUpEvents.length > 0) {
       if (typeof window !== 'undefined' && window.App2D && typeof window.App2D.showLevelUpModal === 'function') {
@@ -228,13 +237,15 @@ class Player {
           if (gemItem.bonus.fatalRate) baseFatalRate += gemItem.bonus.fatalRate;
           if (gemItem.bonus.dodgeRate) baseDodgeRate += gemItem.bonus.dodgeRate;
 
-          // 抗性加成
-          if (gemItem.bonus.res_phy) this.resistances.res_phy += gemItem.bonus.res_phy;
-          if (gemItem.bonus.res_shesheng) this.resistances.res_shesheng += gemItem.bonus.res_shesheng;
-          if (gemItem.bonus.res_leiting) this.resistances.res_leiting += gemItem.bonus.res_leiting;
-          if (gemItem.bonus.res_feisha) this.resistances.res_feisha += gemItem.bonus.res_feisha;
-          if (gemItem.bonus.res_fengyin) this.resistances.res_fengyin += gemItem.bonus.res_fengyin;
-          if (gemItem.bonus.res_dingshen) this.resistances.res_dingshen += gemItem.bonus.res_dingshen;
+          // 抗性加成：按 res_ 前缀统一累加，避免新增抗性键被静默丢弃
+          // （历史上只硬编码 6 个键，导致 res_sanmei / res_wandu / res_luanhun / res_xuanji 的宝石加成失效）
+          for (const bonusKey of Object.keys(gemItem.bonus)) {
+            if (!bonusKey.startsWith('res_')) continue;
+            const value = Number(gemItem.bonus[bonusKey]);
+            if (!Number.isFinite(value) || value === 0) continue;
+            const normalized = value > 1 ? value / 100 : value;
+            this.resistances[bonusKey] = (this.resistances[bonusKey] || 0) + normalized;
+          }
         });
       }
     });

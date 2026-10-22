@@ -370,15 +370,18 @@
     // 游戏中没有任何装备、宝物可以增加【抗玄击】，金刚天生自带 5% 抗玄击！
     // =========================================================================
     INNATE_CLASS_RESISTANCES: {
+      // 注意：键名必须与 Player/PetSystem 的 resistances 字典及 battle.js 的读取键一致
+      // （物理抗性读 res_phy、玄击抗性读 res_xuanji）。历史上曾误写 res_physical，导致金刚
+      // 的 20% 物理抗性从未生效；改动前请全局搜索消费方再重命名。
       // 金刚：天生自带 20% 物理抗性、10% 舍生抗性、5% 玄击抗性
       jingang: {
-        res_physical: 0.20,
+        res_phy: 0.20,
         res_shesheng: 0.10,
         res_xuanji: 0.05
       },
       // 妖魔：天生自带 10% 物理抗性、10% 雷霆抗性、10% 飞沙抗性、10% 三昧真火抗性、10% 万毒攻心抗性
       yaomo: {
-        res_physical: 0.10,
+        res_phy: 0.10,
         res_leiting: 0.10,
         res_feisha: 0.10,
         res_sanmei: 0.10,
@@ -386,7 +389,7 @@
       },
       // 神仙：天生自带 10% 物理抗性、10% 封印抗性、10% 乱魂抗性、10% 定身抗性
       shenxian: {
-        res_physical: 0.10,
+        res_phy: 0.10,
         res_fengyin: 0.10,
         res_luanhun: 0.10,
         res_dingshen: 0.10
@@ -395,9 +398,20 @@
 
     /**
      * 获取指定职业的天生初始抗性字典
+     * 1. 兼容 classId 命名差异：门派数据用 jingang/yaomo/xianren，本表历史上用 shenxian。
+     * 2. 把历史遗留的 res_physical 归一到 res_phy，兼容旧档与旧配置。
      */
     getInnateResistances(classId) {
-      return Object.assign({}, this.INNATE_CLASS_RESISTANCES[classId] || {});
+      // 本表沿用策划叫法 shenxian；门派数据与角色实体的 classId 是 xianren。两者都要能取到。
+      const CLASS_ALIAS = { jingang: 'jingang', yaomo: 'yaomo', xianren: 'shenxian', shenxian: 'shenxian' };
+      const key = CLASS_ALIAS[classId] || classId;
+      const raw = Object.assign({}, this.INNATE_CLASS_RESISTANCES[key] ||
+        this.INNATE_CLASS_RESISTANCES[classId] || {});
+      if (raw.res_physical !== undefined) {
+        raw.res_phy = Math.max(raw.res_phy || 0, raw.res_physical);
+        delete raw.res_physical;
+      }
+      return raw;
     },
 
     /**

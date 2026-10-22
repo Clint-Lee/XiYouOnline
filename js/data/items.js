@@ -587,6 +587,57 @@ window.GAME_DATA.ITEMS = {
     desc: '【土属性挂链】地府泰山石敢当所炼魂珠，佩戴后赋予主人五行【土】属性！牢锁神魂，大幅激发元神法力与反震抗性。'
   },
 
+  // === 第十二回 火云洞战利 ===
+  eq_nk_huoyun: {
+    id: 'eq_nk_huoyun',
+    name: '【火】火云辟火珠',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'fire',
+    reqLevel: 55,
+    icon: '🔴',
+    price: 32000,
+    quality: 'gold',
+    attrs: { matk: 165, mdef: 120, mp: 620 },
+    resists: { phy: 20, shesheng: 18, sanmei: 22 },
+    counterShockRate: 0.12,
+    desc: '【火属性挂链】号山火云洞三昧真火淬炼而成，佩戴后赋予主人五行【火】属性！烈焰绕身，焚尽近身妖邪。'
+  },
+
+  // === 第十三回 黑水河战利 ===
+  eq_nk_heishui: {
+    id: 'eq_nk_heishui',
+    name: '【水】黑水辟水佩',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'water',
+    reqLevel: 58,
+    icon: '🔵',
+    price: 38000,
+    quality: 'gold',
+    attrs: { matk: 180, mdef: 145, mp: 720 },
+    resists: { phy: 22, shesheng: 20, leiting: 18 },
+    counterAttackRate: 0.12,
+    desc: '【水属性挂链】衡阳峪黑水河底玄石所琢，佩戴后赋予主人五行【水】属性！水幕环身，敌招未至已先偏斜。'
+  },
+
+  // === 第十四回 车迟国战利 ===
+  eq_nk_chedi: {
+    id: 'eq_nk_chedi',
+    name: '【土】车迟伏仙佩',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'earth',
+    reqLevel: 60,
+    icon: '🟤',
+    price: 42000,
+    quality: 'gold',
+    attrs: { matk: 195, mdef: 160, mp: 800 },
+    resists: { phy: 24, shesheng: 20, dingshen: 18 },
+    counterShockRate: 0.12,
+    desc: '【土属性挂链】车迟国三清观法坛古玉所琢，佩戴后赋予主人五行【土】属性！厚土载德，妖术难侵。'
+  },
+
   // === 剧情战利特级神装 ===
   eq_ring_baigu: {
     id: 'eq_ring_baigu',

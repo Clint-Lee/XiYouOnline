@@ -60,11 +60,19 @@ class MountSystem {
       return { success: false, msg: '该坐骑已达当前最高等级，灵力已臻圆满！' };
     }
 
-    const costPerTrain = 500 + mount.level * 150;
-    const totalCost = costPerTrain * trainTimes;
+    // 只按"实际能升的级数"收费：离满级只差 2 级时精训 5 级不该收 5 级的钱
+    const affordableLevels = Math.max(0, Math.min(trainTimes, mount.maxLevel - mount.level));
+    if (affordableLevels <= 0) {
+      return { success: false, msg: '该坐骑已达当前最高等级，灵力已臻圆满！' };
+    }
 
-    if (player.silver < totalCost) {
-      return { success: false, msg: `银两不足！训练需要 ${totalCost} 两银子。` };
+    let totalCost = 0;
+    for (let i = 0; i < affordableLevels; i++) {
+      totalCost += 500 + (mount.level + i) * 150;
+    }
+
+    if (!Number.isSafeInteger(player.silver) || player.silver < totalCost) {
+      return { success: false, msg: `银两不足！训练 ${affordableLevels} 级需要 ${totalCost} 两银子。` };
     }
 
     // 扣减银两
@@ -72,7 +80,7 @@ class MountSystem {
 
     // 提升等级
     let levelUps = 0;
-    for (let i = 0; i < trainTimes; i++) {
+    for (let i = 0; i < affordableLevels; i++) {
       if (mount.level < mount.maxLevel) {
         mount.level += 1;
         levelUps += 1;
@@ -86,10 +94,13 @@ class MountSystem {
     player.recalculateStats(false);
     window.Sound.playSuccess();
 
+    const cappedNote = levelUps < trainTimes ? '（已达等级上限，未多收银两）' : '';
     return {
       success: true,
       level: mount.level,
-      msg: `【御马驯化】消耗 ${totalCost} 两银两，【${mount.name}】等级提升至 Lv.${mount.level}！气血加成 +${mount.currentHp}，攻击加成 +${mount.currentAtk}！`
+      levelUps,
+      cost: totalCost,
+      msg: `【御马驯化】消耗 ${totalCost} 两银两，【${mount.name}】等级提升至 Lv.${mount.level}！气血加成 +${mount.currentHp}，攻击加成 +${mount.currentAtk}！${cappedNote}`
     };
   }
 
