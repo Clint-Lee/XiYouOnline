@@ -677,6 +677,22 @@ class MiniMapEngine {
       if (t) return t;
     }
 
+    // 20.6 盘丝洞（第十七回）
+    if (mapId === 'pansidong') {
+      const ps = {
+        pansi_arrived: { x: 416, y: 416, name: '盘丝七女妖', desc: '与唐僧确认泉边边界' },
+        pansi_webbound: { x: 416, y: 416, name: '盘丝七女妖', desc: '解除丝洞主缚，救出师父与八戒' },
+        pansi_huanghua: { x: 800, y: 320, name: '黄花观主', desc: '往黄花观求解毒之法' },
+        pansi_poisoned: { x: 640, y: 640, name: '指路老妇', desc: '询问破光救人之法' },
+        pansi_seeking_rooster: { x: 768, y: 448, name: '昴日星官', desc: '请昴日星官下山相助' },
+        pansi_breaking_light: { x: 768, y: 448, name: '昴日星官', desc: '随昴日星官破除金光' },
+        pansi_restoring: { x: 416, y: 416, name: '唐三藏', desc: '交代救治与善后，领取谢礼' },
+        pansi_cleared: { x: 1056, y: 480, name: '西行关口', desc: '盘丝事了，继续西去' }
+      };
+      const t = ps[storyPhase];
+      if (t) return t;
+    }
+
     // 21. 苍茫三岭支线伏魔引导
     if (mapId === 'yehu_ling') {
       return {

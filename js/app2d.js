@@ -1071,7 +1071,15 @@ class GameApp2D {
       huoyan_renew_request: 196,
       huoyan_quench_fire: 198,
       huoyan_cleared: 200,
-      poer_cleared: 202,
+      pansi_arrived: 202,
+      pansi_webbound: 204,
+      pansi_huanghua: 206,
+      pansi_poisoned: 208,
+      pansi_seeking_rooster: 210,
+      pansi_breaking_light: 212,
+      pansi_restoring: 214,
+      pansi_cleared: 216,
+      poer_cleared: 218,
       chedi_cleared: 164,
       tongtian_cleared: 170,
       huoyan_cleared: 180,
@@ -1174,6 +1182,31 @@ class GameApp2D {
     }
     if (npcId === 'npc_redboy_boss') {
       return storyPhase === 'huoyun_boss_ready';
+    }
+
+    // 8.1.6 第十七回 盘丝洞
+    // 蜘蛛精代表（七女妖用一名代表承载，群体分歧由对白呈现）
+    if (npcId === 'npc_pansi_spider') {
+      return ['pansi_arrived', 'pansi_webbound'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_tangseng') {
+      // 泉边与解缚阶段唐僧在场；中毒后被护送照护，仍可见
+      return ['pansi_arrived', 'pansi_webbound', 'pansi_huanghua',
+        'pansi_poisoned', 'pansi_restoring'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_huanghua') {
+      // 黄花观主：解缚后至啼鸣前在场（毒茶与金光都由他发动）
+      return ['pansi_huanghua', 'pansi_poisoned', 'pansi_breaking_light'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_oldwoman') {
+      return storyPhase === 'pansi_poisoned';
+    }
+    if (npcId === 'npc_pansi_maori') {
+      return ['pansi_seeking_rooster', 'pansi_breaking_light', 'pansi_restoring'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_west_exit') {
+      // 西行出口只在终态放行
+      return storyPhase === 'pansi_cleared';
     }
 
     // 8.1.5 第十六回 火焰山
@@ -1619,6 +1652,7 @@ class GameApp2D {
     this.ensureChediChapterStarted();
     this.ensureTongtianChapterStarted();
     this.ensureHuoyanChapterStarted();
+    this.ensurePansiChapterStarted();
 
     // 每次过图或进入新场景，自动持久化历练进度
     this.saveAutoProgress();
@@ -1731,7 +1765,16 @@ class GameApp2D {
       'huoyan_confront_bull': 'npc_huoyan_bull_king',
       'huoyan_renew_request': 'npc_huoyan_princess',
       'huoyan_quench_fire': 'npc_huoyan_fire_root',
-      'huoyan_cleared': null
+      'huoyan_cleared': null,
+      // 第十七回 盘丝洞
+      'pansi_arrived': 'npc_pansi_spider',
+      'pansi_webbound': 'npc_pansi_spider',
+      'pansi_huanghua': 'npc_pansi_huanghua',
+      'pansi_poisoned': 'npc_pansi_oldwoman',
+      'pansi_seeking_rooster': 'npc_pansi_maori',
+      'pansi_breaking_light': 'npc_pansi_maori',
+      'pansi_restoring': 'npc_pansi_tangseng',
+      'pansi_cleared': 'npc_pansi_west_exit'
     };
 
     const shouldShowQuestExclamation = (n) => {
@@ -3567,6 +3610,12 @@ class GameApp2D {
     else if (mapId === 'chediguo') {
       if (!this.shownChapterSet.has('chapter_14')) {
         matchedChapterKey = 'chapter_14';
+      }
+    }
+    // 17. 第十七回：盘丝洞（七女妖/百眼魔君）
+    else if (mapId === 'pansidong') {
+      if (!this.shownChapterSet.has('chapter_17')) {
+        matchedChapterKey = 'chapter_17';
       }
     }
     // 16. 第十六回：火焰山（铁扇公主/牛魔王）
@@ -7370,6 +7419,177 @@ class GameApp2D {
     this.saveAutoProgress();
     window.Sound.playLevelUp();
     window.showGameMessage('🎉【火焰山功成】获赠【断火芭蕉佩】、【雪莲丹】×5 与【九转还魂丹】×3！西行继续。', 'success', 6000);
+    return true;
+  }
+  // =========================================================================
+  // 第十七回：盘丝岭盘丝洞（七女妖 / 黄花观百眼魔君）
+  // 阶段链：huoyan_cleared → pansi_arrived → pansi_webbound → pansi_huanghua
+  //        → pansi_poisoned → pansi_seeking_rooster → pansi_breaking_light
+  //        → pansi_restoring → pansi_cleared
+  // 叙事红线（双重责任）：八戒越界必须担责；蜘蛛精绑缚伤人也不因越界获得正当性。
+  // 不新增第三类 Boss 机制；破光靠昴日星官两次啼鸣，不是打掉血条。
+  // =========================================================================
+
+  ensurePansiChapterStarted() {
+    if (this.currentMapId !== 'pansidong') return false;
+    if (this.storyPhase !== 'huoyan_cleared') return false;
+    this.storyPhase = 'pansi_arrived';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 丝洞解缚战：蜘蛛精代表 + 两名蛛丝傀儡
+  triggerPansiSpiderBattle() {
+    if (this.storyPhase !== 'pansi_webbound') return;
+    if (this.playerData.storyEvents?.pansi_unbound) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const spider = {
+      id: 'boss_pansi_spider', name: '盘丝七女妖', appearance: 'fox', modelId: 'fox',
+      level: 66, hp: 40000, maxHp: 40000, mp: 10000, maxMp: 10000,
+      atk: 420, def: 205, matk: 400, mdef: 210, spd: 50,
+      skills: ['封印咒', '定身咒', '飞沙走石']
+    };
+    const puppets = [1, 2].map(i => ({
+      id: 'mob_pansi_puppet_' + i, name: '蛛丝傀儡', appearance: 'wolf', modelId: 'wolf',
+      level: 63, hp: 13000, maxHp: 13000, mp: 2500, maxMp: 2500,
+      atk: 390, def: 195, spd: 45, skills: ["连击"]
+    }));
+
+    this.start2DBattle([spider, ...puppets], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.pansi_unbound = true;
+      this.storyPhase = 'pansi_huanghua';
+      const reward = this.playerData.claimStoryReward('pansi_unbound',
+        { exp: 130000, silver: 30000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🕸️ 战利暂由师父代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('pansi_after_unbound');
+    });
+  }
+
+  // 毒茶事件：只生效一次；悟空与八戒倒下，沙僧护送撤至安全处
+  triggerPansiPoisonTea() {
+    if (this.storyPhase !== 'pansi_huanghua') return;
+    if (this.playerData.storyEvents?.pansi_poisoned) return;
+    this.playerData.storyEvents = this.playerData.storyEvents || {};
+    this.playerData.storyEvents.pansi_poisoned = true;
+    this.storyPhase = 'pansi_poisoned';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    window.Sound.playBeep();
+    this.scheduleStoryDialogue('pansi_poison_tea');
+  }
+
+  // 昴日啼鸣：两声按序完成，只提交一次；破光结果持久化
+  triggerPansiRoosterCry(cryIndex) {
+    if (this.storyPhase !== 'pansi_seeking_rooster' && this.storyPhase !== 'pansi_breaking_light') return;
+    this.playerData.storyEvents = this.playerData.storyEvents || {};
+    if (cryIndex === 1) {
+      if (this.playerData.storyEvents.pansi_light_broken) return;
+      this.playerData.storyEvents.pansi_light_broken = true;
+      this.storyPhase = 'pansi_breaking_light';
+      this.refreshMapNpcs();
+      this.saveAutoProgress();
+      window.showGameMessage('🐓【第一声啼鸣】金光散开，遮蔽消退！', 'success', 4500);
+    } else if (cryIndex === 2) {
+      if (this.playerData.storyEvents.pansi_form_revealed) return;
+      if (!this.playerData.storyEvents.pansi_light_broken) return;
+      this.playerData.storyEvents.pansi_form_revealed = true;
+      this.saveAutoProgress();
+      window.showGameMessage('🐓【第二声啼鸣】百眼失去伪装，现出蜈蚣本相！', 'success', 4500);
+      this.scheduleStoryDialogue('pansi_form_revealed');
+    }
+  }
+
+  // 百眼魔君最终战（普通单 Boss，无专属状态）
+  triggerPansiBaiyanBattle() {
+    if (this.storyPhase !== 'pansi_breaking_light') return;
+    if (this.playerData.storyEvents?.pansi_boss_won) return;
+    // 破光是开战前提：两声啼鸣未完成不得开战
+    if (!this.playerData.storyEvents?.pansi_light_broken) return;
+    if (!this.playerData.storyEvents?.pansi_form_revealed) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const baiyan = {
+      id: 'boss_baiyan', name: '百眼魔君·蜈蚣本相', appearance: 'yecha', modelId: 'yecha',
+      level: 68, hp: 54000, maxHp: 54000, mp: 13000, maxMp: 13000,
+      atk: 470, def: 235, matk: 450, mdef: 230, spd: 52,
+      skills: ['万毒攻心', '三昧真火', '定身咒']
+    };
+
+    this.start2DBattle([baiyan], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.pansi_boss_won = true;
+      this.storyPhase = 'pansi_restoring';
+      const reward = this.playerData.claimStoryReward('pansi_boss',
+        { exp: 160000, silver: 38000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('☠️ 战利暂由昴日星官代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('pansi_victory');
+    });
+  }
+
+  // 善后完成：救治、清点、处置丝洞、清除危险
+  completePansiAftercare() {
+    if (this.storyPhase !== 'pansi_restoring') return false;
+    if (this.playerData.storyEvents?.pansi_aftercare_done) return true;
+    this.playerData.storyEvents = this.playerData.storyEvents || {};
+    this.playerData.storyEvents.pansi_aftercare_done = true;
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 章节奖励：幂等，满包保留入口（西行出口只在终态放行）
+  claimPansiReward() {
+    if (this.playerData.storyRewards?.pansi_chapter_reward === true) {
+      if (this.storyPhase === 'pansi_restoring') {
+        this.storyPhase = 'pansi_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'pansi_restoring') return false;
+
+    const result = this.playerData.claimStoryReward('pansi_chapter_reward', {
+      items: [
+        { itemId: 'eq_nk_pansi', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 140000,
+      silver: 30000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'pansi_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('📜 谢礼暂由师父保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'pansi_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【盘丝洞功成】获赠【盘丝辟毒佩】、【雪莲丹】×5 与【九转还魂丹】×3！西行继续。', 'success', 6000);
     return true;
   }
   // === 支线任务：【苍茫三岭伏魔传】逻辑实现 ===
@@ -12325,6 +12545,40 @@ class GameApp2D {
             sp === 'huoyan_test_fan' ? 0.3 : sp === 'huoyan_borrow_fan' ? 0.15 : 0.05;
       stepHint = sp === 'huoyan_cleared' ? '火焰山事毕，继续西行' : '真扇火势当减，假扇越扇越大';
       isDone = sp === 'huoyan_cleared';
+    } else if (sp.startsWith('pansi_')) {
+      ordealNumber = '【第十八难·盘丝七难】';
+      ordealName = '盘丝岭盘丝洞 · 七女妖与黄花观';
+      ordealDesc = '盘丝岭七女妖于濯垢泉边设丝缚人，与黄花观百眼魔君互为同盟。八戒越界被缚，唐僧制止时同遭扣押。须先安全解缚，再往黄花观求援——却遭毒茶暗算。须寻得昴日星官，以两声啼鸣破金光、显原形，方能制服百眼、取得解药。';
+      chapter = '第十七回 · 盘丝破妄';
+      stepName = sp === 'pansi_cleared' ? '前往西行出口' :
+        sp === 'pansi_restoring' ? '向唐僧交代救治与善后' :
+          sp === 'pansi_breaking_light' ? '随昴日星官破除金光' :
+            sp === 'pansi_seeking_rooster' ? '请昴日星官下山相助' :
+              sp === 'pansi_poisoned' ? '向指路老妇询问破光之法' :
+                sp === 'pansi_huanghua' ? '往黄花观求解毒之法' :
+                  sp === 'pansi_webbound' ? '解除丝洞主缚，救出师父与八戒' : '与唐僧确认泉边边界';
+      stepTarget = sp === 'pansi_cleared' ? '盘丝事了，继续西去' :
+        sp === 'pansi_restoring' ? '取得解毒药、照料伤者、清点获救者、处置丝洞' :
+          sp === 'pansi_breaking_light' ? '一鸣破光，二鸣显形；护住救援通路' :
+            sp === 'pansi_seeking_rooster' ? '如实说明金光、毒伤与被困者' :
+              sp === 'pansi_poisoned' ? '普通药物只能暂缓，须先找到克制金光之人' :
+                sp === 'pansi_huanghua' ? '说明伤情，核实药物；求援不等于信任' :
+                  sp === 'pansi_webbound' ? '先观察主缚与承重丝，再救人；不可直接焚烧' : '泉边有人，不得窥探；先问路，不擅入';
+      stepProgress = sp === 'pansi_cleared' ? '功德圆满' :
+        sp === 'pansi_restoring' ? '百眼已制服' :
+          sp === 'pansi_breaking_light' ? '援手已至' :
+            sp === 'pansi_seeking_rooster' ? '已得指引' :
+              sp === 'pansi_poisoned' ? '毒茶事发' :
+                sp === 'pansi_huanghua' ? '解缚已成' :
+                  sp === 'pansi_webbound' ? '师父八戒受困' : '初至盘丝岭';
+      stepProgressRatio = sp === 'pansi_cleared' ? 1 :
+        sp === 'pansi_restoring' ? 0.9 : sp === 'pansi_breaking_light' ? 0.75 :
+          sp === 'pansi_seeking_rooster' ? 0.6 : sp === 'pansi_poisoned' ? 0.45 :
+            sp === 'pansi_huanghua' ? 0.3 : sp === 'pansi_webbound' ? 0.15 : 0.05;
+      stepHint = sp === 'pansi_cleared' ? '盘丝事了，继续西去' :
+        (sp === 'pansi_poisoned' || sp === 'pansi_seeking_rooster' || sp === 'pansi_breaking_light')
+          ? '不是打掉血条才破金光，须先有克制金光之人' : '泉边有人，便应止步；未得应允，不可近前';
+      isDone = sp === 'pansi_cleared';
     }
 
     return {

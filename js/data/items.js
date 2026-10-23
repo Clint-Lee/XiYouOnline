@@ -672,6 +672,23 @@ window.GAME_DATA.ITEMS = {
     desc: '【火属性挂链】以断绝火根的余烬与芭蕉叶脉共炼，佩戴后赋予主人五行【火】属性！烈焰归心，焚邪而不伤身。'
   },
 
+  // === 第十七回 盘丝洞战利 ===
+  eq_nk_pansi: {
+    id: 'eq_nk_pansi',
+    name: '【土】盘丝辟毒佩',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'earth',
+    reqLevel: 68,
+    icon: '🟤',
+    price: 58000,
+    quality: 'gold',
+    attrs: { atk: 70, matk: 225, mdef: 195, mp: 950 },
+    resists: { phy: 30, shesheng: 24, dingshen: 22 },
+    counterShockRate: 0.14,
+    desc: '【土属性挂链】以破除金光后散落的蜈蚣壳屑与盘丝岭净土共炼，佩戴后赋予主人五行【土】属性！厚土辟毒，妖氛不近。'
+  },
+
   // === 剧情战利特级神装 ===
   eq_ring_baigu: {
     id: 'eq_ring_baigu',

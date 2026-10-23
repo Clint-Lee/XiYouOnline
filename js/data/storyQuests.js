@@ -4056,6 +4056,319 @@ window.GAME_DATA.STORY_DIALOGUES = {
   },
 
   // =========================================================================
+  // 第十七回：盘丝岭盘丝洞（七女妖 / 黄花观百眼魔君）
+  // 阶段链：huoyan_cleared → pansi_arrived → pansi_webbound → pansi_huanghua
+  //        → pansi_poisoned → pansi_seeking_rooster → pansi_breaking_light
+  //        → pansi_restoring → pansi_cleared
+  // 叙事红线（双重责任）：八戒越界必须担责；蜘蛛精绑缚伤人不因越界获得正当性。
+  // 改编口径：破光靠昴日星官两次啼鸣（原著为毗蓝婆绣花针），悟空中毒茶。
+  // =========================================================================
+
+  pansi_spring: {
+    steps: [
+      {
+        speaker: '唐三藏', speakerTitle: '【止步】', speakerIcon: '🧘',
+        text: '泉边有人。泉边有人，便应止步；未得应允，不可近前。八戒，问路可以，莫要靠近。'
+      },
+      {
+        speaker: '猪八戒', speakerTitle: '【自有道理】', speakerIcon: '🐗',
+        text: '师父放心，俺老猪变条鲇鱼，水底下贴着石头走，谁能瞧见？问清路便上来。'
+      },
+      {
+        speaker: '盘丝七女妖', speakerTitle: '【濯垢泉边】', speakerIcon: '🕷️',
+        text: '水底下那位，请你上来。这是我们姊妹的泉，不是你家池塘。'
+      },
+      {
+        speaker: '盘丝七女妖', speakerTitle: '【丝起】', speakerIcon: '🕷️',
+        text: '好言请了你不听——那便留下。这泉边的规矩，不是只有你们会立。'
+      },
+      {
+        speaker: '唐三藏', speakerTitle: '【上前制止】', speakerIcon: '🧘',
+        text: '八戒越界，是他该认。可扣人、伤人，也须止。先放人，随后我们说清。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'pansi_arrived') return;
+          app.storyPhase = 'pansi_webbound';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🕸️ 唐僧制止时同被扣下。先观察主缚与承重丝，再救人。', 'warning', 5000);
+        }
+      }
+    ]
+  },
+
+  pansi_unbind: {
+    steps: [
+      {
+        speaker: '孙悟空', speakerTitle: '【细察丝洞】', speakerIcon: '🐒',
+        text: '师父、八戒都吊在主缚上。老孙瞧明白了——那七根粗丝是主缚，细丝是牵绊；承重的在东南角那根老丝，断它则主缚自松。',
+        options: [
+          { text: '【一把火烧了这洞】', nextStep: 2 },
+          { text: '【断东南角那根承重老丝】', nextStep: 1 },
+          { text: '【为何不能直接烧】', nextStep: 3 }
+        ]
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【救出二人】', speakerIcon: '🐒',
+        text: '着！承重丝一断，主缚全松。师父、八戒，下来吧——慢着，八戒身上有勒伤，莫乱挣。',
+        options: [
+          { text: '【与盘丝七女妖一战】', action: () => {
+            const app = window.App2D;
+            if (!app) return;
+            if (app.storyPhase !== 'pansi_webbound') return;
+            if (window.Dialogue) window.Dialogue.close();
+            app.triggerPansiSpiderBattle();
+          } }
+        ]
+      },
+      {
+        speaker: '沙僧', speakerTitle: '【拦住】', speakerIcon: '🌊',
+        text: '大师兄，不可。火一起，洞里还有没有别的被缚住的人，咱们一个都不知道。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【讲明道理】', speakerIcon: '🐒',
+        text: '对。先看清主缚在哪、洞里还有没有别人，再动手。救人不是图痛快。'
+      }
+    ]
+  },
+
+  pansi_after_unbound: {
+    steps: [
+      {
+        speaker: '猪八戒', speakerTitle: '【低头认责】', speakerIcon: '🐗',
+        text: '师父，俺老猪认。是我先越了界——不能因为她们是妖，就当俺没做错。'
+      },
+      {
+        speaker: '唐三藏', speakerTitle: '【不替他扛】', speakerIcon: '🧘',
+        text: '你认，是你的事。她们扣人、伤人，也须有个交代——两笔账，各算各的。'
+      },
+      {
+        speaker: '猪八戒', speakerTitle: '【伤处作痛】', speakerIcon: '🐗',
+        text: '这丝上的勒伤倒还罢了，只是里头有毒，发冷。得找个懂医理的瞧瞧。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【提议求援】', speakerIcon: '🐒',
+        text: '前头有座黄花观，观主据说通医理。去求一副解毒的药——只求药，不提防。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'pansi_huanghua') return;
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🏯 八戒有蛛毒伤势，前往黄花观求解毒之法。', 'info', 4500);
+        }
+      }
+    ]
+  },
+
+  pansi_huanghua: {
+    steps: [
+      {
+        speaker: '黄花观主', speakerTitle: '【殷勤相待】', speakerIcon: '👁️',
+        text: '几位来得巧。贫道略通医理，最擅解毒。先服一副药茶，再论其余。'
+      },
+      {
+        speaker: '猪八戒', speakerTitle: '【伤重心切】', speakerIcon: '🐗',
+        text: '多谢道长！猴哥，俺先饮为敬。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【已饮下方知】', speakerIcon: '🐒',
+        text: '不好……这茶里有东西。老孙竟没看出来——道行……提不起来了。'
+      },
+      {
+        speaker: '黄花观主', speakerTitle: '【撕下面皮】', speakerIcon: '👁️',
+        text: '现在才知？晚了。盘丝岭的丝，黄花观的药，本是一路的。'
+      },
+      {
+        speaker: '沙僧', speakerTitle: '【护伤撤退】', speakerIcon: '🌊',
+        text: '大师兄护住师父与八戒，我断后！先退到安全处，再作打算！',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          app.triggerPansiPoisonTea();
+        }
+      }
+    ]
+  },
+
+  pansi_poison_tea: {
+    steps: [
+      {
+        speaker: '唐三藏', speakerTitle: '【照护伤者】', speakerIcon: '🧘',
+        text: '悟空、八戒都倒了。沙僧，取水来，慢些。将军，毒一时解不了，先想法子破那金光。'
+      },
+      {
+        speaker: '指路老妇', speakerTitle: '【黎山故人】', speakerIcon: '👵',
+        text: '老婆子瞧你们半晌了。那道士肋下千目，放起来的是金光——寻常药物只缓得一时，克不住它。'
+      },
+      {
+        speaker: '指路老妇', speakerTitle: '【指点去向】', speakerIcon: '👵',
+        text: '往高处去，寻昴日星官。他是双冠大公鸡，一声啼鸣破金光，二声啼鸣那蜈蚣便藏不住。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【记下方位】', speakerIcon: '🛡️',
+        text: '高处、双冠、两声啼鸣。我记下了。师父守着伤者，我去请星官。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'pansi_poisoned') return;
+          app.storyPhase = 'pansi_seeking_rooster';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🐓 已得指引：往高处请昴日星官。', 'info', 4500);
+        }
+      }
+    ]
+  },
+
+  pansi_maori: {
+    steps: [
+      {
+        speaker: '昴日星官', speakerTitle: '【双冠大公鸡】', speakerIcon: '🐓',
+        text: '金光、毒伤、还有人被困。你说的可是盘丝岭那位黄花观主？'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【如实以告】', speakerIcon: '🛡️',
+        text: '正是。他肋下千目放金光，我等近不得身；悟空与八戒中了毒茶，师父尚在照护。只求星官一行。'
+      },
+      {
+        speaker: '昴日星官', speakerTitle: '【慨然应允】', speakerIcon: '🐓',
+        text: '好。我随你走一遭。事先说明——我只破光、显形；那道士的处置，仍按你们的规矩来。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'pansi_seeking_rooster') return;
+          app.storyPhase = 'pansi_breaking_light';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🐓 昴日星官已应允随行。', 'success', 4500);
+        }
+      }
+    ]
+  },
+
+  pansi_light_break: {
+    steps: [
+      {
+        speaker: '黄花观主', speakerTitle: '【千目金光】', speakerIcon: '👁️',
+        text: '肋下众目齐张，金光如山——你们哪个也近不得我身！'
+      },
+      {
+        speaker: '昴日星官', speakerTitle: '【第一声啼鸣】', speakerIcon: '🐓',
+        text: '咯咯——喔！'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【金光散开】', speakerIcon: '🐒',
+        text: '散了！金光散开了！师父，能近了！',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'pansi_breaking_light') return;
+          app.triggerPansiRoosterCry(1);
+        }
+      },
+      {
+        speaker: '昴日星官', speakerTitle: '【第二声啼鸣】', speakerIcon: '🐓',
+        text: '咯咯——喔！再看你还往哪里藏！'
+      },
+      {
+        speaker: '黄花观主', speakerTitle: '【现出本相】', speakerIcon: '👁️',
+        text: '不可能……这金光从未……啊——'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【一条大蜈蚣】', speakerIcon: '🐒',
+        text: '现形了！不是什么黄花观主，是一条丈长大蜈蚣。星官，有劳！',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'pansi_breaking_light') return;
+          app.triggerPansiRoosterCry(2);
+        }
+      }
+    ]
+  },
+
+  pansi_form_revealed: {
+    steps: [
+      {
+        speaker: '昴日星官', speakerTitle: '【让开通路】', speakerIcon: '🐓',
+        text: '金光已破，本相已现。它再无屏障——接下来是你们的规矩。',
+        options: [
+          { text: '【与百眼魔君一战】', action: () => {
+            const app = window.App2D;
+            if (!app) return;
+            if (app.storyPhase !== 'pansi_breaking_light') return;
+            if (window.Dialogue) window.Dialogue.close();
+            app.triggerPansiBaiyanBattle();
+          } }
+        ]
+      }
+    ]
+  },
+
+  pansi_victory: {
+    steps: [
+      {
+        speaker: '孙悟空', speakerTitle: '【取得解药】', speakerIcon: '🐒',
+        text: '蜈蚣已伏。老孙在观里寻到解毒的方子——沙师弟，先给师父和八戒服下。'
+      },
+      {
+        speaker: '猪八戒', speakerTitle: '【缓过劲来】', speakerIcon: '🐗',
+        text: '活了活了……这一回老孙……不，这一回老猪是真长了记性。下处关口，俺先问清了再走。'
+      },
+      {
+        speaker: '唐三藏', speakerTitle: '【交代善后】', speakerIcon: '🧘',
+        text: '善后尚有几桩：确认获救者都已带离、盘丝洞的毒丝须清除、七位女妖如何处置也须定论。',
+        options: [
+          { text: '【完成善后】', action: () => {
+            const app = window.App2D;
+            if (!app) return;
+            app.completePansiAftercare();
+            app.claimPansiReward();
+          } }
+        ]
+      }
+    ]
+  },
+
+  pansi_aftercare: {
+    steps: [
+      {
+        speaker: '盘丝七女妖', speakerTitle: '【分歧已显】', speakerIcon: '🕷️',
+        text: '七妹还想争，大姐，别争了。泉边的规矩我们立得，扣人役使我们也做得出——如今百眼已伏，该认的认。'
+      },
+      {
+        speaker: '唐三藏', speakerTitle: '【分别定论】', speakerIcon: '🧘',
+        text: '七位请自便。岭上毒丝与捕人的设施，须一并清除；若有仍被缚住的人，先带离。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【清除危险】', speakerIcon: '🛡️',
+        text: '撤空已核，无仍被缚者。焚除毒丝与捕人设施——不毁其居，不为报复。',
+        action: () => { if (window.App2D) window.App2D.saveAutoProgress(); }
+      }
+    ]
+  },
+
+  pansi_cleared_end: {
+    steps: [
+      {
+        speaker: '唐三藏', speakerTitle: '【西行在望】', speakerIcon: '🧘',
+        text: '盘丝事了。悟空、八戒的毒既解，我们便继续西去。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【谨慎得过分】', speakerIcon: '🐒',
+        text: '沙师弟，这水你从哪儿取的？……你亲自取的？嗯，拿来吧。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【收束】', speakerIcon: '🛡️',
+        text: '伤者已脱险，前路已明。动身吧。',
+        action: () => { if (window.App2D) window.App2D.saveAutoProgress(); }
+      }
+    ]
+  },
+
+  // =========================================================================
   // 支线任务：【苍茫三岭伏魔传】剧情与交互
   // =========================================================================
   hermit_talk: {
@@ -5052,6 +5365,15 @@ if (window.GAME_DATA) {
       seal: '断火还扇',
       triggerMap: 'huoyanshan',
       triggerPhase: 'huoyan_arrived'
+    },
+    'chapter_17': {
+      id: 'chapter_17',
+      chapterNum: '第十七回',
+      title: '第十七回 · 盘丝破妄',
+      subtitle: '濯垢泉边丝缚客，啼鸣两声破金光',
+      seal: '盘丝破妄',
+      triggerMap: 'pansidong',
+      triggerPhase: 'pansi_arrived'
     }
   };
 }

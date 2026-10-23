@@ -33895,7 +33895,12 @@ window.GAME_DATA.MAPS_2D = {
         "appearance": "changan_girl",
         "icon": "🕸️",
         "dialogueKey": "pansi_talk"
-      }
+      },
+      { "id": "npc_pansi_spider", "name": "盘丝七女妖", "title": "【濯垢泉边】", "x": 416, "y": 416, "appearance": "fox", "icon": "🕷️", "dialogueKey": "pansi_unbind" },
+      { "id": "npc_pansi_huanghua", "name": "黄花观主", "title": "【百眼魔君】", "x": 800, "y": 320, "appearance": "yecha", "icon": "👁️", "dialogueKey": "pansi_huanghua" },
+      { "id": "npc_pansi_oldwoman", "name": "指路老妇", "title": "【黎山故人】", "x": 640, "y": 640, "appearance": "stone_monkey", "icon": "👵", "dialogueKey": "pansi_poison_tea" },
+      { "id": "npc_pansi_maori", "name": "昴日星官", "title": "【双冠大公鸡】", "x": 768, "y": 448, "appearance": "stone_monkey", "icon": "🐓", "dialogueKey": "pansi_maori" },
+      { "id": "npc_pansi_west_exit", "name": "西行关口", "title": "【西去路】", "x": 1056, "y": 480, "appearance": "stone_monkey", "icon": "🌄", "dialogueKey": "pansi_cleared_end" }
     ],
     "monsters": [
       {
