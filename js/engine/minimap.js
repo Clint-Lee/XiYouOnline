@@ -662,6 +662,21 @@ class MiniMapEngine {
       if (t) return t;
     }
 
+    // 20.5 火焰山（第十六回）
+    if (mapId === 'huoyanshan') {
+      const hy = {
+        huoyan_arrived: { x: 192, y: 672, name: '灾民代表', desc: '查明火焰山灾情' },
+        huoyan_borrow_fan: { x: 384, y: 160, name: '铁扇公主', desc: '前往芭蕉洞借扇' },
+        huoyan_test_fan: { x: 608, y: 416, name: '试扇火口', desc: '验明手中扇是真是假' },
+        huoyan_seek_true_fan: { x: 384, y: 160, name: '铁扇公主', desc: '再赴芭蕉洞求取真扇' },
+        huoyan_confront_bull: { x: 768, y: 192, name: '牛魔王', desc: '摩云台对质牛魔王' },
+        huoyan_renew_request: { x: 384, y: 160, name: '铁扇公主', desc: '重新议借真扇' },
+        huoyan_quench_fire: { x: 608, y: 576, name: '火根台', desc: '断绝火根，领取谢礼' }
+      };
+      const t = hy[storyPhase];
+      if (t) return t;
+    }
+
     // 21. 苍茫三岭支线伏魔引导
     if (mapId === 'yehu_ling') {
       return {

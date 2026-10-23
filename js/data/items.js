@@ -655,6 +655,23 @@ window.GAME_DATA.ITEMS = {
     desc: '【水属性挂链】通天河底镇水古玉所琢，佩戴后赋予主人五行【水】属性！水势归心，寒冰自消。'
   },
 
+  // === 第十六回 火焰山战利 ===
+  eq_nk_huoyan: {
+    id: 'eq_nk_huoyan',
+    name: '【火】断火芭蕉佩',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'fire',
+    reqLevel: 65,
+    icon: '🟠',
+    price: 52000,
+    quality: 'gold',
+    attrs: { atk: 60, matk: 215, mdef: 180, mp: 900 },
+    resists: { phy: 28, shesheng: 22, sanmei: 24 },
+    counterShockRate: 0.14,
+    desc: '【火属性挂链】以断绝火根的余烬与芭蕉叶脉共炼，佩戴后赋予主人五行【火】属性！烈焰归心，焚邪而不伤身。'
+  },
+
   // === 剧情战利特级神装 ===
   eq_ring_baigu: {
     id: 'eq_ring_baigu',

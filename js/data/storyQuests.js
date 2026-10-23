@@ -3812,6 +3812,250 @@ window.GAME_DATA.STORY_DIALOGUES = {
   },
 
   // =========================================================================
+  // 第十六回：八百里火焰山（铁扇公主 / 牛魔王）
+  // 阶段链：tongtian_cleared → huoyan_arrived → huoyan_borrow_fan → huoyan_test_fan
+  //        → huoyan_seek_true_fan → huoyan_confront_bull → huoyan_renew_request
+  //        → huoyan_quench_fire → huoyan_cleared
+  // 叙事红线：铁扇公主的恨有据；悟空须从取巧转向担责；和解不等于原谅。
+  // =========================================================================
+
+  huoyan_appeal: {
+    steps: [
+      {
+        speaker: '灾民代表', speakerTitle: '【火焰山灾民】', speakerIcon: '🧑‍🌾',
+        text: '长老们来得不巧。这火焰山烧了六百年，井水是烫的，土是焦的，秋天种不下麦。去年逃了一半人，剩下的都是舍不得祖坟的。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '老人家莫慌。俺老孙去翠云山芭蕉洞借铁扇公主的宝扇，扇它四十九下，火就灭了。'
+      },
+      {
+        speaker: '灾民代表', speakerTitle: '【欲言又止】', speakerIcon: '🧑‍🌾',
+        text: '铁扇公主……长老，老朽多句嘴。她那洞在西北山后，脾气比这山还硬。你们……好歹把话说软些。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'huoyan_arrived') return;
+          app.storyPhase = 'huoyan_borrow_fan';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🪭 前往翠云山芭蕉洞借扇。', 'info', 4500);
+        }
+      }
+    ]
+  },
+
+  huoyan_land_talk: {
+    steps: [
+      {
+        speaker: '火焰山土地', speakerTitle: '【本境土地】', speakerIcon: '👴',
+        text: '小神拜见大圣。说起这山的来历……五百年前大圣在八卦炉里被煅了四十九日，出来时蹬倒了炉子，几块带火的砖落在此处，就成了这座火焰山。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【一怔】', speakerIcon: '🐒',
+        text: '……是老孙。老孙只当是路障，没想到根子在自己脚下。'
+      },
+      {
+        speaker: '火焰山土地', speakerTitle: '【如实相告】', speakerIcon: '👴',
+        text: '小神只把来历说清。至于借扇、断根，还得看大圣与公主怎么谈。铁扇公主的心结，也在红孩儿身上。'
+      }
+    ]
+  },
+
+  huoyan_borrow_fan: {
+    steps: [
+      {
+        speaker: '铁扇公主', speakerTitle: '【翠云山芭蕉洞】', speakerIcon: '👸',
+        text: '芭蕉洞不姓孙。出去。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【捺住性子】', speakerIcon: '🐒',
+        text: '嫂子，俺今日不为红孩儿的事来。山下百姓没水喝，俺来借扇，灭了火便还。'
+      },
+      {
+        speaker: '铁扇公主', speakerTitle: '【字字发冷】', speakerIcon: '👸',
+        text: '没水喝？我儿在观音菩萨座下，连见一面都不能。你说得轻巧——我失去了什么，你赔得起吗？宝扇是我的，我不借。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【护法天将】', speakerIcon: '🛡️',
+        text: '公主，我等不为辩驳而来。红孩儿的事，是将军对不住你；山下百姓，与这段恩怨无关。可否容我们先谈百姓。'
+      },
+      {
+        speaker: '铁扇公主', speakerTitle: '【背过身去】', speakerIcon: '👸',
+        text: '……扇可以给你们一柄。是真是假，自己去试。我累了。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'huoyan_borrow_fan') return;
+          app.storyPhase = 'huoyan_test_fan';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🪭 取得待验证的芭蕉扇，去试扇火口验明效用。', 'info', 4500);
+        }
+      }
+    ]
+  },
+
+  huoyan_test_fan: {
+    steps: [
+      {
+        speaker: '火焰山土地', speakerTitle: '【隔离试扇台】', speakerIcon: '👴',
+        text: '大圣，此处是隔离的小火口，四周无民无粮。真扇一扇，火势当减；若火势反增，便是假的。',
+        options: [
+          { text: '【照土地说的，扇一下试试】', nextStep: 1 },
+          { text: '【先问问怎么分辨真假】', nextStep: 2 }
+        ]
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【火势反增】', speakerIcon: '🐒',
+        text: '不对——火比刚才还旺！老孙扇的是风，它给的是柴！'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【自嘲】', speakerIcon: '🐒',
+        text: '真扇火势当减，假扇越扇越大。这是她给的假扇——老孙认了，这亏吃在俺急着救火上。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'huoyan_test_fan') return;
+          app.storyPhase = 'huoyan_seek_true_fan';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('⚠️ 确认是假扇。再赴芭蕉洞——强取已不能解决问题。', 'warning', 5000);
+        }
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【提出正事】', speakerIcon: '🛡️',
+        text: '变化蒙骗，公主已经受过一次。这次不变她，不变牛魔王，我去跟她谈火源与担责。'
+      }
+    ]
+  },
+
+  huoyan_seek_true_fan: {
+    steps: [
+      {
+        speaker: '孙悟空', speakerTitle: '【变成牛魔王】', speakerIcon: '🐒',
+        text: '嫂嫂，是俺。莫哭，红孩儿的事俺们从长计议……扇先借俺，俺去灭了火就回。'
+      },
+      {
+        speaker: '铁扇公主', speakerTitle: '【交出真扇】', speakerIcon: '👸',
+        text: '……罢了。真扇拿去。灭了火，你我再谈孩儿的事。'
+      },
+      {
+        speaker: '猪八戒', speakerTitle: '【忽然警觉】', speakerIcon: '🐗',
+        text: '猴哥，那个八戒走路脚底板不着地——是牛魔王变的！'
+      },
+      {
+        speaker: '牛魔王', speakerTitle: '【现出本相】', speakerIcon: '🐂',
+        text: '孙悟空，你变化骗我妻，我便变化骗你。一报还一报。芭蕉扇，牛某带走了。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【不再追骗】', speakerIcon: '🛡️',
+        text: '夺回来也不解决问题。牛魔王，去摩云台把话说清——包括这座山的火，是谁的责任。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'huoyan_seek_true_fan') return;
+          app.storyPhase = 'huoyan_confront_bull';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🐂 前往摩云台对质牛魔王。', 'warning', 4500);
+        }
+      }
+    ]
+  },
+
+  huoyan_bull_encounter: {
+    steps: [
+      {
+        speaker: '牛魔王', speakerTitle: '【摩云洞平天大圣】', speakerIcon: '🐂',
+        text: '芭蕉扇在牛某手上。你要救灾，我要护妻，各凭本事。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【此战不为夺扇】', speakerIcon: '🐒',
+        text: '老孙这一战，不为抢扇，为止住这场没完的夺来夺去。',
+        options: [
+          { text: '【与牛魔王一战】', action: () => {
+            const app = window.App2D;
+            if (!app) return;
+            if (app.storyPhase !== 'huoyan_confront_bull') return;
+            if (window.Dialogue) window.Dialogue.close();
+            app.triggerHuoyanBullBattle();
+          } }
+        ]
+      }
+    ]
+  },
+
+  huoyan_renew_request: {
+    steps: [
+      {
+        speaker: '牛魔王', speakerTitle: '【收手】', speakerIcon: '🐂',
+        text: '罢了。扇还她——她肯不肯，俺不替她答。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【当众认责】', speakerIcon: '🐒',
+        text: '公主，老孙把话说明白。这山的火，根子落在俺老孙蹬倒八卦炉上；俺变作你丈夫骗扇，是俺失信。俺不要你原谅，俺只要你让百姓有条活路。'
+      },
+      {
+        speaker: '铁扇公主', speakerTitle: '【长久沉默】', speakerIcon: '👸',
+        text: '……我不是原谅你。红孩儿的事，一辈子不原谅。可山下的人没水喝，与他们无关。扇，借你。'
+      },
+      {
+        speaker: '铁扇公主', speakerTitle: '【亲手交扇】', speakerIcon: '👸',
+        text: '四十九下，一下不能少。灭了火，把扇还我。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'huoyan_renew_request') return;
+          app.storyPhase = 'huoyan_quench_fire';
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🪭 借得真扇，前往火根台断绝火根。', 'success', 4500);
+        }
+      }
+    ]
+  },
+
+  huoyan_quench_fire: {
+    steps: [
+      {
+        speaker: '孙悟空', speakerTitle: '【连扇四十九下】', speakerIcon: '🐒',
+        text: '一、二、三……四十九。火根断了，从今往后，这座山只是座山。'
+      },
+      {
+        speaker: '火焰山土地', speakerTitle: '【叩谢】', speakerIcon: '👴',
+        text: '小神代山下百姓，谢大圣、谢公主。',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'huoyan_quench_fire') return;
+          app.playerData.storyEvents = app.playerData.storyEvents || {};
+          app.playerData.storyEvents.huoyan_fire_extinguished = true;
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('🔥 火根已绝，可向百姓领取谢礼。', 'success', 5000);
+        }
+      }
+    ]
+  },
+
+  huoyan_reward: {
+    steps: [
+      {
+        speaker: '灾民代表', speakerTitle: '【全庄之谢】', speakerIcon: '🧑‍🌾',
+        text: '这点谢仪，是全村凑的。长老们若不嫌弃，过了山再回来坐坐——这回有的坐了。',
+        options: [
+          { text: '【领取谢礼，继续西行】', action: () => {
+            const app = window.App2D;
+            if (!app) return;
+            app.claimHuoyanReward();
+          } }
+        ]
+      }
+    ]
+  },
+
+  // =========================================================================
   // 支线任务：【苍茫三岭伏魔传】剧情与交互
   // =========================================================================
   hermit_talk: {
@@ -4799,6 +5043,15 @@ if (window.GAME_DATA) {
       seal: '通天止祭',
       triggerMap: 'tongtianhe',
       triggerPhase: 'tongtian_arrival'
+    },
+    'chapter_16': {
+      id: 'chapter_16',
+      chapterNum: '第十六回',
+      title: '第十六回 · 火焰借扇',
+      subtitle: '八百里火缘起八卦，四十九扇断焦根',
+      seal: '断火还扇',
+      triggerMap: 'huoyanshan',
+      triggerPhase: 'huoyan_arrived'
     }
   };
 }
