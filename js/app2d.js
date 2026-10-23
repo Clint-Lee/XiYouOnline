@@ -1056,7 +1056,14 @@ class GameApp2D {
       chedi_final_trial: 166,
       chedi_reward_pending: 168,
       chedi_cleared: 170,
-      poer_cleared: 172,
+      tongtian_arrival: 172,
+      tongtian_vowed: 174,
+      tongtian_altar: 176,
+      tongtian_rescue: 178,
+      tongtian_await_guanyin: 180,
+      tongtian_reward: 182,
+      tongtian_cleared: 184,
+      poer_cleared: 184,
       chedi_cleared: 164,
       tongtian_cleared: 170,
       huoyan_cleared: 180,
@@ -1159,6 +1166,25 @@ class GameApp2D {
     }
     if (npcId === 'npc_redboy_boss') {
       return storyPhase === 'huoyun_boss_ready';
+    }
+
+    // 8.1.4 第十五回 通天河
+    // 陈家长者：除水府救援战期间外均在场（接案、领奖共用）
+    if (npcId === 'npc_tongtian_elder') {
+      return storyPhase !== 'tongtian_rescue';
+    }
+    // 被选中的孩童：只在初到与表态阶段可见，动身即撤（不把儿童当诱饵/可交互对象）
+    if (npcId === 'npc_tongtian_child') {
+      return ['tongtian_arrival', 'tongtian_vowed'].includes(storyPhase);
+    }
+    if (npcId === 'npc_tongtian_altar') {
+      return ['tongtian_vowed', 'tongtian_altar'].includes(storyPhase);
+    }
+    if (npcId === 'npc_tongtian_watergate') {
+      return storyPhase === 'tongtian_rescue';
+    }
+    if (npcId === 'npc_tongtian_guanyin') {
+      return ['tongtian_await_guanyin', 'tongtian_reward', 'tongtian_cleared'].includes(storyPhase);
     }
 
     // 8.1.3 第十四回 车迟国：三仙在决战前可见，胜利进入领奖阶段即隐藏
@@ -1648,7 +1674,15 @@ class GameApp2D {
       'chedi_discern': 'npc_chedi_deer',
       'chedi_final_trial': 'npc_chedi_sheep',
       'chedi_reward_pending': 'npc_chedi_king',
-      'chedi_cleared': null
+      'chedi_cleared': null,
+      // 第十五回 通天河
+      'tongtian_arrival': 'npc_tongtian_elder',
+      'tongtian_vowed': 'npc_tongtian_altar',
+      'tongtian_altar': 'npc_tongtian_altar',
+      'tongtian_rescue': 'npc_tongtian_watergate',
+      'tongtian_await_guanyin': 'npc_tongtian_guanyin',
+      'tongtian_reward': 'npc_tongtian_elder',
+      'tongtian_cleared': null
     };
 
     const shouldShowQuestExclamation = (n) => {
@@ -3484,6 +3518,12 @@ class GameApp2D {
     else if (mapId === 'chediguo') {
       if (!this.shownChapterSet.has('chapter_14')) {
         matchedChapterKey = 'chapter_14';
+      }
+    }
+    // 15. 第十五回：通天河（灵感大王）
+    else if (mapId === 'tongtianhe') {
+      if (!this.shownChapterSet.has('chapter_15')) {
+        matchedChapterKey = 'chapter_15';
       }
     }
 
@@ -7088,6 +7128,107 @@ class GameApp2D {
     return true;
   }
 
+  // =========================================================================
+  // 第十五回：八百里通天河（灵感大王）
+  // 阶段链：chedi_cleared → tongtian_arrival → tongtian_pledge
+  //        → tongtian_offer_ready → tongtian_ice_battle
+  //        → tongtian_reward_pending → tongtian_cleared
+  // =========================================================================
+
+  ensureTongtianChapterStarted() {
+    if (this.currentMapId !== 'tongtianhe') return false;
+    if (this.storyPhase !== 'chedi_cleared') return false;
+    this.storyPhase = 'tongtian_arrival';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 冰封河面之战：灵感大王 + 两名寒冰水卒
+  // 机制：姿态型「寒冰覆甲」——凝冰时物理防御提升，法术破冰有效
+  triggerTongtianRescueBattle() {
+    // 仅救援阶段可开战；已胜后不得重复
+    if (this.storyPhase !== 'tongtian_rescue') return;
+    if (this.playerData.storyEvents?.tongtian_boss_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const boss = {
+      id: 'boss_linggan', name: '灵感大王', appearance: 'shuiyao', modelId: 'shuiyao',
+      level: 64, hp: 52000, maxHp: 52000, mp: 12000, maxMp: 12000,
+      atk: 460, def: 230, matk: 450, mdef: 225, spd: 53,
+      skills: ['三昧真火', '飞沙走石', '定身咒'],
+      mechanicId: 'heishui_current_armor',
+      mechanicConfig: {
+        startStance: 'scaled',
+        switchEvery: 2,
+        scaledDefBonus: 0.45,
+        flowingMdefBonus: 0.45
+      }
+    };
+    const minions = [1, 2].map(i => ({
+      id: 'mob_tongtian_ice_' + i, name: '寒冰水卒', appearance: 'shrimp', modelId: 'shrimp',
+      level: 60, hp: 14000, maxHp: 14000, mp: 3000, maxMp: 3000,
+      atk: 400, def: 200, spd: 46, skills: ["连击"]
+    }));
+
+    this.start2DBattle([boss, ...minions], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.tongtian_boss_won = true;
+      this.storyPhase = 'tongtian_await_guanyin';
+      const reward = this.playerData.claimStoryReward('tongtian_boss',
+        { exp: 140000, silver: 32000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🐟 战利暂由陈家庄代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('tongtian_victory');
+    });
+  }
+
+  // 章节奖励：幂等，满包保留入口
+  claimTongtianReward() {
+    if (this.playerData.storyRewards?.tongtian_ch15_clear === true) {
+      if (this.storyPhase === 'tongtian_reward') {
+        this.storyPhase = 'tongtian_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'tongtian_reward') return false;
+
+    const result = this.playerData.claimStoryReward('tongtian_ch15_clear', {
+      items: [
+        { itemId: 'eq_nk_tongtian', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 100000,
+      silver: 22000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'tongtian_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('📜 谢礼暂由陈家庄保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'tongtian_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【通天河功成】获赠【通天镇水佩】、【雪莲丹】×5 与【九转还魂丹】×3！河路复通，东去有路。', 'success', 6000);
+    return true;
+  }
   // === 支线任务：【苍茫三岭伏魔传】逻辑实现 ===
   initSanlingSideQuest() {    if (!this.playerData) return null;
     this.playerData.sideQuests = this.playerData.sideQuests || {};
@@ -11979,6 +12120,33 @@ class GameApp2D {
           sp === 'chedi_rain' ? 0.4 : sp === 'chedi_audience' ? 0.2 : 0.05;
       stepHint = sp === 'chedi_cleared' ? '车迟国事毕，关文通行资格已定' : '风不至则云不聚，云不聚则雷不响';
       isDone = sp === 'chedi_cleared';
+    } else if (sp.startsWith('tongtian_')) {
+      const rewardStage = sp === 'tongtian_reward';
+      ordealNumber = '【第十六难·通天祭童】';
+      ordealName = '八百里通天河 · 灵感大王';
+      ordealDesc = '通天河灵感大王年索童男童女为祭，陈家庄世代不敢违抗。需先向乡老立约"祭童之事今日为止"、安置孩子，再与悟空八戒变作替身诱妖，循暗流侧口潜入水府救人，最终引出观音收妖。';
+      chapter = '第十五回 · 通天归真';
+      stepName = rewardStage ? '向陈家长者辞行，领取谢礼' :
+        sp === 'tongtian_await_guanyin' ? '去河畔见观音，收妖除患' :
+          sp === 'tongtian_rescue' ? '探查水府入口，救出师父与八戒' :
+            sp === 'tongtian_altar' ? '以替身赴约，引妖现身' :
+              sp === 'tongtian_vowed' ? '安置孩子，随悟空八戒赴祭坛' : '查明通天河祭童之困';
+      stepTarget = rewardStage ? '确认从今不再献祭，领取谢礼后渡河' :
+        sp === 'tongtian_await_guanyin' ? '见证观音鱼篮收妖，安抚家长与孩子' :
+          sp === 'tongtian_rescue' ? '循暗流侧口进入水府，击退灵感大王' :
+            sp === 'tongtian_altar' ? '引妖怪现身，护住撤离的村民' :
+              sp === 'tongtian_vowed' ? '让孩子留在家长身边，由师父沙僧留守照应' : '找到陈家长者，问明祭童原委';
+      stepProgress = rewardStage ? '妖已收，谢礼待领' :
+        sp === 'tongtian_cleared' ? '功德圆满' :
+          sp === 'tongtian_await_guanyin' ? '师父已救，待观音收妖' :
+            sp === 'tongtian_rescue' ? '立约已成，探查水府' :
+              sp === 'tongtian_altar' ? '替身已备' :
+                sp === 'tongtian_vowed' ? '已知祭童原委' : '初至通天河';
+      stepProgressRatio = rewardStage ? 0.9 : sp === 'tongtian_cleared' ? 1 :
+        sp === 'tongtian_await_guanyin' ? 0.8 : sp === 'tongtian_rescue' ? 0.6 :
+          sp === 'tongtian_altar' ? 0.45 : sp === 'tongtian_vowed' ? 0.25 : 0.05;
+      stepHint = sp === 'tongtian_cleared' ? '通天河事毕，河路复通东去' : '先救下眼前的孩子，再谈除妖';
+      isDone = sp === 'tongtian_cleared';
     }
 
     return {

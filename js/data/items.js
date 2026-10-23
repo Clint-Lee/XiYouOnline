@@ -638,6 +638,23 @@ window.GAME_DATA.ITEMS = {
     desc: '【土属性挂链】车迟国三清观法坛古玉所琢，佩戴后赋予主人五行【土】属性！厚土载德，妖术难侵。'
   },
 
+  // === 第十五回 通天河战利 ===
+  eq_nk_tongtian: {
+    id: 'eq_nk_tongtian',
+    name: '【水】通天镇水佩',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'water',
+    reqLevel: 62,
+    icon: '🔵',
+    price: 46000,
+    quality: 'gold',
+    attrs: { matk: 205, mdef: 170, mp: 850 },
+    resists: { phy: 26, shesheng: 22, fengyin: 20 },
+    counterAttackRate: 0.12,
+    desc: '【水属性挂链】通天河底镇水古玉所琢，佩戴后赋予主人五行【水】属性！水势归心，寒冰自消。'
+  },
+
   // === 剧情战利特级神装 ===
   eq_ring_baigu: {
     id: 'eq_ring_baigu',

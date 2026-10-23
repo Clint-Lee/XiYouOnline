@@ -31509,7 +31509,12 @@ window.GAME_DATA.MAPS_2D = {
         "appearance": "turtle",
         "icon": "🐢",
         "dialogueKey": "tongtian_yuan_talk"
-      }
+      },
+      { "id": "npc_tongtian_elder", "name": "陈家长者", "title": "【陈家庄乡老】", "x": 224, "y": 416, "appearance": "stone_monkey", "icon": "👴", "dialogueKey": "tongtian_appeal" },
+      { "id": "npc_tongtian_child", "name": "陈关保与一秤金", "title": "【被选中的祭童】", "x": 192, "y": 320, "appearance": "stone_monkey", "icon": "🧒", "dialogueKey": "tongtian_child_words" },
+      { "id": "npc_tongtian_altar", "name": "河畔祭坛", "title": "【寒祭旧约】", "x": 576, "y": 448, "appearance": "stone_monkey", "icon": "🕯️", "dialogueKey": "tongtian_altar_rite" },
+      { "id": "npc_tongtian_watergate", "name": "水府入口", "title": "【暗流侧口】", "x": 864, "y": 640, "appearance": "shrimp", "icon": "🌊", "dialogueKey": "tongtian_watergate" },
+      { "id": "npc_tongtian_guanyin", "name": "观世音菩萨", "title": "【南海大慈大悲】", "x": 640, "y": 416, "appearance": "stone_monkey", "icon": "🪷", "dialogueKey": "tongtian_guanyin_arrival" }
     ],
     "monsters": [
       {

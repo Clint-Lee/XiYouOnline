@@ -648,6 +648,20 @@ class MiniMapEngine {
       if (t) return t;
     }
 
+    // 20.4 通天河（第十五回）
+    if (mapId === 'tongtianhe') {
+      const tt = {
+        tongtian_arrival: { x: 224, y: 416, name: '陈家长者', desc: '查明通天河祭童之事' },
+        tongtian_vowed: { x: 576, y: 448, name: '河畔祭坛', desc: '安置孩子，随替身赴约' },
+        tongtian_altar: { x: 576, y: 448, name: '河畔祭坛', desc: '引妖现身，护住村民' },
+        tongtian_rescue: { x: 864, y: 640, name: '水府入口', desc: '循暗流侧口潜入，救出师父' },
+        tongtian_await_guanyin: { x: 640, y: 416, name: '观世音菩萨', desc: '请菩萨鱼篮收妖' },
+        tongtian_reward: { x: 224, y: 416, name: '陈家长者', desc: '领取谢礼，渡河东去' }
+      };
+      const t = tt[storyPhase];
+      if (t) return t;
+    }
+
     // 21. 苍茫三岭支线伏魔引导
     if (mapId === 'yehu_ling') {
       return {
