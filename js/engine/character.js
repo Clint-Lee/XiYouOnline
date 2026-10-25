@@ -170,22 +170,14 @@ class Character {
     }
   }
 
-  move(dirX, dirY, mapData, tilemapEngine) {
-    if (dirX === 0 && dirY === 0) {
-      this.isMoving = false;
+  _stepMove(stepX, stepY, mapData, tilemapEngine) {
+    if (!tilemapEngine) {
+      this.x += stepX;
+      this.y += stepY;
       return;
     }
-
-    this.isMoving = true;
-
-    if (Math.abs(dirX) > Math.abs(dirY)) {
-      this.direction = dirX > 0 ? 'right' : 'left';
-    } else {
-      this.direction = dirY > 0 ? 'down' : 'up';
-    }
-
-    const nextX = this.x + dirX * this.speed;
-    const nextY = this.y + dirY * this.speed;
+    const nextX = this.x + stepX;
+    const nextY = this.y + stepY;
 
     const footLeft = nextX - this.width / 2 + 4;
     const footRight = nextX + this.width / 2 - 4;
@@ -215,15 +207,51 @@ class Character {
         this.y = nextY;
       }
     } else {
-      const xOnlyPass = tilemapEngine.isWalkable(mapData, Math.floor((this.x + dirX * this.speed) / ts), Math.floor(this.y / ts));
+      const xOnlyPass = tilemapEngine.isWalkable(mapData, Math.floor((this.x + stepX) / ts), Math.floor(this.y / ts));
       if (xOnlyPass) {
-        this.x += dirX * this.speed;
+        this.x += stepX;
       } else {
-        const yOnlyPass = tilemapEngine.isWalkable(mapData, Math.floor(this.x / ts), Math.floor((this.y + dirY * this.speed) / ts));
+        const yOnlyPass = tilemapEngine.isWalkable(mapData, Math.floor(this.x / ts), Math.floor((this.y + stepY) / ts));
         if (yOnlyPass) {
-          this.y += dirY * this.speed;
+          this.y += stepY;
         }
       }
+    }
+  }
+
+  move(dirX, dirY, mapData, tilemapEngine) {
+    if (dirX === 0 && dirY === 0) {
+      this.isMoving = false;
+      return;
+    }
+
+    this.isMoving = true;
+
+    // 归一化方向向量，杜绝斜走速度加成倍增
+    const mag = Math.hypot(dirX, dirY);
+    let normDirX = dirX;
+    let normDirY = dirY;
+    if (mag > 1.0) {
+      normDirX = dirX / mag;
+      normDirY = dirY / mag;
+    }
+
+    if (Math.abs(normDirX) > Math.abs(normDirY)) {
+      this.direction = normDirX > 0 ? 'right' : 'left';
+    } else {
+      this.direction = normDirY > 0 ? 'down' : 'up';
+    }
+
+    // 将长位移拆分为碰撞安全的微步 (单步不超过瓦片尺寸的 1/4，即 8px)，防止穿墙或跳步
+    const totalDist = (this.speed || 2.0);
+    const maxSubStep = Math.max(2, (tilemapEngine?.tileSize || 32) / 4);
+    const subSteps = Math.max(1, Math.ceil(totalDist / maxSubStep));
+    const stepDist = totalDist / subSteps;
+
+    for (let s = 0; s < subSteps; s++) {
+      const stepX = normDirX * stepDist;
+      const stepY = normDirY * stepDist;
+      this._stepMove(stepX, stepY, mapData, tilemapEngine);
     }
 
     this.animTimer += 1;

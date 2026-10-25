@@ -51,8 +51,9 @@ class ForgeSystem {
       return { success: false, msg: `强化材料不足！需要 ${info.costStones} 颗强化石或天外陨铁。` };
     }
 
-    // 检查定星石
-    if (useProtectStone && inventory.getItemCount('dingxing_shi') < 1) {
+    // 检查定星石 (仅在失败可能降星的阶段需要并消耗保护石)
+    const requiresProtect = useProtectStone && info.penalty !== 'none';
+    if (requiresProtect && inventory.getItemCount('dingxing_shi') < 1) {
       return { success: false, msg: '包裹中未发现【定星石】，无法开启防降星保护！' };
     }
 
@@ -61,7 +62,7 @@ class ForgeSystem {
     const takeStones = Math.min(stoneCount, info.costStones);
     if (takeStones > 0) inventory.removeItem('qianghua_shi', takeStones);
     if (takeStones < info.costStones) inventory.removeItem('meteor_iron', info.costStones - takeStones);
-    if (useProtectStone) {
+    if (requiresProtect) {
       inventory.removeItem('dingxing_shi', 1);
     }
 
@@ -82,13 +83,15 @@ class ForgeSystem {
     } else {
       // 失败惩罚
       let dropText = '';
-      if (!useProtectStone) {
+      if (!requiresProtect) {
         if (info.penalty === 'down_1') {
           equipObj.star = Math.max(0, curStar - 1);
           dropText = `装备不幸滑落降级为 +${equipObj.star}！`;
         } else if (info.penalty === 'down_2') {
           equipObj.star = Math.max(0, curStar - 2);
           dropText = `器灵震荡，装备重挫滑落至 +${equipObj.star}！`;
+        } else {
+          dropText = `此阶段受神工炉火庇佑，失败不降星。`;
         }
       } else {
         dropText = `定星石发挥无上法力，虽淬火失败但保住了星级不降！`;

@@ -283,8 +283,10 @@ class Player {
       this.hp = this.maxHp;
       this.mp = this.maxMp;
     } else {
-      this.hp = Math.min(this.hp, this.maxHp);
-      this.mp = Math.min(this.mp, this.maxMp);
+      const validHp = (typeof this.hp === 'number' && Number.isFinite(this.hp)) ? this.hp : this.maxHp;
+      const validMp = (typeof this.mp === 'number' && Number.isFinite(this.mp)) ? this.mp : this.maxMp;
+      this.hp = Math.max(0, Math.min(validHp, this.maxHp));
+      this.mp = Math.max(0, Math.min(validMp, this.maxMp));
     }
   }
 

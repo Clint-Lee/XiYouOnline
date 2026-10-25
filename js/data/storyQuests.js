@@ -6,6 +6,511 @@
 
 window.GAME_DATA = window.GAME_DATA || {};
 
+// =========================================================================
+// 统一序章至长安主线历程目标定义表 (R3 统一目标来源)
+// 任务簿、小地图追踪信标、自动寻路统一读取此表，杜绝多来源判定脱节
+// =========================================================================
+window.GAME_DATA.UNIFIED_STORY_PHASES = {
+  // === 序章：天宫阶段 ===
+  heaven_prologue: {
+    mapId: 'tiangong_palace',
+    mapName: '九重天阙',
+    targetNpcId: 'npc_taibai_start',
+    targetName: '太白金星',
+    targetCoords: { x: 9 * 32, y: 13 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '拜见太白金星',
+    stepTarget: '先听太白金星交代仙宴值守职责',
+    stepHint: '在天宫大殿向太白金星复命',
+    actionDesc: '交谈'
+  },
+  heaven_to_water_pavilion: {
+    mapId: 'tiangong_palace',
+    mapName: '瑶池水阁',
+    targetName: '瑶池水阁',
+    targetCoords: { x: 15 * 32, y: 12 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '巡视瑶池水阁',
+    stepTarget: '沿御道前往东侧水阁巡视仙宴动静',
+    stepHint: '沿御道向东前往瑶池水阁',
+    actionDesc: '巡视'
+  },
+  heaven_pantao_start: {
+    mapId: 'tiangong_palace',
+    mapName: '瑶池水阁',
+    targetNpcId: 'npc_tianpeng',
+    targetName: '天蓬元帅',
+    targetCoords: { x: 15 * 32, y: 12 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '劝阻天蓬元帅',
+    stepTarget: '制止醉酒天蓬元帅调戏嫦娥仙子',
+    stepHint: '在水阁前制止醉酒天蓬',
+    actionDesc: '切磋'
+  },
+  heaven_to_lingxiao: {
+    mapId: 'tiangong_palace',
+    mapName: '凌霄宝殿',
+    targetName: '凌霄殿前',
+    targetCoords: { x: 22 * 32, y: 12 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '返回凌霄值守',
+    stepTarget: '沿东侧御道返回凌霄殿前值守',
+    stepHint: '穿过回廊前往凌霄殿前',
+    actionDesc: '赶路'
+  },
+  heaven_saved_change: {
+    mapId: 'tiangong_palace',
+    mapName: '凌霄宝殿',
+    targetNpcId: 'npc_juanlian',
+    targetName: '卷帘大将',
+    targetCoords: { x: 22 * 32, y: 12 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '力保卷帘大将',
+    stepTarget: '前往凌霄殿前求情力保卷帘大将',
+    stepHint: '在凌霄殿前与卷帘大将交谈',
+    actionDesc: '求情'
+  },
+  heaven_saved_juanlian: {
+    mapId: 'huaguoshan',
+    mapName: '东胜神洲·花果山',
+    targetName: '天庭前锋营神将',
+    targetCoords: { x: 19 * 32, y: 22 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '下界前往花果山',
+    stepTarget: '出南天门下界，前往东胜神洲·花果山平乱',
+    stepHint: '向山麓神将探问花果山战局',
+    actionDesc: '探问'
+  },
+  heaven_huaguoshan: {
+    mapId: 'huaguoshan',
+    mapName: '东胜神洲·花果山',
+    targetName: '天庭前锋营神将',
+    targetCoords: { x: 19 * 32, y: 22 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '探问花果山战局',
+    stepTarget: '向山麓神将探问花果山战局',
+    stepHint: '向山麓神将探问花果山战局',
+    actionDesc: '探问'
+  },
+  heaven_huaguoshan_shuilien: {
+    mapId: 'huaguoshan_shuilien',
+    mapName: '水帘洞天',
+    targetName: '赤毛马猴',
+    targetCoords: { x: 19 * 32, y: 18 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '穿过飞瀑入洞探查',
+    stepTarget: '穿过飞瀑进入水帘洞，与守山赤毛马猴较量切磋',
+    stepHint: '水帘洞深处探寻齐天大圣踪迹',
+    actionDesc: '切磋'
+  },
+  heaven_huaguoshan_rescue: {
+    mapId: 'huaguoshan_shuilien',
+    mapName: '水帘洞天',
+    targetName: '征讨先锋巨灵神',
+    targetCoords: { x: 20 * 32, y: 11 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '制止先锋巨灵神',
+    stepTarget: '击退滥杀幼猴的先锋巨灵神',
+    stepHint: '在水帘洞深处迎战巨灵神',
+    actionDesc: '交战'
+  },
+  heaven_juling_defeated: {
+    mapId: 'huaguoshan',
+    mapName: '东胜神洲·花果山',
+    targetName: '洞口传送阵',
+    targetCoords: { x: 19 * 32, y: 24 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '迎战齐天大圣',
+    stepTarget: '走出水帘洞，返回花果山迎战齐天大圣孙悟空',
+    stepHint: '走出水帘洞，在花果山主峰迎见大圣',
+    actionDesc: '对决'
+  },
+  heaven_final_wukong: {
+    mapId: 'huaguoshan',
+    mapName: '东胜神洲·花果山',
+    targetName: '齐天大圣孙悟空',
+    targetCoords: { x: 19 * 32, y: 11 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '迎战反出天庭的大圣',
+    stepTarget: '迎战反出天庭的齐天大圣孙悟空',
+    stepHint: '在花果山绝顶与齐天大圣交锋',
+    actionDesc: '较量'
+  },
+  heaven_tiangong_trial: {
+    mapId: 'tiangong_palace',
+    mapName: '凌霄宝殿',
+    targetName: '太白金星 / 玉皇大帝',
+    targetCoords: { x: 19 * 32, y: 8 * 32 },
+    ordealNumber: '【序章·天宫风云】',
+    ordealName: '瑶池蟠桃与大闹天宫',
+    ordealDesc: '天庭蟠桃胜会前夕，仙界暗潮汹涌，亲历大圣闹天宫与诸仙贬谪，勘破凡圣之谜。',
+    chapter: '序章 · 仙界浩劫',
+    stepName: '凌霄公审发落',
+    stepTarget: '凌霄宝殿听候玉帝圣旨公审发落，贬落凡尘两界山',
+    stepHint: '上殿听候天庭公审旨意',
+    actionDesc: '领旨'
+  },
+
+  // === 第一章：凡间刘家村 ===
+  liujiacun_start: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetNpcId: 'npc_liuboqin',
+    targetName: '镇山太保刘伯钦',
+    targetCoords: { x: 12 * 32, y: 11 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '凡尘苏醒 · 刘家村启程',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '拜见恩人刘伯钦',
+    stepTarget: '与刘伯钦对话，了解当前处境并领受差事',
+    stepProgress: '0/1',
+    stepProgressRatio: 0,
+    stepHint: '刘伯钦就在刘家村中间草屋前',
+    isDone: false,
+    actionDesc: '交谈'
+  },
+  liujiacun_find_mushrooms: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetName: '野生青蘑菇',
+    targetCoords: { x: 12 * 32, y: 20 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '生火造饭 · 采摘青菇',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '采摘野生青蘑菇',
+    actionDesc: '采摘',
+    computeProgress: (kills) => {
+      const m = kills?.mushrooms || 0;
+      return {
+        stepTarget: `在刘家村南草丛中采摘2朵新鲜野生青蘑菇 (${m}/2)`,
+        stepProgress: `${m}/2`,
+        stepProgressRatio: Math.min(1, m / 2),
+        stepHint: '前往村南草丛边，点击青蘑菇即可采摘',
+        isDone: m >= 2
+      };
+    }
+  },
+  liujiacun_mushrooms_collected: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetNpcId: 'npc_liuboqin',
+    targetName: '镇山太保刘伯钦',
+    targetCoords: { x: 12 * 32, y: 11 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '生火造饭 · 交付青菇',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '向刘伯钦交付青蘑菇',
+    stepTarget: '青蘑菇已采齐！将蘑菇交给刘伯钦下锅',
+    stepProgress: '2/2 (待交差)',
+    stepProgressRatio: 1,
+    stepHint: '找刘伯钦对话完成交付',
+    isDone: true,
+    actionDesc: '交付'
+  },
+  liujiacun_go_cut_wood: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetName: '两界山脚枯树精',
+    targetCoords: { x: 6 * 32, y: 15 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '劈柴取火 · 降伏枯树精',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '击败枯树精取坚韧柴木',
+    actionDesc: '除妖取柴',
+    computeProgress: (kills) => {
+      const t = kills?.trees || 0;
+      return {
+        stepTarget: `前往五行山小径击败百年枯树精取柴 (${t}/4)`,
+        stepProgress: `${t}/4`,
+        stepProgressRatio: Math.min(1, t / 4),
+        stepHint: '从刘家村左侧路口进入五行山小径，击败一组枯树精可获得柴木',
+        isDone: t >= 4
+      };
+    }
+  },
+  liujiacun_wood_gathering: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetName: '两界山脚枯树精',
+    targetCoords: { x: 6 * 32, y: 15 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '劈柴取火 · 降伏枯树精',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '击败枯树精取坚韧柴木',
+    actionDesc: '除妖取柴',
+    computeProgress: (kills) => {
+      const t = kills?.trees || 0;
+      return {
+        stepTarget: `前往五行山小径击败百年枯树精取柴 (${t}/4)`,
+        stepProgress: `${t}/4`,
+        stepProgressRatio: Math.min(1, t / 4),
+        stepHint: '从刘家村左侧路口进入五行山小径，击败一组枯树精可获得柴木',
+        isDone: t >= 4
+      };
+    }
+  },
+  liujiacun_wood_collected: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetNpcId: 'npc_liuboqin',
+    targetName: '镇山太保刘伯钦',
+    targetCoords: { x: 12 * 32, y: 11 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '劈柴取火 · 交付柴木',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '交付坚韧柴木',
+    stepTarget: '4捆坚韧柴木已收集齐全！向刘伯钦复命生火',
+    stepProgress: '4/4 (待交差)',
+    stepProgressRatio: 1,
+    stepHint: '回到刘家村与刘伯钦对话',
+    isDone: true,
+    actionDesc: '交付'
+  },
+  liujiacun_rat_hunting: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetName: '偷粮硕鼠',
+    targetCoords: { x: 21 * 32, y: 9 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '粮仓守卫 · 除灭硕鼠',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '消灭偷粮硕鼠',
+    actionDesc: '除害保粮',
+    computeProgress: (kills) => {
+      const r = kills?.rats || 0;
+      return {
+        stepTarget: `在村中粮仓旁击败作祟偷粮硕鼠 (${r}/4)`,
+        stepProgress: `${r}/4`,
+        stepProgressRatio: Math.min(1, r / 4),
+        stepHint: '在刘家村粮仓附近遭遇偷粮硕鼠并战胜它们',
+        isDone: r >= 4
+      };
+    }
+  },
+  liujiacun_rats_cleared: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetNpcId: 'npc_liuboqin',
+    targetName: '镇山太保刘伯钦',
+    targetCoords: { x: 12 * 32, y: 11 * 32 },
+    ordealNumber: '【第一难·两界投生】',
+    ordealName: '粮仓守卫 · 硕鼠剿除',
+    ordealDesc: '从天界谪落凡尘两界山下，肉身受创，得猎户刘伯钦搭救，暂居刘家村调养。需帮刘伯钦拾柴做饭，肃清害虫，踏出取经凡尘第一步。',
+    chapter: '第一回 · 凡尘始觉',
+    stepName: '向刘伯钦复命',
+    stepTarget: '4只偷粮硕鼠已全部消灭！回禀刘伯钦领取谢礼',
+    stepProgress: '4/4 (待交差)',
+    stepProgressRatio: 1,
+    stepHint: '与刘伯钦对话，准备启程前往长安',
+    isDone: true,
+    actionDesc: '复命'
+  },
+  liujiacun_go_changan: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetName: '东门官道传送门',
+    targetCoords: { x: 36 * 32, y: 14 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '大唐国都 · 长安拜帝',
+    ordealDesc: '别过刘家村，前往盛唐繁华国都长安城，面见唐太宗李世民，拜竭金蝉转世玄奘法师，领西行取经大旨。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '前往长安城',
+    stepTarget: '经由东门官道，与刘伯钦一同启程前往大唐都城长安',
+    stepProgress: '0/1 前往中',
+    stepProgressRatio: 0.5,
+    stepHint: '前往刘家村东门官道传送门',
+    isDone: false,
+    actionDesc: '赶路'
+  },
+  liujiacun_hunted: {
+    mapId: 'liujiacun',
+    mapName: '两界山·刘家村',
+    targetName: '东门官道传送门',
+    targetCoords: { x: 36 * 32, y: 14 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '大唐国都 · 长安拜帝',
+    ordealDesc: '别过刘家村，前往盛唐繁华国都长安城，面见唐太宗李世民，拜竭金蝉转世玄奘法师，领西行取经大旨。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '前往长安城',
+    stepTarget: '经由东门官道，与刘伯钦一同启程前往大唐都城长安',
+    stepProgress: '0/1 前往中',
+    stepProgressRatio: 0.5,
+    stepHint: '前往刘家村东门官道传送门',
+    isDone: false,
+    actionDesc: '赶路'
+  },
+
+  // === 第二章：长安城 ===
+  changan_arrived: {
+    mapId: 'changan_city',
+    mapName: '大唐国都·长安城',
+    targetNpcId: 'npc_tea_granny',
+    targetName: '茶肆阿婆',
+    targetCoords: { x: 18 * 32, y: 19 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '大唐国都 · 长安拜帝',
+    ordealDesc: '别过刘家村，前往盛唐繁华国都长安城，面见唐太宗李世民，拜竭金蝉转世玄奘法师，领西行取经大旨。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '向茶肆阿婆打探消息',
+    stepTarget: '前往街边古亭茶肆向阿婆打探各方消息',
+    stepProgress: '1/1 已抵达',
+    stepProgressRatio: 0.8,
+    stepHint: '前往长安城中心茶肆与阿婆交谈',
+    isDone: false,
+    actionDesc: '探听'
+  },
+  changan_guided: {
+    mapId: 'changan_city',
+    mapName: '大唐国都·长安城',
+    targetNpcId: 'npc_tea_granny',
+    targetName: '茶肆阿婆',
+    targetCoords: { x: 18 * 32, y: 19 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '大唐国都 · 长安拜帝',
+    ordealDesc: '别过刘家村，前往盛唐繁华国都长安城，面见唐太宗李世民，拜竭金蝉转世玄奘法师，领西行取经大旨。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '向茶肆阿婆打探消息',
+    stepTarget: '前往街边古亭茶肆向阿婆打探各方消息',
+    stepProgress: '1/1 已抵达',
+    stepProgressRatio: 0.8,
+    stepHint: '前往长安城中心茶肆与阿婆交谈',
+    isDone: false,
+    actionDesc: '探听'
+  },
+  chentang_investigate: {
+    mapId: 'changan_city',
+    mapName: '大唐国都·长安城',
+    targetName: '东南陈塘关官道',
+    targetCoords: { x: 23 * 32, y: 33 * 32 },
+    ordealNumber: '【第三难·陈塘除恶】',
+    ordealName: '总兵李靖 · 平定混混',
+    ordealDesc: '陈塘关街头地痞恶霸混混横行，总兵李靖下令肃清街市；东海龙宫波涛汹涌，探访定海神针异动。',
+    chapter: '第三回 · 陈塘海潮',
+    stepName: '前往陈塘关协助李靖',
+    stepTarget: '由东南门前往东海陈塘关协助李靖总兵',
+    stepProgress: '进行中',
+    stepProgressRatio: 0.5,
+    stepHint: '由长安城东南门前往陈塘关',
+    isDone: false,
+    actionDesc: '赶路'
+  },
+  changan_meet_xuanzang: {
+    mapId: 'changan_city',
+    mapName: '大唐国都·长安城',
+    targetNpcId: 'npc_xuanzang',
+    targetName: '玄奘法师 (唐僧)',
+    targetCoords: { x: 33 * 32, y: 8 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '化生讲经 · 共商西行',
+    ordealDesc: '大唐盛世，金蝉转世玄奘法师于化生寺升坛讲经，感念东土众生贪嗔痴苦，发宏愿舍身求取大乘真经。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '拜谒玄奘法师',
+    stepTarget: '化生寺拜见玄奘法师共商西行',
+    stepProgress: '0/1',
+    stepProgressRatio: 0.5,
+    stepHint: '前往长安东北隅化生寺与玄奘法师交谈',
+    isDone: false,
+    actionDesc: '参拜'
+  },
+  changan_meet_taizong: {
+    mapId: 'changan_city',
+    mapName: '大唐国都·长安城',
+    targetNpcId: 'npc_taizong',
+    targetName: '唐太宗·李世民',
+    targetCoords: { x: 23 * 32, y: 5 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '大唐国都 · 长安拜帝',
+    ordealDesc: '太宗皇帝御临金銮殿，敕赐玄奘法师通关文牒、紫金钵盂并结为御弟，御赐重宝资助西行。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '拜见太宗皇帝',
+    stepTarget: '金銮殿拜谒大唐太宗皇帝领受通关文牒',
+    stepProgress: '0/1',
+    stepProgressRatio: 0.7,
+    stepHint: '前往金銮殿面见太宗皇帝',
+    isDone: false,
+    actionDesc: '面圣'
+  },
+  changan_farewell: {
+    mapId: 'changan_city',
+    mapName: '大唐国都·长安城',
+    targetNpcId: 'npc_liuboqin_changan',
+    targetName: '刘伯钦 (送行)',
+    targetCoords: { x: 3 * 32, y: 16 * 32 },
+    ordealNumber: '【第二难·长安受戒】',
+    ordealName: '西门送行 · 互道珍重',
+    ordealDesc: '恩人刘伯钦于长安西门相候送行，赠以盘缠干粮，互道珍重，正式踏上西行求经之途。',
+    chapter: '第二回 · 皇都盛世',
+    stepName: '城门拜别刘伯钦',
+    stepTarget: '城门口与刘伯钦互道珍重，启程两界山',
+    stepProgress: '待送别',
+    stepProgressRatio: 0.9,
+    stepHint: '前往长安西城门与刘伯钦话别',
+    isDone: false,
+    actionDesc: '道别'
+  }
+};
+
+/**
+ * 纯查询函数：依据当前主线阶段、地图与进度动态返回统一引导信息
+ * 任务簿、小地图、寻路追踪统一消费此函数
+ */
+window.GAME_DATA.getUnifiedStoryLead = function(storyPhase, currentMapId, questKills, playerData) {
+  const phaseDef = window.GAME_DATA.UNIFIED_STORY_PHASES?.[storyPhase];
+  if (!phaseDef) return null;
+
+  const lead = { ...phaseDef };
+  lead.phaseKey = storyPhase;
+  lead.ultimateGoal = '求取大乘真经三十五部，普度东土受苦众生，匡扶天道秩序，证得无上金身正果！';
+
+  if (typeof phaseDef.computeProgress === 'function') {
+    const computed = phaseDef.computeProgress(questKills, playerData);
+    Object.assign(lead, computed);
+  }
+
+  lead.onTargetMap = (!currentMapId || currentMapId === lead.mapId);
+  return lead;
+};
+
 window.GAME_DATA.STORY_DIALOGUES = {
   // === 蟠桃园与御马监剧情与指引 ===
   bimawen_mount_gift: {
@@ -713,7 +1218,58 @@ window.GAME_DATA.STORY_DIALOGUES = {
             window.App2D.showChapterBanner('第一回 · 梦断双叉', '谪仙落两界，山野逢太保', '西游序章');
           }
           window.App2D.refreshMapNpcs();
-        }
+        },
+        options: [
+          {
+            text: '【继续主线】承蒙搭救，我这就去采野生青蘑菇',
+            action: () => {
+              if (window.Dialogue) window.Dialogue.close();
+              if (!window.App2D.grantStarterItems()) return;
+              window.App2D.storyPhase = 'liujiacun_find_mushrooms';
+              window.showGameMessage('🍄 请在刘家村草地上寻找并拾取 2 朵【野生青蘑菇】！', 'info', 4000);
+              if (window.App2D.showChapterBanner) {
+                window.App2D.showChapterBanner('第一回 · 梦断双叉', '谪仙落两界，山野逢太保', '西游序章');
+              }
+              window.App2D.refreshMapNpcs();
+            }
+          },
+          {
+            text: '【问问缘由】太保可知此处是何地界？',
+            action: () => {
+              if (window.Dialogue) {
+                window.Dialogue.start({
+                  steps: [{
+                    speaker: '刘伯钦',
+                    speakerTitle: '【镇山太保】',
+                    speakerIcon: '🏹',
+                    text: '此处是大唐边界两界山下刘家村。再向西过山，便是豺狼虎豹横行的荒野。往事记不清不打紧，先填饱肚子，名字可以慢慢找。',
+                    options: [
+                      {
+                        text: '【继续主线】好，我这就去采野生青蘑菇',
+                        action: () => {
+                          if (window.Dialogue) window.Dialogue.close();
+                          if (!window.App2D.grantStarterItems()) return;
+                          window.App2D.storyPhase = 'liujiacun_find_mushrooms';
+                          window.showGameMessage('🍄 请在刘家村草地上寻找并拾取 2 朵【野生青蘑菇】！', 'info', 4000);
+                          if (window.App2D.showChapterBanner) {
+                            window.App2D.showChapterBanner('第一回 · 梦断双叉', '谪仙落两界，山野逢太保', '西游序章');
+                          }
+                          window.App2D.refreshMapNpcs();
+                        }
+                      },
+                      {
+                        text: '【稍后再来】我先缓一缓精神'
+                      }
+                    ]
+                  }]
+                });
+              }
+            }
+          },
+          {
+            text: '【稍后再来】我先在村中转转'
+          }
+        ]
       }
     ]
   },
@@ -751,12 +1307,55 @@ window.GAME_DATA.STORY_DIALOGUES = {
         speaker: '刘伯钦',
         speakerTitle: '【缺少柴火】',
         speakerIcon: '🏹',
-        text: '灶柴也快尽了。五行山脚有【百年枯树精】挡着采樵路，乡亲不敢过去。你先在近处试试身手，清掉 4 株，带柴回来；若打不过便退，汤晚些喝无妨。',
+        text: '灶柴也快尽了。五行山脚有【百年枯树精】挡着采樵路，乡亲不敢过去。干枝带回来，青树留着。明年咱们还得烧火，不能一顿饭把山吃完。你先去清掉 4 株，带柴回来；若打不过便退，汤晚些喝无妨。',
         action: () => {
           window.App2D.storyPhase = 'liujiacun_go_cut_wood';
           window.showGameMessage('🪓 前往两界山·五行山脚下，击败 4 株百年枯树精收集坚韧柴木！', 'info', 4000);
           window.App2D.refreshMapNpcs();
-        }
+        },
+        options: [
+          {
+            text: '【继续主线】太保放心，我这就前去五行山小径伐柴！',
+            action: () => {
+              if (window.Dialogue) window.Dialogue.close();
+              window.App2D.storyPhase = 'liujiacun_go_cut_wood';
+              window.showGameMessage('🪓 前往两界山·五行山脚下，击败 4 株百年枯树精收集坚韧柴木！', 'info', 4000);
+              window.App2D.refreshMapNpcs();
+            }
+          },
+          {
+            text: '【问问缘由】那些枯树精是何来历？',
+            action: () => {
+              if (window.Dialogue) {
+                window.Dialogue.start({
+                  steps: [{
+                    speaker: '刘伯钦',
+                    speakerTitle: '【镇山太保】',
+                    speakerIcon: '🏹',
+                    text: '山脚那些老树受了五行山仙气浸染，成了精怪，专门拿枯枝藤蔓缠路人。只要你不慌乱，拿短剑劈断老根，它们便散了。',
+                    options: [
+                      {
+                        text: '【继续主线】明白了，我这就去劈柴！',
+                        action: () => {
+                          if (window.Dialogue) window.Dialogue.close();
+                          window.App2D.storyPhase = 'liujiacun_go_cut_wood';
+                          window.showGameMessage('🪓 前往两界山·五行山脚下，击败 4 株百年枯树精收集坚韧柴木！', 'info', 4000);
+                          window.App2D.refreshMapNpcs();
+                        }
+                      },
+                      {
+                        text: '【稍后再来】容我再做准备'
+                      }
+                    ]
+                  }]
+                });
+              }
+            }
+          },
+          {
+            text: '【稍后再来】我先歇息片刻'
+          }
+        ]
       }
     ]
   },

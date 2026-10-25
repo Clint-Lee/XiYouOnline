@@ -63,6 +63,21 @@ class MiniMapEngine {
       }
     }
 
+    // 0. 优先尝试统一主线历程查询 (序章至长安完整闭环，R3)
+    if (window.GAME_DATA && typeof window.GAME_DATA.getUnifiedStoryLead === 'function') {
+      const unified = window.GAME_DATA.getUnifiedStoryLead(storyPhase, mapId, window.App2D?.questKills, window.App2D?.playerData);
+      if (unified && unified.mapId === mapId) {
+        return {
+          x: unified.targetCoords.x,
+          y: unified.targetCoords.y,
+          name: unified.targetName,
+          desc: unified.stepTarget || unified.stepName,
+          npcId: unified.targetNpcId,
+          actionDesc: unified.actionDesc
+        };
+      }
+    }
+
     // 1. 天宫序章三大因缘事件主线追踪
     if (mapId === 'tiangong_palace' && storyPhase && storyPhase.startsWith('heaven_')) {
       if (storyPhase === 'heaven_prologue') {

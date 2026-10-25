@@ -73,6 +73,8 @@ class DialogueEngine {
     if (s.includes('当铺') || s.includes('聚宝阁') || s.includes('掌柜')) return 'dangpu_boss';
     if (s.includes('铁匠') || s.includes('神兵坊') || s.includes('铸造')) return 'tiejiang';
     if (s.includes('茶肆') || s.includes('阿婆') || s.includes('茶婆婆')) return 'teashop_granny';
+    if (s.includes('大婶') || s.includes('大娘') || s.includes('看粮')) return 'teashop_granny';
+    if (s.includes('摊主') || s.includes('胡饼')) return 'changan_hawker';
     if (s.includes('渔翁') || s.includes('钓叟') || s.includes('渔夫')) return 'fisherman';
     if (s.includes('刘伯钦') || s.includes('猎户') || s.includes('太保')) return 'liu_boqin';
 

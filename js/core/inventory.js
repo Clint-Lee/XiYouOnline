@@ -8,9 +8,10 @@
  */
 class Inventory {
   constructor(initSlots = []) {
-    this.maxSlots = 36;
+    this.maxSlots = typeof initSlots === 'number' ? initSlots : 36;
+    const slotsArr = Array.isArray(initSlots) ? initSlots : [];
     // slots: [{ instanceId, itemId, count, equipData: { star: 0, sockets: [null, null, null] } }]
-    this.slots = initSlots.map(s => {
+    this.slots = slotsArr.map(s => {
       const it = window.GAME_DATA.ITEMS[s.itemId];
       if (it && it.type === 'equip') {
         const ed = s.equipData || {};
@@ -235,11 +236,17 @@ class Inventory {
         return { success: true, msg: used.msg };
       }
 
-      // 飞行符瞬移
+      // 飞行符瞬移：返回传送目标场景与道具实例，交由业务层执行前置校验并在切图成功后原子扣除
       if (item.effect.teleport) {
-        this.removeItem(slot.itemId, 1);
-        if (window.Sound) window.Sound.playSuccess();
-        return { success: true, teleportMap: item.effect.teleport, msg: `神符光华一闪，瞬息传送至【长安城】！` };
+        const targetMap = item.effect.teleport === 'changan' ? 'changan_city' : item.effect.teleport;
+        return {
+          success: true,
+          action: 'teleport',
+          teleportMap: targetMap,
+          instanceId: slot.instanceId,
+          itemId: slot.itemId,
+          msg: `神符光华微泛，正待引动九天神行遁法……`
+        };
       }
 
       if (effectApplied) {

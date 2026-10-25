@@ -51,6 +51,8 @@ class ShanhaiSystem {
     if (app.currentBattle || app.isTransitioning) return { success: false, msg: '请在战斗与转场结束后献录。' };
     const index = (app.pets || []).findIndex(p => p.instanceId === instanceId);
     const pet = app.pets?.[index];
+    if (!pet) return { success: false, msg: '未找到选定的仙宠。' };
+    if (pet.isProtected) return { success: false, msg: `【${pet.name}】处于加锁保护状态，无法献录！请先在仙宠面板解除保护。` };
     if (!ShanhaiSystem.isCollectible(pet)) return { success: false, msg: '这位生灵无法献录。' };
     if (this.entries[pet.templateId]) return { success: false, msg: '同种生灵已经收录，无需再交出仙宠。' };
     this.seen[pet.templateId] = true;

@@ -310,8 +310,19 @@ class GameApp2D {
     const hasExplicitParam = urlParams.get('map') || urlParams.get('combat') || urlParams.get('dialogue') || urlParams.get('modal');
 
     let loadedSave = false;
-    if (!hasExplicitParam && window.SaveManager && window.SaveManager.hasAutoSave()) {
+    let hasSave = false;
+    try {
+      hasSave = Boolean(window.SaveManager && window.SaveManager.hasAutoSave());
+    } catch (e) {
+      console.warn('检查自动存档异常:', e);
+    }
+
+    if (!hasExplicitParam && hasSave) {
       loadedSave = this.loadAutoSavedProgress();
+      if (!loadedSave && window.SaveManager?.getCorruptedBackup?.()) {
+        this.isSaveCorrupted = true;
+        window.showGameMessage('⚠️ 检测到本地历练存档受损，已保留灾备副本，当前处于未保存临时状态。', 'warning', 6000);
+      }
     }
 
     if (!loadedSave) {
@@ -569,8 +580,12 @@ class GameApp2D {
   // =========================================================================
   // 自动存档与断点续玩体系 (绝不让玩家进度丢失)
   // =========================================================================
-  saveAutoProgress() {
+  saveAutoProgress(forceOverwrite = false) {
     if (!this.playerData || !this.playerChar) return { success: false };
+    if (this.isSaveCorrupted && !forceOverwrite) {
+      this.updateSaveIndicator(false);
+      return { success: false, reason: 'corrupted_protection', msg: '原存档损坏保护中，暂未自动覆盖。' };
+    }
     try {
       const state = {
         mapId: this._mapDestination?.mapId || this.currentMapId,
@@ -611,6 +626,7 @@ class GameApp2D {
         inventorySlots: this.inventory ? this.inventory.slots : [],
         pets: this.pets || [],
         shanhai: this.getShanhai().toJSON(),
+        shanhaiPursuitTarget: this.shanhaiPursuitTarget || null,
         activeCombatPetIds: (this.activeCombatPets || []).map(p => p.instanceId),
         mountState: {
           mounts: this.mountSystem.mounts,
@@ -636,7 +652,8 @@ class GameApp2D {
   }
 
   saveManualProgress() {
-    const result = this.saveAutoProgress();
+    this.isSaveCorrupted = false; // 手动保存表示明确提交当前状态
+    const result = this.saveAutoProgress(true);
     const success = result?.success === true;
     window.showGameMessage(success ? '💾 历练进度已手动保存！' : '存档未成功，请检查浏览器存储后重试。',
       success ? 'success' : 'warning');
@@ -679,10 +696,14 @@ class GameApp2D {
         for (const pet of this.pets) {
           pet.gender = pet.gender || window.GAME_DATA.PETS[pet.templateId]?.gender || 'male';
           pet.masterLessonLearned = !!(pet.masterLessonLearned || pet.skills?.length || pet.classId);
+          pet.isProtected = !!pet.isProtected;
           this.shanhai.observe(pet);
         }
         const activeIds = state.activeCombatPetIds || [];
         this.activeCombatPets = this.pets.filter(p => activeIds.includes(p.instanceId));
+      }
+      if (state.shanhaiPursuitTarget) {
+        this.shanhaiPursuitTarget = state.shanhaiPursuitTarget;
       }
       if (state.mountState) {
         this.mountSystem.mounts = state.mountState.mounts || {};
@@ -754,7 +775,8 @@ class GameApp2D {
         this.playerChar.name = this.playerData.name;
         this.playerChar.title = this.playerData.title;
       }
-      this.playerData.recalculateStats(true);
+      // R1.1: 读档保留实际气血与法力，避免刷新网页免费全恢复；缺失字段单独采用派生上限默认值
+      this.playerData.recalculateStats(false);
 
       const targetMap = (state.mapId && window.GAME_DATA.MAPS_2D[state.mapId]) ? state.mapId : 'tiangong_palace';
       let spawn = state.playerPos || null;
@@ -899,6 +921,7 @@ class GameApp2D {
           console.warn('清空存档异常:', e);
         }
 
+        this.isSaveCorrupted = false;
         // 内存状态立即同步复位至天宫序章
         this.shownChapterSet = new Set();
         this.storyPhase = 'heaven_prologue';
@@ -1555,6 +1578,14 @@ class GameApp2D {
         const sq = this.playerData?.sideQuests?.sq_sanling_demon;
         return (!sq || sq.step !== 'done') ? 'side' : false;
       }
+      // P4 趣闻小支线：未完成前展示翠绿支线感叹号，完成后彻底消失
+      if (n.id === 'npc_liujiacun_dashen') {
+        const rice = this.playerData?.sideQuests?.sq_rice_thief;
+        return (!rice || rice.step !== 'done') ? 'side' : false;
+      }
+      if (n.id === 'npc_changan_bingtan') {
+        return this.playerData?.storyEvents?.changan_sign_task !== 'done' ? 'side' : false;
+      }
       if (n.id && (n.id.startsWith('npc_sanling_fox_') || n.id.startsWith('npc_sanling_wolf_') || n.id === 'npc_heifeng_shura_boss')) {
         return 'side';
       }
@@ -1683,7 +1714,12 @@ class GameApp2D {
         }
         if (e.key !== 'Escape' && !(e.key === 'Tab' && document.getElementById('scene-roster-modal'))) return;
       }
-      this.keysDown[e.key] = true;
+      // 🔒 输入状态规范化：字母键统一小写存储，杜绝"按 a 抬 Shift 后 keyup 变 A"导致按键永久卡死
+      const normalizedKey = (typeof e.key === 'string' && e.key.length === 1) ? e.key.toLowerCase() : e.key;
+      this.keysDown[normalizedKey] = true;
+      // 🔒 记录最近一次键盘事件时间，供失联看门狗判定 keyup 丢失 (切窗/焦点被夺/输入法吞事件)
+      this._keyEventTimes = this._keyEventTimes || {};
+      this._keyEventTimes[normalizedKey] = Date.now();
       if (this.currentBattle) {
         if (this.battleTargetMenuOpen) {
           if (e.key === 'Escape' || e.key === 'Backspace') {
@@ -1772,21 +1808,35 @@ class GameApp2D {
     });
 
     window.addEventListener('keyup', (e) => {
-      this.keysDown[e.key] = false;
+      // 🔒 同步规范化并清理大小写两种可能的历史残留，任何情况下都保证按键被彻底释放
+      const normalizedKey = (typeof e.key === 'string' && e.key.length === 1) ? e.key.toLowerCase() : e.key;
+      this.keysDown[normalizedKey] = false;
+      if (normalizedKey !== e.key) this.keysDown[e.key] = false;
+      if (this._keyEventTimes) delete this._keyEventTimes[normalizedKey];
     });
 
+    // 🔒 页面失焦/切后台兜底清键 (移动端 WebView 对 blur 不可靠，visibilitychange 更稳)
     window.addEventListener('blur', () => {
       this.keysDown = {};
     });
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) this.keysDown = {};
+      });
+    }
 
-    // 画布鼠标点击 -> 智能触发 A* 寻路或交互
+    // 画布鼠标点击 -> 智能触发 A* 寻路或交互 (带 contain 留白偏移校准与弹窗防护)
     if (this.canvas) {
       this.canvas.addEventListener('click', (e) => {
-        const rect = this.canvas.getBoundingClientRect();
-        const clickX = (e.clientX - rect.left) * (this.canvas.width / rect.width);
-        const clickY = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-        this.handleClickCanvas(clickX, clickY);
+        if (this.hasExplorationModal()) return;
+        const pt = this.getCanvasPointerPosition(e.clientX, e.clientY);
+        if (!pt) return; // 点击在留白黑边处，安全忽略
+        this.handleClickCanvas(pt.x, pt.y);
       });
+
+      // H5 触屏适配：屏蔽画布长按系统菜单与触摸拖动引发的页面滚动 (弹窗内部滚动不受影响)
+      this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      this.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
     }
 
     // 名册顶部快捷按钮绑定
@@ -1838,9 +1888,47 @@ class GameApp2D {
     }
   }
 
+  // 集中计算实际绘制矩形，消除 object-fit: contain 居中黑边对点击造成的坐标偏移
+  getCanvasPointerPosition(clientX, clientY) {
+    if (!this.canvas) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+
+    const isContain = document.body?.classList?.contains('modern-mode') ||
+      (typeof window !== 'undefined' && window.getComputedStyle && window.getComputedStyle(this.canvas).objectFit === 'contain');
+
+    if (isContain) {
+      const scale = Math.min(rect.width / this.canvas.width, rect.height / this.canvas.height);
+      const drawW = this.canvas.width * scale;
+      const drawH = this.canvas.height * scale;
+      const offsetX = (rect.width - drawW) / 2;
+      const offsetY = (rect.height - drawH) / 2;
+
+      // 处于留白黑边内，不属于画布有效画面，返回 null 阻止错误寻路
+      if (localX < offsetX || localX > offsetX + drawW || localY < offsetY || localY > offsetY + drawH) {
+        return null;
+      }
+
+      const clickX = (localX - offsetX) / scale;
+      const clickY = (localY - offsetY) / scale;
+      return {
+        x: Math.max(0, Math.min(this.canvas.width, clickX)),
+        y: Math.max(0, Math.min(this.canvas.height, clickY))
+      };
+    } else {
+      return {
+        x: Math.max(0, Math.min(this.canvas.width, (localX / rect.width) * this.canvas.width)),
+        y: Math.max(0, Math.min(this.canvas.height, (localY / rect.height) * this.canvas.height))
+      };
+    }
+  }
+
   // 场景鼠标点击智能分发
   handleClickCanvas(screenX, screenY) {
-    if (this.isPaused || this.isTransitioning || this.currentBattle) return;
+    if (this.isPaused || this.isTransitioning || this.currentBattle || this.hasExplorationModal()) return;
     if (window.Dialogue && window.Dialogue.currentDialogue) {
       // 用户点击了场景画布，直接解除对话并走完流程
       this.skipCurrentDialogue();
@@ -2114,11 +2202,42 @@ class GameApp2D {
     });
   }
 
-  // 游戏主循环
+  // 游戏主循环 (按固定 60Hz 逻辑步长解耦渲染与帧率，30/60/120Hz 耗时手感一致，后台恢复不瞬移)
   gameLoop(timestamp) {
-    // 保留下一帧调度，单个 UI 错误不会让整个探索循环永久停摆。
     requestAnimationFrame((t) => this.gameLoop(t));
-    this.update();
+
+    if (!timestamp) {
+      this.update();
+      this.render();
+      return;
+    }
+
+    if (!this._lastLoopTimestamp) {
+      this._lastLoopTimestamp = timestamp;
+      this._loopAccumulator = 0;
+    }
+
+    let delta = timestamp - this._lastLoopTimestamp;
+    this._lastLoopTimestamp = timestamp;
+
+    // 后台切回或卡顿异常保护：限制单帧最大补进时间为 100ms (最多执行 6 次 16.6ms 逻辑步)
+    if (delta > 100) delta = 100;
+    if (delta < 0) delta = 0;
+
+    this._loopAccumulator = (this._loopAccumulator || 0) + delta;
+    const FIXED_STEP = 1000 / 60; // 16.6667ms
+    let steps = 0;
+    while (this._loopAccumulator >= FIXED_STEP && steps < 6) {
+      this.update(FIXED_STEP);
+      this._loopAccumulator -= FIXED_STEP;
+      steps++;
+    }
+
+    // 若仍有过多余量，截断以防雪崩
+    if (this._loopAccumulator > FIXED_STEP * 2) {
+      this._loopAccumulator = 0;
+    }
+
     this.render();
   }
 
@@ -2151,6 +2270,21 @@ class GameApp2D {
     this.playerChar.speed = finalSpeed;
     this.playerChar.isRiding = this.mountSystem.isRiding;
 
+    // 🔒 失联按键看门狗：物理按住的方向/字母键会由系统持续派发 e.repeat keydown；
+    // 若某"按住中"的键超过 1.2 秒未再收到任何键盘事件，判定其 keyup 已丢失
+    // (Alt+Tab 切窗、焦点被弹窗/地址栏夺走、输入法拦截等)，强制清除防止角色卡死移动。
+    if (this._keyEventTimes) {
+      const nowMs = Date.now();
+      for (const k of Object.keys(this._keyEventTimes)) {
+        if (this.keysDown[k] && nowMs - (this._keyEventTimes[k] || 0) > 1200) {
+          this.keysDown[k] = false;
+          delete this._keyEventTimes[k];
+        } else if (!this.keysDown[k]) {
+          delete this._keyEventTimes[k];
+        }
+      }
+    }
+
     // 2. 键盘手动移动检测
     let dx = 0;
     let dy = 0;
@@ -2163,6 +2297,7 @@ class GameApp2D {
     if (dx !== 0 || dy !== 0) {
       this.autoMovePath = [];
       this.autoMoveTargetCallback = null;
+      this._autoMoveStuckStartTime = 0;
       if (dx !== 0 && dy !== 0) {
         dx *= 0.707;
         dy *= 0.707;
@@ -2177,7 +2312,7 @@ class GameApp2D {
         this.playerChar.x = targetPoint.x;
         this.playerChar.y = targetPoint.y;
         this.autoMovePath.shift();
-        this._autoMoveStuckFrames = 0;
+        this._autoMoveStuckStartTime = 0;
         if (this.autoMovePath.length === 0 && this.autoMoveTargetCallback) {
           const cb = this.autoMoveTargetCallback;
           this.autoMoveTargetCallback = null;
@@ -2191,14 +2326,18 @@ class GameApp2D {
         this.playerChar.move(moveDx, moveDy, mapData, this.tilemap);
         if (Math.abs(this.playerChar.x - prevX) < 0.05 && Math.abs(this.playerChar.y - prevY) < 0.05) {
           this._autoMoveStuckFrames = (this._autoMoveStuckFrames || 0) + 1;
-          if (this._autoMoveStuckFrames > 8) {
+          const now = Date.now();
+          if (!this._autoMoveStuckStartTime) this._autoMoveStuckStartTime = now;
+          if (this._autoMoveStuckFrames > 8 || now - this._autoMoveStuckStartTime > 350) {
             this._autoMoveStuckFrames = 0;
+            this._autoMoveStuckStartTime = 0;
             this.autoMovePath = [];
             this.autoMoveTargetCallback = null;
             window.showGameMessage('前路受阻，请换个落脚点或用方向键绕行。', 'warning');
           }
         } else {
           this._autoMoveStuckFrames = 0;
+          this._autoMoveStuckStartTime = 0;
         }
       }
     }
@@ -2342,6 +2481,9 @@ class GameApp2D {
   triggerNpcDialogue(npc) {
     if (!npc || this.currentBattle || this.isTransitioning || window.Dialogue?.currentDialogue) return;
     if (this.openPendingStoryDialogue()) return;
+    // P4 趣闻小支线：两位生活 NPC 的对话按支线状态动态分发
+    if (npc.id === 'npc_liujiacun_dashen') { this.playRiceThiefDialogue(); return; }
+    if (npc.id === 'npc_changan_bingtan') { this.playSignBoardDialogue(); return; }
     // 天宫旧配置把李天王和太白都指向开场；按当前阶段选剧本，不能重放已完成事件。
     if (this.currentMapId === 'tiangong_palace') {
       if (npc.id === 'npc_taibai') {
@@ -3096,19 +3238,29 @@ class GameApp2D {
     const overlay = document.createElement('div');
     overlay.id = 'chapter-opening-overlay';
     overlay.className = 'chapter-opening-overlay';
+    if (this.isReducedMotionEnabled && this.isReducedMotionEnabled()) {
+      overlay.classList.add('reduced-motion');
+    }
 
+    // 画卷展开式章回开幕：左右木轴自中央向两侧舒卷，画心 (山海画卷) 随之显现，题字渐显
     overlay.innerHTML = `
-      <div class="chapter-opening-bar-top">✦ 汉 风 西 游 · 章 回 演 义 ✦</div>
-      <div class="chapter-opening-box">
-        <div class="chapter-opening-goldline"></div>
-        <div class="chapter-opening-tag">✦ JOURNEY TO THE WEST ✦</div>
-        <div class="chapter-opening-title">${title}</div>
-        <div class="chapter-opening-poem">${subtitle}</div>
-        <div class="chapter-opening-seal-wrap">
-          <span class="chapter-opening-seal">【 ${seal} 】</span>
+      <div class="chapter-opening-brand">✦ 汉 风 西 游 · 章 回 演 义 ✦</div>
+      <div class="chapter-scroll-stage">
+        <div class="chapter-scroll-paper">
+          <div class="chapter-scroll-art"></div>
+          <div class="chapter-scroll-content">
+            <div class="chapter-opening-tag">✦ JOURNEY TO THE WEST ✦</div>
+            <div class="chapter-opening-title">${title}</div>
+            <div class="chapter-opening-poem">${subtitle}</div>
+            <div class="chapter-opening-seal-wrap">
+              <span class="chapter-opening-seal">【 ${seal} 】</span>
+            </div>
+          </div>
         </div>
+        <div class="chapter-scroll-roller chapter-scroll-roller-left"><i></i><i></i></div>
+        <div class="chapter-scroll-roller chapter-scroll-roller-right"><i></i><i></i></div>
+        <div class="chapter-scroll-shadow"></div>
       </div>
-      <div class="chapter-opening-bar-bottom">✦ 西 天 取 经 · 功 德 圆 满 ✦</div>
       <div class="chapter-opening-skip">点击屏幕任意位置跳过</div>
     `;
 
@@ -3674,6 +3826,86 @@ class GameApp2D {
     });
   }
 
+  // P3.2: 祖师传法资格指引 —— 返回每只仙宠当前传法状态与准确原因 (纯查询，不改状态)
+  getMasterLessonGuidance(pet) {
+    if (!pet) return null;
+    if (!['sanxian', 'jinxian'].includes(pet.quality)) {
+      return { status: 'ineligible', hint: '普通仙宠仅能普攻，无法受法' };
+    }
+    const learnedSkill = (pet.skills && pet.skills[0]) || null;
+    if (pet.masterLessonLearned || learnedSkill || pet.classId) {
+      const skName = learnedSkill ? learnedSkill.name : '已传法';
+      const clsName = pet.className || learnedSkill?.className || '';
+      return {
+        status: 'learned',
+        hint: `已受法：${clsName ? clsName + '·' : ''}${skName}（每只仅一次）`,
+        skill: learnedSkill
+      };
+    }
+    if ((pet.level || 1) < 10) {
+      return { status: 'under_level', hint: `传法需 10 级（当前 Lv.${pet.level}，还差 ${10 - pet.level} 级）` };
+    }
+    return { status: 'ready', hint: '已可受法：带它到长安神坛·菩提祖师身边免费传法（每只一次）' };
+  }
+
+  // P3.1: 加点定位建议 —— 两到三种文字取向，仅说明用途，不自动分配 (纯查询)
+  getAllocationAdvice(targetType = 'hero', pet = null) {
+    if (targetType === 'pet') {
+      const role = (pet && window.GAME_DATA.getSpeciesRoleProfile)
+        ? window.GAME_DATA.getSpeciesRoleProfile(pet.templateId) : null;
+      const tag = role ? role.tag : null;
+      if (tag === '耐久承伤') {
+        return [
+          { name: '铁壁承伤', text: '主加【血】，余点给【力】——血厚防高，顶在阵前替队友挡刀' },
+          { name: '稳扎稳打', text: '血力对半——保留一定出手威力，别让它只会挨打' }
+        ];
+      }
+      if (tag === '速度先手') {
+        return [
+          { name: '先手压制', text: '主加【速】，次【力】——抢在敌人前出手，先打先赢' },
+          { name: '敏攻游击', text: '速力并重——出手快且打得出伤害，适合收割残局' }
+        ];
+      }
+      if (tag === '物理输出') {
+        return [
+          { name: '物攻主力', text: '主加【力】，次【血】——攻击拉满，做全队最稳的一把刀' },
+          { name: '暴力先锋', text: '力速偏重——出手提前，赶在治疗前终结对手' }
+        ];
+      }
+      if (tag === '均衡成长') {
+        return [
+          { name: '均衡过渡', text: '四维轮流加——前期先带着练，观察这只的实际成长再定型' },
+          { name: '偏血保守', text: '多给【血】——活下来才有输出，新手稳妥之选' }
+        ];
+      }
+    }
+    // 本尊建议按门派分发；未选门派时给通用三向
+    const classId = this.playerData?.classId;
+    if (classId === 'jingang') {
+      return [
+        { name: '金刚铁壁', text: '主加【血】，次【力】——站得住才有输出，血量高于10%才能施展舍生取义' },
+        { name: '佛门攻坚', text: '主加【力】，次【血】——走攻击路线，配合天生5%抗玄击硬撼法系' }
+      ];
+    }
+    if (classId === 'yaomo') {
+      return [
+        { name: '法术轰炸', text: '主加【精】，次【速】——技能连发不缺蓝，雷霆万钧先声夺人' },
+        { name: '爆发刺客', text: '主【速】，次【精】——抢先用万毒攻心压制，控住再打' }
+      ];
+    }
+    if (classId === 'xianren') {
+      return [
+        { name: '先手封控', text: '主加【速】，次【精】——封印定身先出手，让敌人整轮动弹不得' },
+        { name: '持久牵制', text: '主【精】，次【血】——法力充盈反复控场，站到最后一刻' }
+      ];
+    }
+    return [
+      { name: '耐久生存', text: '主加【血】——站得住才有输出' },
+      { name: '物理输出', text: '主加【力】——普攻与物理技能更痛' },
+      { name: '先手控场', text: '主加【速】——出手提前，掌握节奏' }
+    ];
+  }
+
   // 自由潜能点分配专用弹窗 (1:1 像素级复刻 profile-v3-window，四维血精力速雷达、实时预览与保存锁定机制)
   openStatAllocationModal(targetType = 'hero', petIndex = 0) {
     if (typeof document === 'undefined') return;
@@ -3824,6 +4056,35 @@ class GameApp2D {
                 </div>
               `).join('')}
             </div>
+
+            ${(() => {
+      // P3.1: 定位建议 (纯文字说明，不自动分配) 与 P3.3 物种定位标签
+      const advice = this.getAllocationAdvice(isPet ? 'pet' : 'hero', isPet ? activePet : null);
+      const role = isPet && window.GAME_DATA.getSpeciesRoleProfile
+        ? window.GAME_DATA.getSpeciesRoleProfile(activePet.templateId) : null;
+      const growthRangeText = isPet && activePet ? (() => {
+        const tpl = window.GAME_DATA?.PETS?.[activePet.templateId];
+        if (!tpl || !tpl.growthRange) return '';
+        const actual = Number(activePet.growth || 0);
+        const inRange = actual >= tpl.growthRange[0] && actual <= tpl.growthRange[1];
+        return `实际成长 ${actual.toFixed(2)}（物种区间 ${tpl.growthRange[0].toFixed(2)} ~ ${tpl.growthRange[1].toFixed(2)}${inRange ? '' : '，洗炼所致区间外'}）`;
+      })() : '';
+      return `
+            <!-- P3.1 定位建议与物种区间说明 -->
+            <div class="stat-alloc-advice-box" style="background:rgba(30,20,10,0.75);border:1px solid #6b4a24;border-radius:6px;padding:6px 9px;">
+              <div style="font-size:10.5px;color:#f5cd79;font-weight:bold;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center;">
+                <span>🧭 加点定位参考${role ? ` · 本宠物种：${role.icon}${role.tag}` : ''}</span>
+                <span style="font-weight:normal;color:#a89278;font-size:9px;">仅供参照，不会自动分配</span>
+              </div>
+              ${growthRangeText ? `<div style="font-size:10px;color:#9fd3a8;margin-bottom:3px;">📈 ${growthRangeText}</div>` : ''}
+              ${advice.map(a => `
+                <div style="font-size:10px;color:#d8c9a3;line-height:1.55;">
+                  <span style="color:#ffd700;">▪ ${a.name}：</span>${a.text}
+                </div>
+              `).join('')}
+            </div>
+            `;
+    })()}
 
             <!-- 操作按钮：保存分配与重置 -->
             <div class="stat-alloc-action-bar">
@@ -4502,6 +4763,55 @@ class GameApp2D {
   }
 
   useConsumableItem(instanceId) {
+    if (!this.inventory) return;
+    const slot = this.inventory.slots.find(s => s.instanceId === instanceId);
+    if (!slot) return;
+    const item = window.GAME_DATA.ITEMS[slot.itemId];
+    if (!item) return;
+
+    // R1.3: 飞行符等瞬移类消耗品安全校验与原子执行
+    if (item.effect && item.effect.teleport) {
+      if (this.isTeleporting || this.isMapTransitioning) {
+        window.showGameMessage('正在施法移形换位，请勿频繁点击。', 'warning');
+        return;
+      }
+      if (this.currentBattle) {
+        window.showGameMessage('战阵交锋之中，妖气封锁退路，无法施展神符！', 'warning');
+        return;
+      }
+      if (window.Dialogue && window.Dialogue.currentDialogue) {
+        window.showGameMessage('交谈尚未毕退，不可施展神符。', 'warning');
+        return;
+      }
+      const targetMap = item.effect.teleport === 'changan' ? 'changan_city' : item.effect.teleport;
+      if (this.currentMapId === targetMap) {
+        window.showGameMessage('少侠已然身处长安城中，无需耗用神符。', 'info');
+        return;
+      }
+      const isChanganUnlocked = this.storyPhase && !this.storyPhase.startsWith('heaven_') && !this.storyPhase.startsWith('liujiacun_');
+      if (!isChanganUnlocked) {
+        window.showGameMessage('长安剧情尚未解锁，红尘道路未开，神符暂受禁制。', 'warning');
+        return;
+      }
+
+      this.isTeleporting = true;
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+      this.inventory.removeItem(slot.itemId, 1);
+      this.autoMovePath = [];
+      this.autoMoveTargetCallback = null;
+      this.keysDown = {};
+
+      const safeSpawn = { x: 640, y: 512 };
+      this.loadMap(targetMap, safeSpawn, { duration: 300, forceTransition: true });
+      if (window.Sound && window.Sound.playSuccess) {
+        try { window.Sound.playSuccess(); } catch (_) {}
+      }
+      window.showGameMessage('神符光华一闪，瞬息回转【大唐王都·长安城】！', 'success', 3500);
+      this.updatePlayerHud();
+      setTimeout(() => { this.isTeleporting = false; }, 500);
+      return;
+    }
+
     const res = this.inventory.useItem(instanceId, this.playerData, this.activeCombatPets[0]);
     this.updatePlayerHud();
     window.showGameMessage(res.msg, res.success ? 'success' : 'warning');
@@ -4623,6 +4933,10 @@ class GameApp2D {
       const qColor = pet.quality === 'jinxian' ? '#ffd700' : (pet.quality === 'sanxian' ? '#3498db' : '#aaa');
       const hasSkill = pet.skills && pet.skills.length > 0;
       const canLearn = ['jinxian', 'sanxian'].includes(pet.quality) && pet.level >= 10 && !pet.masterLessonLearned;
+      // P3.2 传法资格准确指引 与 P3.3 物种定位标签
+      const lessonGuide = this.getMasterLessonGuidance(pet) || { status: 'ineligible', hint: '' };
+      const roleProfile = window.GAME_DATA.getSpeciesRoleProfile
+        ? window.GAME_DATA.getSpeciesRoleProfile(pet.templateId) : null;
 
       const getPetPortrait = (p, size = 32) => {
         if (window.VisualIdentity && window.Portraits) return window.Portraits.getPortraitSvg(this.getUnitVisualId(p), size);
@@ -4665,7 +4979,9 @@ class GameApp2D {
                         <div>
                           <div class="pet-name-row">
                             <span style="font-weight:bold;color:#fef0cd;font-size:12px;">${pet.name} (Lv.${pet.level})</span>
+                            ${pet.isProtected ? '<span title="加锁保护中（禁止献录与放生）" style="color:#ef4444;font-size:11px;margin-left:3px;">🔒</span>' : ''}
                             <span style="color:${qColor};font-weight:bold;font-size:10px;border:1px solid ${qColor};border-radius:4px;padding:0 4px;">【${pet.qualityName || '普通'}】</span>
+                            ${roleProfile ? `<span title="${roleProfile.desc}" style="color:#9fd3a8;font-size:10px;border:1px solid #4a7c59;border-radius:4px;padding:0 4px;background:rgba(20,40,25,0.6);">${roleProfile.icon}${roleProfile.tag}</span>` : ''}
                             ${pet.className && pet.className !== '无门派' ? `<span style="color:#d4af37;font-size:10px;">[${pet.className}]</span>` : ''}
                           </div>
                         </div>
@@ -4700,10 +5016,16 @@ class GameApp2D {
                     <div class="pet-skill-row">
                       <div style="color:#bbb;">
                         ${hasSkill ? `绝技: <span style="color:#ffd700;font-weight:bold;">${pet.skills[0].name}</span> ${(pet.skills[0].desc || '').slice(0, 40)}` : `
-                          <span style="color:#887766;">${pet.quality === 'ordinary' ? '普通仙宠无法领悟绝技，仅能物理攻击' : (pet.quality === 'sanxian' ? '10级后到神坛免费传法一次' : '10级后到神坛免费传法一次')}</span>
+                          <span style="color:${lessonGuide.status === 'ready' ? '#9fd3a8' : '#887766'};">✨ ${lessonGuide.hint}</span>
                         `}
                       </div>
                       <div class="pet-actions">
+                        <button class="dialogue-opt-btn" style="padding:2px 6px;font-size:9px;background:${pet.isProtected ? '#b91c1c' : '#334155'};color:#fff;font-weight:bold;" onclick="window.App2D.togglePetProtection('${pet.instanceId}')" title="${pet.isProtected ? '点击解除加锁保护' : '点击开启加锁保护（防止误献录与误放生）'}">
+                          ${pet.isProtected ? '🔒 已保护' : '🔓 未保护'}
+                        </button>
+                        <button class="dialogue-opt-btn" style="padding:2px 6px;font-size:9px;background:#475569;" onclick="window.App2D.confirmReleasePet('${pet.instanceId}')" title="放生仙宠归于天地山林">
+                          🍃 放生
+                        </button>
                         <button class="dialogue-opt-btn" style="padding:2px 6px;font-size:9px;background:#c59b27;color:#000;font-weight:bold;" onclick="window.App2D.openPetWashModal('${pet.instanceId}')">
                           🧴 洗炼
                         </button>
@@ -4791,6 +5113,454 @@ class GameApp2D {
     } else {
       window.showGameMessage(res.msg, 'warning');
     }
+  }
+
+  // P2.3: 切换仙宠加锁保护状态 (按 instanceId 生效，不锁整个物种)
+  togglePetProtection(instanceId) {
+    const pet = (this.pets || []).find(p => p.instanceId === instanceId);
+    if (!pet) return;
+    pet.isProtected = !pet.isProtected;
+    if (window.Sound && window.Sound.playBeep) window.Sound.playBeep();
+    window.showGameMessage(pet.isProtected ? `🔒 【${pet.name}】已开启实例保护，禁止献录与放生！` : `🔓 【${pet.name}】已解除加锁保护。`, 'info');
+    this.saveAutoProgress();
+    if (document.getElementById('scene-roster-modal')) {
+      this.renderSceneRosterModal();
+    }
+    if (document.getElementById('shanhai-pet-picker-modal')) {
+      this.openShanhaiPetPickerModal(pet.templateId);
+    }
+    if (document.querySelector('.modal-window.pet-panel')) {
+      this.openPetManageModal();
+    }
+  }
+
+  // P2.3: 二次确认放生仙宠
+  confirmReleasePet(instanceId) {
+    const pet = (this.pets || []).find(p => p.instanceId === instanceId);
+    if (!pet) return;
+    if (pet.isProtected) {
+      window.showGameMessage(`【${pet.name}】处于加锁保护状态，无法放生！请先在仙宠面板解除保护。`, 'warning');
+      return;
+    }
+    if ((this.activeCombatPets || []).some(p => p.instanceId === instanceId)) {
+      window.showGameMessage(`【${pet.name}】正在出战中，请先转为备战待命后再放生。`, 'warning');
+      return;
+    }
+    this.showConfirmModal({
+      title: '⚠️ 仙宠放生确认',
+      confirmText: '确认放生',
+      cancelText: '取消',
+      content: `确定要将随行仙宠【<strong>${pet.name} (Lv.${pet.level})</strong>】放归天地山林吗？<br><br><span style="color:#ef4444;font-weight:bold;">⚠️ 郑重提醒：放生后该仙宠将永久离开队伍，不可恢复！</span>`,
+      onConfirm: () => {
+        const res = window.PetSystem.releasePet(this, instanceId);
+        if (res.success) {
+          if (window.Sound && window.Sound.playSuccess) window.Sound.playSuccess();
+          window.showGameMessage(res.msg, 'info');
+          this.saveAutoProgress();
+          this.openPetManageModal();
+        } else {
+          window.showGameMessage(res.msg, 'warning');
+        }
+      }
+    });
+  }
+
+  // =========================================================================
+  // P4.2 同伴闲谈 (西行见闻·同行闲谈)
+  // 三组话题按剧情进度解锁；纯对话无奖励、无主线动作，不改任何存档进度。
+  // 人物口吻约定：悟空敏锐，八戒看重饭食与省力，沙僧留心行李与路况。
+  // =========================================================================
+  getCompanionBanterGroups() {
+    const has = id => (this.companions || []).some(c => c.id === id);
+    const ev = (this.playerData && this.playerData.storyEvents) || {};
+    return [
+      {
+        id: 'banter_gaolao',
+        title: '🍜 高老庄路上 · 越问越长的近路',
+        members: '八戒 · 悟空',
+        scene: '八戒入队之后',
+        available: has('companion_bajie'),
+        steps: [
+          { speaker: '猪八戒', speakerTitle: '【天蓬元帅】', text: '师父，俺不是怕远。只是这条近路，怎么越问越长？' },
+          { speaker: '孙悟空', speakerTitle: '【齐天大圣】', text: '问路的是你，问饭的也是你。俺老孙看这山形，绕过前面那道梁就到了。' },
+          { speaker: '猪八戒', speakerTitle: '【天蓬元帅】', text: '猴哥这话在理……高家庄的炊烟都望见了，俺先记着哪家的锅大，日后好登门谢恩。' },
+          { speaker: '孙悟空', speakerTitle: '【齐天大圣】', text: '呆子，先把耙子握稳。妖怪不挑饭点，你家倒是挑。' }
+        ]
+      },
+      {
+        id: 'banter_wuzhuang',
+        title: '🍐 五庄观 · 人参果与赔礼',
+        members: '八戒 · 沙僧 · 悟空',
+        scene: '人参果树复生之后',
+        available: !!ev.wuzhuang_tree_restored,
+        steps: [
+          { speaker: '猪八戒', speakerTitle: '【天蓬元帅】', text: '沙师弟，你说那人参果……救活一棵树，能顺手再结几个不？' },
+          { speaker: '沙和尚', speakerTitle: '【卷帘大将】', text: '二师兄，树是观里的，果子也是观里的。咱们是赔礼来的，不是赴宴来的。' },
+          { speaker: '孙悟空', speakerTitle: '【齐天大圣】', text: '老沙这话稳。俺只管把树医活——往后谁再嘴馋闯祸，俺老孙可不替他求方子。' },
+          { speaker: '猪八戒', speakerTitle: '【天蓬元帅】', text: '……俺就是问问。俺发誓，俺问的是学问，不是果子。' }
+        ]
+      },
+      {
+        id: 'banter_pingding',
+        title: '🗡️ 平顶山下 · 苔痕与脚印',
+        members: '沙僧 · 悟空',
+        scene: '老君收宝之后',
+        available: this.storyPhase === 'pingding_cleared',
+        steps: [
+          { speaker: '沙和尚', speakerTitle: '【卷帘大将】', text: '大师兄，这石上的苔，刚被人擦过。先看路，再听他怎么说。' },
+          { speaker: '孙悟空', speakerTitle: '【齐天大圣】', text: '老沙眼尖。方才小妖报信的脚印也新——莲花洞的家当虽被老君收走了，山里却还有惦记的。' },
+          { speaker: '沙和尚', speakerTitle: '【卷帘大将】', text: '行囊俺看着，都是干粮和还魂丹，丢一样都心疼。' },
+          { speaker: '孙悟空', speakerTitle: '【齐天大圣】', text: '好沙僧。你守行李，俺去山那头转一圈——有俺在，翻不出大浪。' }
+        ]
+      }
+    ];
+  }
+
+  // 打开同行闲谈入口列表 (战斗/转场/主线对白进行中不开放)
+  openCompanionBanterModal() {
+    if (typeof document === 'undefined') return;
+    if (this.currentBattle || this.isTransitioning) {
+      window.showGameMessage('眼下不是闲聊的时候——先应付眼前这场。', 'info');
+      return;
+    }
+    document.querySelectorAll('.banter-modal-overlay').forEach(m => m.remove());
+    const allGroups = this.getCompanionBanterGroups();
+    const avail = allGroups.filter(g => g.available);
+
+    const modalHtml = `
+      <div class="modal-overlay banter-modal-overlay" onclick="if(event.target===this) this.remove()">
+        <div class="modal-window" onclick="event.stopPropagation()" style="max-width:360px;max-height:82vh;display:flex;flex-direction:column;">
+          <div class="modal-header">
+            <span class="modal-title">🍵 西行见闻 · 同行闲谈</span>
+            <button class="modal-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div class="modal-body" style="overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+            ${avail.length === 0 ? `
+              <div style="text-align:center;color:#887766;padding:18px;line-height:1.8;">
+                同行之人尚未到齐。<br>待八戒入队、五庄观救树、平顶山收宝之后，路上便有话可聊。
+              </div>
+            ` : ''}
+            ${avail.map(g => `
+              <button class="dialogue-opt-btn" style="text-align:left;padding:7px 9px;display:block;" onclick="window.App2D.playCompanionBanter('${g.id}')">
+                <div style="color:#ffd700;font-weight:bold;font-size:12px;">${g.title}</div>
+                <div style="font-size:10px;color:#a89278;margin-top:2px;">${g.members} · ${g.scene} · 点击听他们闲聊</div>
+              </button>
+            `).join('')}
+            <div style="font-size:9.5px;color:#887766;border-top:1px solid #3d2c18;padding-top:5px;">
+              闲谈只是路上的调剂：不影响主线，不发奖励，可随时重温。
+            </div>
+          </div>
+          <div style="padding:6px 10px;border-top:1px solid #3d2c18;text-align:right;">
+            <button class="dialogue-opt-btn" style="padding:3px 14px;font-size:11px;" onclick="this.closest('.modal-overlay').remove()">告辞</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const host = document.getElementById('game-viewport') || document.body;
+    host.insertAdjacentHTML('beforeend', modalHtml);
+    if (window.Sound) window.Sound.playBeep();
+  }
+
+  // 播放一组同伴闲谈 (纯对话，无 action、无奖励、无状态写入)
+  playCompanionBanter(groupId) {
+    const group = this.getCompanionBanterGroups().find(g => g.id === groupId && g.available);
+    if (!group) return;
+    document.querySelectorAll('.banter-modal-overlay').forEach(m => m.remove());
+    if (window.Dialogue) {
+      window.Dialogue.start({ steps: group.steps.map(s => ({ ...s })) });
+    }
+  }
+
+  // =========================================================================
+  // P4.1a 刘家村支线「谁偷了米」 (轻量趣闻：线索→追查→短遭遇→修粮袋→小额奖励)
+  // 状态: not_started → accepted → hunting → reward_ready → done；错误追查可回头，无永久损失。
+  // =========================================================================
+  initRiceThiefQuest() {
+    if (!this.playerData) return null;
+    this.playerData.sideQuests = this.playerData.sideQuests || {};
+    if (!this.playerData.sideQuests.sq_rice_thief) {
+      this.playerData.sideQuests.sq_rice_thief = {
+        id: 'sq_rice_thief',
+        title: '谁偷了米',
+        step: 'not_started',
+        cluesRead: { marks: false, trail: false }
+      };
+    }
+    return this.playerData.sideQuests.sq_rice_thief;
+  }
+
+  playRiceThiefDialogue() {
+    const sq = this.initRiceThiefQuest();
+    if (!sq) return;
+    const GRANNY = { speaker: '王大婶', speakerTitle: '【看粮人家】', roleId: 'teashop_granny' };
+
+    if (sq.step === 'done') {
+      window.Dialogue.start({
+        steps: [{ ...GRANNY, text: '新粮袋系的是双股死结，山雀都解不开，多亏少侠那日眼尖。路过就进来喝碗米汤，管饱。' }]
+      });
+      return;
+    }
+
+    if (sq.step === 'reward_ready') {
+      window.Dialogue.start({
+        steps: [
+          { ...GRANNY, text: '抓住了？好、好！那小贼拖米拖得辛苦，俺也不好真动气——袋子破了是袋子的事，人手闲着是人手的事。' },
+          {
+            ...GRANNY,
+            text: '来，搭把手把这袋角缝上……好了！这点谢礼莫嫌弃，连夜烙的饼还热着。',
+            options: [
+              {
+                text: '【收下谢礼】',
+                action: () => { this.claimRiceThiefReward(); }
+              },
+              {
+                text: '【改日再领】',
+                action: () => { if (window.Dialogue) window.Dialogue.close(); }
+              }
+            ]
+          }
+        ]
+      });
+      return;
+    }
+
+    if (sq.step === 'hunting') {
+      window.Dialogue.start({
+        steps: [
+          {
+            ...GRANNY,
+            text: '草垛就在东墙根，掀开草捆便知分晓。少侠当心，拖得动半袋米的，怕不止一只。',
+            options: [
+              { text: '【这就去掀草垛】', action: () => { this.triggerRiceThiefBattle(); } },
+              { text: '【先做别的】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+            ]
+          }
+        ]
+      });
+      return;
+    }
+
+    if (sq.step === 'accepted') {
+      const clueList = [];
+      clueList.push(
+        !sq.cluesRead.marks
+          ? { text: '【查看米袋旁的痕迹】', action: () => { sq.cluesRead.marks = true; this.saveAutoProgress(); this.playRiceThiefDialogue(); } }
+          : { text: '【痕迹】已看过：爪印细小，一列排开', action: () => { this.playRiceThiefDialogue(); } }
+      );
+      clueList.push(
+        !sq.cluesRead.trail
+          ? { text: '【跟着碎米查拖痕】', action: () => { sq.cluesRead.trail = true; this.saveAutoProgress(); this.playRiceThiefDialogue(); } }
+          : { text: '【拖痕】已看过：细碎一路，往东墙根去', action: () => { this.playRiceThiefDialogue(); } }
+      );
+
+      window.Dialogue.start({
+        steps: [
+          {
+            ...GRANNY,
+            text: '少侠你看：绳结不是咬断的，是解开的；袋角也没破，米是被人捧走的。俺活了五十年，头回见这么讲究的贼。',
+            options: clueList
+          },
+          {
+            ...GRANNY,
+            text: '依少侠看，该往哪儿追？',
+            options: [
+              {
+                text: '【后山草窝】野物都爱钻林子',
+                action: () => {
+                  window.Dialogue.start({
+                    steps: [
+                      {
+                        speaker: '少侠', speakerTitle: '【探查后山】',
+                        text: '后山草窝里只有一窝睡眼惺忪的野兔。为首那只瞪了你一眼，翻个身又睡了——兔子的爪印又圆又钝，和米袋边那排细爪印对不上。'
+                      },
+                      {
+                        speaker: '少侠', speakerTitle: '【探查后山】',
+                        text: '那串拖痕分明一直往东墙根去。回头再选就是，兔子没丢东西，你也没白跑。',
+                        options: [{ text: '【回去再想想】', action: () => { this.playRiceThiefDialogue(); } }]
+                      }
+                    ]
+                  });
+                }
+              },
+              {
+                text: '【东墙根草垛】拖痕直指那边',
+                action: () => {
+                  sq.step = 'hunting';
+                  this.saveAutoProgress();
+                  this.triggerRiceThiefBattle();
+                }
+              },
+              { text: '【改日再查】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+            ]
+          }
+        ]
+      });
+      return;
+    }
+
+    // not_started：接取
+    window.Dialogue.start({
+      steps: [
+        {
+          ...GRANNY,
+          text: '哎哟少侠，可巧了！俺家粮袋昨夜又瘪了半袋——这月第三回了！绳子好端端解开着，米却少了，邪门不邪门？'
+        },
+        {
+          ...GRANNY,
+          text: '村里人都说去请道士。俺琢磨着，先看脚印再花钱也不迟。少侠若不赶路，帮俺瞧瞧？',
+          options: [
+            {
+              text: '【接下这桩小事】',
+              action: () => {
+                sq.step = 'accepted';
+                this.saveAutoProgress();
+                window.Sound.playSuccess();
+                window.showGameMessage('📜 已接取趣闻小任务【谁偷了米】：查看米袋旁的线索，找出偷米的小贼！', 'info', 4500);
+                this.playRiceThiefDialogue();
+              }
+            },
+            { text: '【改日再谈】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+          ]
+        }
+      ]
+    });
+  }
+
+  triggerRiceThiefBattle() {
+    if (window.Dialogue) window.Dialogue.close();
+    const rats = [
+      {
+        id: 'rice_thief_rat_main',
+        templateId: 'shuo_shu',
+        name: '拖米硕鼠',
+        appearance: 'giant_rat',
+        modelId: 'rat',
+        level: 3,
+        hp: 160,
+        maxHp: 160,
+        mp: 60,
+        maxMp: 60,
+        atk: 36,
+        def: 12,
+        spd: 24,
+        skills: ['撕咬']
+      },
+      {
+        id: 'rice_thief_rat_sub',
+        templateId: 'shuo_shu',
+        name: '捧米小鼠',
+        appearance: 'giant_rat',
+        modelId: 'rat',
+        level: 2,
+        hp: 110,
+        maxHp: 110,
+        mp: 40,
+        maxMp: 40,
+        atk: 28,
+        def: 10,
+        spd: 20,
+        skills: ['撕咬']
+      }
+    ];
+    this.start2DBattle(rats, () => {
+      const sq = this.initRiceThiefQuest();
+      if (sq && sq.step === 'hunting') {
+        sq.step = 'reward_ready';
+        this.saveAutoProgress();
+      }
+      window.showGameMessage('🐀 拖米的小贼被当场按住！回村告诉王大婶，帮她把粮袋补好。', 'success', 5000);
+    });
+  }
+
+  claimRiceThiefReward() {
+    const sq = this.initRiceThiefQuest();
+    if (!sq || sq.step !== 'reward_ready') {
+      window.showGameMessage('王大婶眯眼一笑：“先抓贼，再领饼，规矩不能乱。”', 'info');
+      return;
+    }
+    const result = this.playerData.claimStoryReward('rice_thief_done', {
+      items: [{ itemId: 'jinchuang_yao', count: 2 }],
+      silver: 600,
+      exp: 450
+    }, this.inventory);
+    if (!result.success) {
+      if (result.reason !== 'already_claimed') {
+        window.showGameMessage('行囊装不下大婶的谢礼，整理出空位后再来，饼给你留着。', 'warning', 4500);
+      }
+      return;
+    }
+    sq.step = 'done';
+    sq.status = 'completed';
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    if (window.Sound) window.Sound.playSuccess();
+    window.showGameMessage('🎉【谁偷了米】水落石出！获热饼两张(金创药×2)、600 银两与 450 经验，粮袋也补好了！', 'success', 5000);
+    if (window.Dialogue) window.Dialogue.close();
+    this.refreshMapNpcs();
+  }
+
+  // =========================================================================
+  // P4.1b 长安趣闻「写错的招牌」 (朴实/俏皮两选一同奖，选择持久化，回访保留)
+  // =========================================================================
+  playSignBoardDialogue() {
+    const ev = (this.playerData.storyEvents = this.playerData.storyEvents || {});
+    const LAO = { speaker: '老孙', speakerTitle: '【胡饼摊主】', roleId: 'changan_hawker' };
+
+    if (ev.changan_sign_task === 'done') {
+      const signText = ev.changan_sign_style === 'plain'
+        ? '老孙胡饼，现烤现卖，皮脆馅足。'
+        : '老孙胡饼，一口酥到凌霄殿——本摊概不渡劫。';
+      window.Dialogue.start({
+        steps: [{ ...LAO, text: `招牌挂的是少侠改的那句：“${signText}”打今早起，问价的人排过了茶肆门口。回头再给俺那句渡劫的也题一幅，裱起来看！` }]
+      });
+      return;
+    }
+
+    window.Dialogue.start({
+      steps: [
+        {
+          ...LAO,
+          text: '少侠给评评理：俺这招牌写的是“天下第一饼，一饼得道成仙”。今早杜书生在摊前笑弯了腰，路过的人跟着笑，就是没人买饼！'
+        },
+        {
+          ...LAO,
+          text: '俺一个打饼的，实在想不出又体面又实在的话。少侠走南闯北见多识广，帮俺题一句？',
+          options: [
+            {
+              text: '【题朴实的】“现烤现卖，皮脆馅足”',
+              action: () => { this.chooseSignBoardStyle('plain'); }
+            },
+            {
+              text: '【题俏皮的】“一口酥到凌霄殿——本摊概不渡劫”',
+              action: () => { this.chooseSignBoardStyle('witty'); }
+            },
+            { text: '【让俺再想想】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+          ]
+        }
+      ]
+    });
+  }
+
+  chooseSignBoardStyle(style) {
+    const result = this.playerData.claimStoryReward('changan_sign_help', { silver: 500, exp: 300 }, this.inventory);
+    if (!result.success) {
+      if (result.reason !== 'already_claimed') {
+        window.showGameMessage('老孙挠头：“谢礼是银钱，不占行囊……再试一次？”', 'warning', 4000);
+      }
+      return;
+    }
+    const ev = this.playerData.storyEvents;
+    ev.changan_sign_task = 'done';
+    ev.changan_sign_style = (style === 'witty') ? 'witty' : 'plain';
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    if (window.Dialogue) window.Dialogue.close();
+    if (window.Sound) window.Sound.playSuccess();
+    const signText = ev.changan_sign_style === 'plain'
+      ? '老孙胡饼，现烤现卖，皮脆馅足。'
+      : '老孙胡饼，一口酥到凌霄殿——本摊概不渡劫。';
+    window.showGameMessage(`🎉【写错的招牌】新招牌挂出：“${signText}”获 500 银两与 300 经验谢礼！`, 'success', 5000);
+    this.refreshMapNpcs();
   }
 
   // =========================================================================
@@ -5763,7 +6533,7 @@ class GameApp2D {
     }
 
     const vp = document.getElementById('game-viewport');
-    if (vp) {
+    if (vp && !this.isReducedMotionEnabled()) {
       vp.classList.add('hit-shake');
       setTimeout(() => vp.classList.remove('hit-shake'), 800);
     }
@@ -6312,7 +7082,7 @@ class GameApp2D {
       matk: 320,
       mdef: 175,
       spd: 45,
-      skills: ['封印咒', '飞沙走石', '三昧真火', '雷霆万钧']
+      skills: ['移山压顶', '封印咒', '飞沙走石', '三昧真火', '雷霆万钧']
     };
 
     this.start2DBattle([boss], () => {
@@ -6670,6 +7440,8 @@ class GameApp2D {
   // 战斗桥接与全屏渲染 (经典汉风三栏布局：左敌方竖排，中操作竖排，右我方四位竖排)
   start2DBattle(enemies, onVictoryCallback, onDefeatCallback = null) {
     if (this.currentBattle || this.isTransitioning) return false;
+    // P5.3: 清理上一场的战果清点面板，避免叠加
+    document.querySelectorAll('.battle-summary-overlay').forEach(m => m.remove());
     this.autoMovePath = [];
     this.autoMoveTargetCallback = null;
     this.keysDown = {};
@@ -6714,7 +7486,7 @@ class GameApp2D {
     this.battleSkillMenuOpen = false;
     this.battleCountdown = 30;
     this.autoCombatEnabled = false;
-    this.combatSpeedMultiplier = 1;
+    this.combatSpeedMultiplier = this.getCombatSpeedPref ? this.getCombatSpeedPref() : 1;
     this.battleVictoryCallback = onVictoryCallback;
     this.battleDefeatCallback = onDefeatCallback;
 
@@ -7158,6 +7930,73 @@ class GameApp2D {
     this.renderBattleInterface();
   }
 
+  // P3.3: 战时仙宠名册 —— 战斗中查看全部随行仙宠的真实残血、状态、定位与出战位占用
+  // (纯展示：出战阵列在开战时确定，本面板不改动战斗状态)
+  openBattlePetRosterModal() {
+    if (typeof document === 'undefined') return;
+    if (!this.currentBattle) return;
+    document.querySelectorAll('.battle-pet-roster-overlay').forEach(m => m.remove());
+
+    const maxCombat = this.playerData.getMaxCombatPets();
+    const inBattleIds = new Set(
+      (this.currentBattle.allies || [])
+        .filter(a => a.instanceId)
+        .map(a => a.instanceId)
+    );
+    const pets = this.pets || [];
+
+    const modalHtml = `
+      <div class="modal-overlay battle-pet-roster-overlay" onclick="if(event.target===this) this.remove()">
+        <div class="modal-window" onclick="event.stopPropagation()" style="max-width:380px;max-height:86vh;display:flex;flex-direction:column;">
+          <div class="modal-header">
+            <span class="modal-title">🐾 战时仙宠名册 <small>出战 ${inBattleIds.size} / ${maxCombat}</small></span>
+            <button class="modal-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div class="modal-body" style="overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+            ${pets.length === 0 ? `<div style="text-align:center;color:#887766;padding:18px;">尚无随行仙宠。野外战斗中可尝试【收服】招降异兽。</div>` : ''}
+            ${pets.map(pet => {
+    const fighting = inBattleIds.has(pet.instanceId);
+    const hpPct = pet.maxHp ? Math.max(0, Math.min(100, Math.round(pet.hp / pet.maxHp * 100))) : 0;
+    const mpPct = pet.maxMp ? Math.max(0, Math.min(100, Math.round(pet.mp / pet.maxMp * 100))) : 0;
+    const lowHp = pet.maxHp && pet.hp / pet.maxHp <= 0.3;
+    const roleProfile = window.GAME_DATA.getSpeciesRoleProfile
+      ? window.GAME_DATA.getSpeciesRoleProfile(pet.templateId) : null;
+    return `
+              <div style="background:rgba(25,16,10,0.85);border:1px solid ${fighting ? '#c59b27' : '#3d2c18'};border-radius:6px;padding:6px 8px;${fighting ? '' : 'opacity:0.72;'}">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                  <span style="font-size:11.5px;color:#fef0cd;font-weight:bold;">${pet.name} <span style="color:#a89278;font-weight:normal;">Lv.${pet.level}</span></span>
+                  <span style="font-size:9.5px;color:${fighting ? '#2ed573' : '#887766'};border:1px solid ${fighting ? '#2ed573' : '#555'};border-radius:3px;padding:0 4px;">${fighting ? '⚔️ 阵前作战' : '🛡️ 备战待命'}</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:3px;align-items:center;">
+                  <div style="flex:1;font-size:9.5px;color:#bbb;">气血 ${pet.hp}/${pet.maxHp}
+                    <div style="height:4px;background:#3a2020;border-radius:2px;margin-top:2px;"><div style="height:100%;width:${hpPct}%;border-radius:2px;background:${lowHp ? '#ff6b6b' : '#4caf50'};"></div></div>
+                  </div>
+                  <div style="flex:1;font-size:9.5px;color:#bbb;">法力 ${pet.mp}/${pet.maxMp}
+                    <div style="height:4px;background:#1a2a3a;border-radius:2px;margin-top:2px;"><div style="height:100%;width:${mpPct}%;border-radius:2px;background:#4da6ff;"></div></div>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:9.5px;">
+                  ${roleProfile ? `<span style="color:#9fd3a8;" title="${roleProfile.desc}">${roleProfile.icon}${roleProfile.tag}</span>` : '<span></span>'}
+                  <span style="color:#a89278;">攻${pet.atk} 防${pet.def} 速${pet.spd}${lowHp ? ' <span style="color:#ff6b6b;">⚠气血偏低</span>' : ''}</span>
+                </div>
+              </div>
+            `;
+  }).join('')}
+            <div style="font-size:9.5px;color:#887766;border-top:1px solid #3d2c18;padding-top:5px;line-height:1.6;">
+              出战阵列在开战时确定：战后可在仙宠面板勾选调整出战名单（20/30/40级分别解锁1/2/3位）。战斗中可对残血同伴使用药品回复，也可撤退后再战。
+            </div>
+          </div>
+          <div style="padding:6px 10px;border-top:1px solid #3d2c18;text-align:right;">
+            <button class="dialogue-opt-btn" style="padding:3px 14px;font-size:11px;" onclick="this.closest('.modal-overlay').remove()">返回战场</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const host = document.getElementById('battle-main-container') || document.getElementById('game-viewport') || document.body;
+    host.insertAdjacentHTML('beforeend', modalHtml);
+    if (window.Sound) window.Sound.playBeep();
+  }
+
   handleHexCombatAction(action) {
     if (!this.currentBattle || this.currentBattle.status === 'executing') return;
     if (window.Sound) window.Sound.playBeep();
@@ -7170,7 +8009,7 @@ class GameApp2D {
     } else if (action === 'item') {
       this.initiateCombatAction('item');
     } else if (action === 'pet') {
-      window.showGameMessage('🐾 仙宠正随你列阵战敌！点击右侧仙宠形象可直接指派出招。', 'info');
+      this.openBattlePetRosterModal();
     } else if (action === 'flee') {
       this.chooseCombatAction('flee');
     } else if (action === 'defend') {
@@ -7189,8 +8028,89 @@ class GameApp2D {
 
   toggleCombatSpeed() {
     this.combatSpeedMultiplier = (this.combatSpeedMultiplier === 2) ? 1 : 2;
-    window.showGameMessage(`⏩ 战斗演武速度已切换为 ${this.combatSpeedMultiplier}x`, 'info');
+    this.setCombatSpeedPref(this.combatSpeedMultiplier);
+    window.showGameMessage(`⏩ 战斗演武速度已切换为 ${this.combatSpeedMultiplier}x（已记住，之后战斗沿用）`, 'info');
     this.renderBattleInterface();
+  }
+
+  // P5.2 舒适设置：战斗演出速度偏好持久化 (仅影响演出等待，不影响结算与出手顺序)
+  getCombatSpeedPref() {
+    try {
+      const v = parseInt(localStorage.getItem('xiyou_combat_speed_pref'), 10);
+      return (v === 2) ? 2 : 1;
+    } catch (e) { return 1; }
+  }
+
+  setCombatSpeedPref(val) {
+    try { localStorage.setItem('xiyou_combat_speed_pref', String(val === 2 ? 2 : 1)); } catch (e) { /* 存储不可用时静默降级 */ }
+  }
+
+  // P5.2 舒适设置：低动态效果 (减少震屏与画面抖动，保留全部飘字与状态提示，不影响任何结算)
+  isReducedMotionEnabled() {
+    try { return localStorage.getItem('xiyou_reduced_motion') === '1'; } catch (e) { return false; }
+  }
+
+  setReducedMotion(enabled) {
+    try { localStorage.setItem('xiyou_reduced_motion', enabled ? '1' : '0'); } catch (e) { /* 静默降级 */ }
+    window.showGameMessage(enabled ? '🌿 已开启低动态效果：减少震屏与抖动，信息提示保持完整' : '✨ 已关闭低动态效果：恢复完整演出动效', 'info');
+  }
+
+  // P5.2 舒适设置面板：演出速度两档 + 低动态效果开关 (均为展示层偏好，不触碰数值与存档进度)
+  openComfortSettingsModal() {
+    if (typeof document === 'undefined') return;
+    if (window.Dialogue) window.Dialogue.close();
+    document.querySelectorAll('.comfort-settings-overlay').forEach(m => m.remove());
+    const speedNow = this.getCombatSpeedPref();
+    const motionNow = this.isReducedMotionEnabled();
+
+    const modalHtml = `
+      <div class="modal-overlay comfort-settings-overlay" onclick="if(event.target===this) this.remove()">
+        <div class="modal-window" onclick="event.stopPropagation()" style="max-width:340px;">
+          <div class="modal-header">
+            <span class="modal-title">🌿 舒适设置</span>
+            <button class="modal-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+          </div>
+          <div class="modal-body" style="font-size:11px;color:#fef0cd;line-height:1.7;display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="color:#ffd700;font-weight:bold;margin-bottom:4px;">⏩ 战斗演出速度</div>
+              <div style="display:flex;gap:6px;">
+                <button class="dialogue-opt-btn" id="comfort-speed-1" onclick="window.App2D.setComfortSpeed(1)" style="flex:1;${speedNow === 1 ? 'background:#b45309;color:#fff;border-color:#ffd700;' : ''}">正常演出</button>
+                <button class="dialogue-opt-btn" id="comfort-speed-2" onclick="window.App2D.setComfortSpeed(2)" style="flex:1;${speedNow === 2 ? 'background:#b45309;color:#fff;border-color:#ffd700;' : ''}">较快 ⏩</button>
+              </div>
+              <div style="font-size:9.5px;color:#887766;margin-top:3px;">仅改变演出等待快慢，不影响出手顺序、控制时长与任何结算结果。</div>
+            </div>
+            <div>
+              <div style="color:#ffd700;font-weight:bold;margin-bottom:4px;">🌿 低动态效果</div>
+              <button class="dialogue-opt-btn" id="comfort-motion-btn" onclick="window.App2D.toggleComfortMotion()" style="width:100%;${motionNow ? 'background:#2e7d32;color:#fff;border-color:#66bb6a;' : ''}">
+                ${motionNow ? '已开启：减少震屏、闪白与抖动' : '当前关闭：完整演出动效（点击开启减动效）'}
+              </button>
+              <div style="font-size:9.5px;color:#887766;margin-top:3px;">伤害飘字、状态提示与全部信息保持完整；适合晕动不适或长时间游玩。</div>
+            </div>
+            <div style="font-size:9.5px;color:#887766;border-top:1px solid #3d2c18;padding-top:6px;">
+              两项设置即时生效并自动记住（本机保存），与存档进度、音效开关互不影响。
+            </div>
+          </div>
+          <div style="padding:6px 10px;border-top:1px solid #3d2c18;text-align:right;">
+            <button class="dialogue-opt-btn" style="padding:3px 14px;font-size:11px;" onclick="this.closest('.modal-overlay').remove()">完成</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const host = document.getElementById('game-viewport') || document.body;
+    host.insertAdjacentHTML('beforeend', modalHtml);
+    if (window.Sound) window.Sound.playBeep();
+  }
+
+  setComfortSpeed(v) {
+    this.combatSpeedMultiplier = (v === 2) ? 2 : 1;
+    this.setCombatSpeedPref(this.combatSpeedMultiplier);
+    if (this.currentBattle) this.renderBattleInterface();
+    this.openComfortSettingsModal();
+  }
+
+  toggleComfortMotion() {
+    this.setReducedMotion(!this.isReducedMotionEnabled());
+    this.openComfortSettingsModal();
   }
 
   // 渲染经典MRP回合战场：顶部双龙金匾、中央全幅模型战场+六边形蜂窝阵、底部自动出招控制
@@ -7297,6 +8217,26 @@ class GameApp2D {
 
           </div>
         </div>
+
+        <!-- Boss 战术机制与意图预告条 (P1: 银角大王“移山压顶”等机制样板) -->
+        ${(this.currentBattle?.getBossIntents?.() || []).map(intent => {
+          if (intent.status === 'telegraphed') {
+            return `
+              <div class="boss-intent-banner" style="margin:2px 10px;padding:3px 10px;background:linear-gradient(90deg, rgba(160,20,20,0.92), rgba(60,10,10,0.92));border:1px solid #ff4757;border-radius:4px;font-size:10.5px;color:#fff;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(255,71,87,0.3);">
+                <span>⚠️ <strong>${intent.enemyName}</strong> 蓄力【${intent.skillName}】锁定 <strong>${intent.targetName}</strong>！下回合发动重击，防御可减轻60%伤害！</span>
+                <span style="color:#ffd700;font-size:9.5px;font-weight:bold;margin-left:6px;flex-shrink:0;">[防御减伤 / 封印定身打断]</span>
+              </div>
+            `;
+          }
+          if (intent.status === 'breathing') {
+            return `
+              <div class="boss-intent-banner" style="margin:2px 10px;padding:2px 10px;background:rgba(20,50,25,0.88);border:1px solid #4ade80;border-radius:4px;font-size:10.5px;color:#a3e635;display:flex;align-items:center;">
+                <span>🌿 <strong>${intent.enemyName}</strong> 移山真元耗竭，正在调匀气息，本回合不会施展重法！</span>
+              </div>
+            `;
+          }
+          return '';
+        }).join('')}
 
         <!-- 战术时序速度轴 (附带各单位神级微缩头像) -->
         <div class="battle-timeline-bar" style="margin: 3px 10px 1px 10px; padding: 2px 8px; font-size: 10px; border-radius: 4px; display:flex; align-items:center; gap:6px; overflow-x:auto;">
@@ -9123,15 +10063,21 @@ class GameApp2D {
     const labels = { fengyin: '封', dingshen: '定', luanhun: '乱', wandu: '毒', yinshen: '隐' };
     const tags = [...new Set((unit._displayBuffs || unit.buffs || []).map(b => labels[b.id] ||
       (b.name === '金刚护体' ? '护' : b.name === '防御' ? '防' : null)).filter(Boolean))].slice(0, 4);
+
+    const isBossLocked = (this.currentBattle?.getBossIntents?.() || []).some(i => i.targetId === unit.id && i.status === 'telegraphed');
+    if (isBossLocked) {
+      tags.unshift('山');
+    }
+
     if (!tags.length) return;
     ctx.save();
     ctx.font = 'bold 11px "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     tags.forEach((tag, i) => {
       const tx = x + (i - (tags.length - 1) / 2) * 20;
-      ctx.fillStyle = 'rgba(18, 15, 28, 0.9)';
+      ctx.fillStyle = tag === '山' ? 'rgba(180, 20, 20, 0.95)' : 'rgba(18, 15, 28, 0.9)';
       ctx.fillRect(tx - 8, y + 35, 16, 16);
-      ctx.fillStyle = tag === '毒' ? '#a3e635' : '#f8df9c';
+      ctx.fillStyle = tag === '毒' ? '#a3e635' : (tag === '山' ? '#ff4757' : '#f8df9c');
       ctx.fillText(tag, tx, y + 47);
     });
     ctx.restore();
@@ -9151,7 +10097,7 @@ class GameApp2D {
     }));
     const positioned = entries.filter(entry => entry.unit?._battlePos);
     const effectType = this.getBattleEffectType(step);
-    const offensive = ['damage', 'revive', 'dodge', 'cast', 'sealed', 'dingshen', 'luanhun'].includes(step.type);
+    const offensive = ['damage', 'revive', 'dodge', 'cast', 'sealed', 'dingshen', 'luanhun', 'boss_special_cast', 'boss_intent_interrupted', 'boss_intent_cancelled'].includes(step.type);
     const duration = this.getSkillEffectDuration(effectType);
 
     if (step.skillName && !selfDamage) {
@@ -9163,23 +10109,29 @@ class GameApp2D {
     const impact = () => {
       if (this.currentBattle !== battle) return;
       this.commitBattlePresentation(battle);
-      if ((step.isCrit || effectType === 'sacrifice') && step.type !== 'dodge' && !selfDamage) {
+      if ((step.isCrit || effectType === 'sacrifice' || step.type === 'boss_special_cast') && step.type !== 'dodge' && !selfDamage) {
         const stage = document.getElementById('battle-stage-area');
-        if (stage) {
+        if (stage && !this.isReducedMotionEnabled()) {
           stage.classList.add('arena-shake');
           setTimeout(() => stage.classList.remove('arena-shake'), 160 * this.getBattleAnimationScale());
         }
       }
-      if (window.Sound && !selfDamage && ['slash', 'sacrifice', 'thunder'].includes(effectType)) {
-        if (step.type === 'dodge') window.Sound.playFailure();
-        else if (step.isCrit || effectType === 'sacrifice' || effectType === 'thunder') window.Sound.playCrit();
+      if (window.Sound && !selfDamage) {
+        if (step.type === 'dodge' || step.type === 'boss_intent_cancelled') window.Sound.playFailure();
+        else if (step.type === 'boss_intent_interrupted') window.Sound.playFailure();
+        else if (step.isCrit || effectType === 'sacrifice' || effectType === 'thunder' || step.type === 'boss_special_cast') window.Sound.playCrit();
         else if (offensive) window.Sound.playHit();
       }
       for (const { hit, unit } of positioned) {
-        const kind = hit.type === 'dodge' || hit.type === 'resist' ? 'dodge' :
+        // P5.1 反馈分级：抵抗与闪避视觉分离；伤害飘字附加五行克制/被克标记
+        const kind = hit.type === 'resist' ? 'resist' :
+          hit.type === 'dodge' ? 'dodge' :
           hit.type === 'mana' ? 'mana' : ['heal', 'revive', 'buff', 'invis'].includes(hit.type) ? 'heal' :
             ['sealed', 'dingshen', 'luanhun', 'defend', 'status_block'].includes(hit.type) ? 'status' : step.isCrit ? 'crit' : 'damage';
-        const text = hit.text || step.text;
+        let text = hit.text || step.text;
+        if ((kind === 'damage' || kind === 'crit') && hit.attackResult) {
+          text = this._decorateDamageFloatText(text, hit.attackResult);
+        }
         if (text) this.spawnBattleFloatingTextAtCoords(unit._battlePos.x, unit._battlePos.y, text, kind);
       }
     };
@@ -9200,8 +10152,9 @@ class GameApp2D {
         impact();
         const successful = positioned.filter(({ hit }) => hit.type === 'damage' && hit.damage > 0);
         if (successful.length) {
+          const shakeAmp = this.isReducedMotionEnabled() ? 2 : 5;
           await this.animateBattleMotion(110, t => successful.forEach(({ unit }) => {
-            unit._shakeOffset = { x: Math.sin(t * Math.PI * 4) * 5 * (1 - t), y: 0 };
+            unit._shakeOffset = { x: Math.sin(t * Math.PI * 4) * shakeAmp * (1 - t), y: 0 };
           }));
         }
         await this.waitBattleAnimation(Math.max(0, duration * 0.5 - (successful.length ? 110 : 0)));
@@ -9284,7 +10237,7 @@ class GameApp2D {
     if (/雷|电/.test(name)) return 'thunder';
     if (/火|炎/.test(name)) return 'fire';
     if (/毒|瘴/.test(name)) return 'poison';
-    if (/风|沙/.test(name)) return 'sand';
+    if (/风|沙|山|岳|石|移山|压顶/.test(name)) return 'sand';
     if (/水|冰|霜|海/.test(name)) return 'ice';
     if (/斧|钉耙|棒|刀|剑|枪|撕咬|扑击/.test(name)) return 'slash';
     if (step.skillId || name) return 'arcane';
@@ -9359,6 +10312,25 @@ class GameApp2D {
   }
 
   // 触发战斗动作动效与伤害飘字
+  // P5.1 反馈分级：抵抗(resist)与闪避(dodge)、伤害、暴击、治疗、法力、状态各自独立视觉
+  _floatClassForType(type = 'damage') {
+    if (type === 'crit') return 'float-crit';
+    if (type === 'heal') return 'float-heal';
+    if (type === 'mana') return 'float-mana';
+    if (type === 'dodge') return 'float-dodge';
+    if (type === 'resist') return 'float-resist';
+    if (type === 'status') return 'float-status';
+    return 'float-damage';
+  }
+
+  // P5.1: 伤害飘字的五行克制/被克标记 (⚡克制 🛡被克)，无克制关系原样返回
+  _decorateDamageFloatText(text, attackResult) {
+    if (!attackResult || typeof text !== 'string') return text;
+    if (attackResult.elementRelation === 'counter') return '⚡' + text;
+    if (attackResult.elementRelation === 'countered') return '🛡' + text;
+    return text;
+  }
+
   spawnBattleFloatingText(targetEl, text, type = 'damage') {
     const fxLayer = document.getElementById('battle-fx-layer');
     if (!fxLayer) return;
@@ -9376,7 +10348,7 @@ class GameApp2D {
     }
 
     const el = document.createElement('div');
-    el.className = `floating-text ${type === 'crit' ? 'float-crit' : (type === 'heal' ? 'float-heal' : type === 'mana' ? 'float-mana' : type === 'dodge' ? 'float-dodge' : type === 'status' ? 'float-status' : 'float-damage')}`;
+    el.className = `floating-text ${this._floatClassForType(type)}`;
     el.innerText = text;
     el.style.left = `${posX}px`;
     el.style.top = `${posY}px`;
@@ -9390,7 +10362,7 @@ class GameApp2D {
     if (!fxLayer) return;
 
     const el = document.createElement('div');
-    el.className = `floating-text ${type === 'crit' ? 'float-crit' : (type === 'heal' ? 'float-heal' : type === 'mana' ? 'float-mana' : type === 'dodge' ? 'float-dodge' : type === 'status' ? 'float-status' : 'float-damage')}`;
+    el.className = `floating-text ${this._floatClassForType(type)}`;
     el.innerText = text;
     const canvas = document.getElementById('battle-scene-canvas');
     const canvasRect = canvas?.getBoundingClientRect?.();
@@ -9467,6 +10439,114 @@ class GameApp2D {
   }
 
   // 统一权威的战斗结束与界面清退总控函数，杜绝任何死锁与卡顿
+  // P5.3: 战果快照 (经验/银两/等级/背包物品计数/仙宠等级)，供胜利结算差量对比
+  _snapshotVictoryState() {
+    const inv = {};
+    for (const s of (this.inventory?.slots || [])) {
+      inv[s.itemId] = (inv[s.itemId] || 0) + (s.count || 1);
+    }
+    const pets = {};
+    for (const p of (this.pets || [])) {
+      pets[p.instanceId] = { name: p.name, level: p.level };
+    }
+    return {
+      exp: this.playerData?.exp || 0,
+      silver: this.playerData?.silver || 0,
+      level: this.playerData?.level || 1,
+      inv,
+      pets
+    };
+  }
+
+  // P5.3: 胜利战果清点面板 —— 到账奖励与待领取提示严格分列，不与到账物品混排
+  showBattleVictorySummary(before, battle, pendingHints = []) {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('.battle-summary-overlay').forEach(m => m.remove());
+
+    const p = this.playerData;
+    if (!p || !before) return;
+
+    const expDelta = (p.exp || 0) - before.exp;
+    const silverDelta = (p.silver || 0) - before.silver;
+    const leveledUp = (p.level || 1) > before.level;
+
+    // 实际入包差量 (只统计新增，忽略消耗)
+    const itemGains = [];
+    for (const s of (this.inventory?.slots || [])) {
+      const now = (s.count || 1);
+      const was = before.inv[s.itemId] || 0;
+      if (now > was) {
+        const existing = itemGains.find(g => g.itemId === s.itemId);
+        const add = now - was;
+        if (existing) existing.count += add;
+        else itemGains.push({ itemId: s.itemId, count: add });
+      }
+    }
+
+    // 仙宠升级
+    const petLevelUps = [];
+    for (const pet of (this.pets || [])) {
+      const was = before.pets[pet.instanceId];
+      if (was && pet.level > was.level) {
+        petLevelUps.push({ name: pet.name, from: was.level, to: pet.level });
+      }
+    }
+
+    // 招降结果
+    const captured = (battle?.enemies || []).filter(e => e.isCaptured).map(e => e.name);
+
+    if (!expDelta && !silverDelta && !leveledUp && !itemGains.length && !petLevelUps.length && !captured.length && !pendingHints.length) {
+      return; // 无任何战果则不打扰玩家
+    }
+
+    const itemHtml = window.GAME_DATA?.ITEMS;
+    const rows = [];
+    if (leveledUp) {
+      rows.push(`<div class="bs-row"><span class="bs-k">🧬 修为</span><span class="bs-v">升级至 <b>Lv.${p.level}</b>${expDelta > 0 ? ` · 经验 +${expDelta}` : ''}</span></div>`);
+    } else if (expDelta > 0) {
+      rows.push(`<div class="bs-row"><span class="bs-k">🧬 修为</span><span class="bs-v">经验 +${expDelta}</span></div>`);
+    }
+    if (silverDelta > 0) {
+      rows.push(`<div class="bs-row"><span class="bs-k">🪙 银两</span><span class="bs-v">+${silverDelta} 两</span></div>`);
+    }
+    if (itemGains.length) {
+      rows.push(`<div class="bs-row"><span class="bs-k">🎒 实际入包</span><span class="bs-v">${itemGains.map(g => {
+        const name = (itemHtml && itemHtml[g.itemId] && itemHtml[g.itemId].name) || g.itemId;
+        return `${name}×${g.count}`;
+      }).join('、')}</span></div>`);
+    }
+    if (captured.length) {
+      rows.push(`<div class="bs-row"><span class="bs-k">🎺 招降得宠</span><span class="bs-v">${captured.join('、')} 已入随行</span></div>`);
+    }
+    if (petLevelUps.length) {
+      rows.push(`<div class="bs-row"><span class="bs-k">🐾 仙宠成长</span><span class="bs-v">${petLevelUps.map(u => `${u.name} Lv.${u.from}→${u.to}`).join('、')}</span></div>`);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'battle-summary-overlay';
+    overlay.innerHTML = `
+      <div class="battle-summary-card">
+        <div class="battle-summary-head">🎉 对决得胜 · 战果清点</div>
+        ${rows.length ? `<div class="battle-summary-rows">${rows.join('')}</div>` : ''}
+        ${pendingHints.length ? `
+          <div class="battle-summary-pending">
+            <div class="bs-pending-title">📌 尚待领取 (未入行囊)</div>
+            <div class="bs-pending-text">有奖励因行囊已满暂存于对应人物处，回访交谈、腾出空位后即可补领，不会丢失。</div>
+          </div>
+        ` : ''}
+        <div class="battle-summary-foot">点击收起</div>
+      </div>
+    `;
+    overlay.addEventListener('click', () => {
+      if (overlay && overlay.parentNode) overlay.remove();
+    });
+    const host = document.getElementById('game-viewport') || document.body;
+    host.appendChild(overlay);
+    setTimeout(() => {
+      if (overlay && overlay.parentNode) overlay.remove();
+    }, 9000);
+  }
+
   endBattle(status = 'victory') {
     if (!this.currentBattle || this.isAnimatingCombat) return false;
     if (status === 'victory' && this.currentBattle.enemies.some(e => e.hp > 0)) return false;
@@ -9508,20 +10588,40 @@ class GameApp2D {
     this._encounterCooldownUntil = Date.now() + 1800;
 
     if (status === 'victory') {
-      // 参战宠获得全额经验，备战宠半额；本场新招降的宠不追领经验。
-      const petExp = battle.enemies.filter(e => !e.isCaptured).reduce((sum, e) => sum + 50 + (e.level || 1) * 25, 0);
-      for (const pet of this.pets || []) {
-        if (!battle.trainingPetIds?.includes(pet.instanceId)) continue;
-        const participated = battle.allies.some(a => a.entity?.instanceId === pet.instanceId);
-        window.PetSystem.gainExp(pet, participated ? petExp : Math.floor(petExp / 2));
+      // P5.3: 快照结算前状态，捕获奖励到账情况与满包待领取提示，随后展示战果清点
+      // (对 endBattle.call(plainFixture) 等外部调用保持防御，快照能力缺失时静默跳过清点)
+      const canSummary = (typeof this._snapshotVictoryState === 'function') && (typeof this.showBattleVictorySummary === 'function');
+      const before = canSummary ? this._snapshotVictoryState() : null;
+      const pendingHints = [];
+      let origShowMsg = null;
+      if (canSummary && typeof window.showGameMessage === 'function') {
+        origShowMsg = window.showGameMessage;
+        window.showGameMessage = (msg, type, dur) => {
+          if (typeof msg === 'string' && /行囊|整理背包|腾出|装不下|暂存|保管|先由他/.test(msg)) {
+            pendingHints.push(msg);
+          }
+          return origShowMsg(msg, type, dur);
+        };
       }
-      if (window.Sound && window.Sound.playVictory) {
-        try { window.Sound.playVictory(); } catch (e) { }
+      try {
+        // 参战宠获得全额经验，备战宠半额；本场新招降的宠不追领经验。
+        const petExp = battle.enemies.filter(e => !e.isCaptured).reduce((sum, e) => sum + 50 + (e.level || 1) * 25, 0);
+        for (const pet of this.pets || []) {
+          if (!battle.trainingPetIds?.includes(pet.instanceId)) continue;
+          const participated = battle.allies.some(a => a.entity?.instanceId === pet.instanceId);
+          window.PetSystem.gainExp(pet, participated ? petExp : Math.floor(petExp / 2));
+        }
+        if (window.Sound && window.Sound.playVictory) {
+          try { window.Sound.playVictory(); } catch (e) { }
+        }
+        window.showGameMessage('🎉【对决得胜】敌军溃败！斩妖除魔大获全胜！', 'success', 3500);
+        if (vCb) {
+          try { vCb(); } catch (cbErr) { console.error('战斗胜利回调异常:', cbErr); }
+        }
+      } finally {
+        if (origShowMsg) window.showGameMessage = origShowMsg;
       }
-      window.showGameMessage('🎉【对决得胜】敌军溃败！斩妖除魔大获全胜！', 'success', 3500);
-      if (vCb) {
-        try { vCb(); } catch (cbErr) { console.error('战斗胜利回调异常:', cbErr); }
-      }
+      if (before) this.showBattleVictorySummary(before, battle, pendingHints);
     } else if (status === 'defeat') {
       if (window.Sound && window.Sound.playFailure) {
         try { window.Sound.playFailure(); } catch (e) { }
@@ -9819,6 +10919,77 @@ class GameApp2D {
   }
 
   // 画面主渲染
+  // 视觉升级：远景氛围层 —— 天色渐变 + 双层视差远山 + 缓行流云。
+  // 纯程序化绘制 (每帧十余次路径填充，零纹理加载)；洞窟/水下等封闭场景保持原有氛围不叠加。
+  renderSkyAmbience() {
+    const ctx = this.ctx;
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    if (!ctx || !W || !H) return;
+
+    const mapId = this.currentMapId || '';
+    // 封闭/水下场景不画天色 (洞窟、宫殿内景、水底保持原有光照)
+    if (/dong|gong|shuilien|xiagu/i.test(mapId)) return;
+
+    // 以地图 id 生成稳定种子：远山轮廓跨帧跨会话不抖动
+    let seed = 7;
+    for (let i = 0; i < mapId.length; i++) seed = (seed * 131 + mapId.charCodeAt(i)) >>> 0;
+    const rand = (() => {
+      let s = seed >>> 0;
+      return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    })();
+
+    // 三套国风水色 (按地图稳定选择)：青绿山水 / 晨曦金 / 暮霭蓝
+    const palettes = [
+      { skyTop: '#0d1712', skyBottom: '#22392b', ridgeFar: 'rgba(38,74,56,0.85)', ridgeNear: 'rgba(24,50,38,0.95)', cloud: 'rgba(180,210,190,0.07)' },
+      { skyTop: '#171120', skyBottom: '#3a2b1d', ridgeFar: 'rgba(84,64,46,0.8)', ridgeNear: 'rgba(52,38,28,0.95)', cloud: 'rgba(235,205,160,0.08)' },
+      { skyTop: '#0e1420', skyBottom: '#26313f', ridgeFar: 'rgba(58,72,92,0.8)', ridgeNear: 'rgba(34,44,60,0.95)', cloud: 'rgba(190,205,225,0.07)' }
+    ];
+    const pal = palettes[seed % palettes.length];
+
+    // 1. 天色渐变
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, pal.skyTop);
+    sky.addColorStop(1, pal.skyBottom);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. 双层视差远山 (轮廓由种子正弦合成，随镜头轻微平移)
+    const ridge = (baseY, amp, parallax, color, phase) => {
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      const offX = -(this.camera?.x || 0) * parallax;
+      for (let x = 0; x <= W; x += 16) {
+        const wx = x - offX;
+        const y = baseY
+          + Math.sin(wx * 0.008 + phase) * amp
+          + Math.sin(wx * 0.021 + phase * 2.7) * amp * 0.45
+          + Math.sin(wx * 0.003 + phase * 0.6) * amp * 0.8;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    ridge(H * 0.40, H * 0.07, 0.12, pal.ridgeFar, rand() * Math.PI * 2);
+    ridge(H * 0.55, H * 0.09, 0.26, pal.ridgeNear, rand() * Math.PI * 2);
+
+    // 3. 缓行流云 (时间驱动极慢漂移，低动态模式下静止)
+    const cloudDrift = this.isReducedMotionEnabled() ? 0 : (Date.now() * 0.0038);
+    ctx.fillStyle = pal.cloud;
+    for (let i = 0; i < 4; i++) {
+      const cy = H * (0.10 + rand() * 0.22);
+      const cw = W * (0.22 + rand() * 0.3);
+      const speed = 0.5 + rand() * 0.7;
+      const rawX = rand() * (W + cw * 2) - cloudDrift * speed;
+      const cx = ((rawX % (W + cw * 2)) + (W + cw * 2)) % (W + cw * 2) - cw;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, cw * 0.5, H * 0.028, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   render() {
     if (!this.ctx || !this.canvas) return;
 
@@ -9826,6 +10997,9 @@ class GameApp2D {
 
     const mapData = window.GAME_DATA.MAPS_2D[this.currentMapId];
     if (!mapData) return;
+
+    // 0.5 远景氛围层：天色渐变 + 视差远山 + 缓行流云 (瓦片未覆盖的地图边缘不再是死黑)
+    this.renderSkyAmbience();
 
     // 1. 地图瓦片
     this.tilemap.render(this.ctx, mapData, this.camera, { ginsengTree: this.getWuzhuangTreeState() });
@@ -10349,7 +11523,7 @@ class GameApp2D {
     // 刷新打书界面
     this.openPetBookModal(instanceId);
   }
-  openForgeModal(selectedSlotKey = 'weapon') {
+  openForgeModal(selectedSlotKey = 'weapon', useProtectStone = false) {
     if (window.Dialogue) window.Dialogue.close();
     document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
 
@@ -10380,10 +11554,10 @@ class GameApp2D {
             <button class="modal-close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
           </div>
           <div class="modal-body" style="padding:12px;font-size:11px;color:#fef0cd;line-height:1.6;">
-            <!-- 部位切换标签 -->
+            <!-- 部位切换标签 (切换部位时重置保护开关状态) -->
             <div style="display:flex;gap:4px;margin-bottom:12px;background:#150d06;padding:4px;border-radius:6px;">
               ${Object.keys(slotNames).map(k => `
-                <button class="dialogue-opt-btn" style="flex:1;padding:4px;font-size:10px;${selectedSlotKey === k ? 'background:#c59b27;color:#000;font-weight:bold;' : ''}" onclick="window.App2D.openForgeModal('${k}')">
+                <button class="dialogue-opt-btn" style="flex:1;padding:4px;font-size:10px;${selectedSlotKey === k ? 'background:#c59b27;color:#000;font-weight:bold;' : ''}" onclick="window.App2D.openForgeModal('${k}', false)">
                   ${slotNames[k]}
                 </button>
               `).join('')}
@@ -10428,7 +11602,7 @@ class GameApp2D {
                   </div>
                 </div>
 
-                <!-- 强化消耗与成功率 -->
+                <!-- 强化消耗、成功率与定星石保护开关 -->
                 ${info ? `
                   <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;">
                     <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
@@ -10449,9 +11623,20 @@ class GameApp2D {
                     </div>
                     ${info.penalty !== 'none' ? `
                       <div style="color:#ff6b81;font-size:10px;margin-top:4px;">
-                        ⚠️ 淬火失手惩罚：若失败可能掉落 ${info.penalty === 'down_1' ? '1' : '2'} 星！可使用定星石保护。
+                        ⚠️ 淬火失手惩罚：若失败将掉落 ${info.penalty === 'down_1' ? '1' : '2'} 星！
                       </div>
-                    ` : ''}
+                      <div style="margin-top:6px;padding:6px 10px;background:rgba(20,12,6,0.7);border:1px solid ${useProtectStone && dingxingCount > 0 ? '#ffd700' : '#4a331c'};border-radius:6px;display:flex;align-items:center;justify-content:space-between;">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:${dingxingCount > 0 ? 'pointer' : 'not-allowed'};color:${dingxingCount > 0 ? '#fff' : '#888'};font-size:11px;">
+                          <input type="checkbox" id="forge-protect-toggle" ${useProtectStone && dingxingCount > 0 ? 'checked' : ''} ${dingxingCount < 1 ? 'disabled' : ''} onchange="window.App2D.openForgeModal('${selectedSlotKey}', this.checked)">
+                          <span>✨ 使用【定星石】保护（失败不降星）</span>
+                        </label>
+                        <span style="font-size:10px;color:${dingxingCount > 0 ? '#ffd700' : '#e74c3c'};">拥有: ${dingxingCount} 颗</span>
+                      </div>
+                    ` : `
+                      <div style="color:#2ecc71;font-size:10px;margin-top:4px;">
+                        🛡️ 当前星级安全淬火：即使失败也不会降星，无需消耗定星石。
+                      </div>
+                    `}
                   </div>
 
                   <!-- 按钮 -->
@@ -10474,56 +11659,23 @@ class GameApp2D {
     v.insertAdjacentHTML('beforeend', modalHtml);
   }
 
-  executeForgeEnhance(slotKey) {
+  executeForgeEnhance(slotKey, explicitUseProtect = null) {
     const equip = this.playerData.equipment[slotKey];
-    if (!equip) return;
-    const curStar = equip.star || 0;
-    const info = window.ForgeSystem.getEnhanceInfo(curStar);
-    if (!info) return;
-
-    if (this.playerData.silver < info.costSilver) {
-      window.showGameMessage(`银两不足！需要 ${info.costSilver} 两银子。`, 'warning');
-      return;
+    if (!equip) {
+      window.showGameMessage('未找到对应部位的穿戴装备！', 'warning');
+      return { success: false, msg: '未找到对应部位的穿戴装备！' };
     }
 
-    const qCount = this.inventory.getItemCount('qianghua_shi');
-    const mCount = this.inventory.getItemCount('meteor_iron');
-    if (qCount + mCount < info.costStones) {
-      window.showGameMessage(`强化材料不足！需要 ${info.costStones} 颗强化石或天外陨铁。`, 'warning');
-      return;
-    }
+    const protectCheckbox = document.getElementById('forge-protect-toggle');
+    const useProtect = (explicitUseProtect !== null) ? !!explicitUseProtect : (protectCheckbox ? protectCheckbox.checked : false);
 
-    // 优先扣强化石，不足扣天外陨铁
-    let need = info.costStones;
-    if (qCount > 0) {
-      const takeQ = Math.min(qCount, need);
-      this.inventory.removeItem('qianghua_shi', takeQ);
-      need -= takeQ;
-    }
-    if (need > 0 && mCount > 0) {
-      this.inventory.removeItem('meteor_iron', need);
-    }
-    this.playerData.silver -= info.costSilver;
-
-    const isSuccess = Math.random() < info.rate;
-    const baseItem = window.GAME_DATA.ITEMS[equip.itemId];
-    const equipName = baseItem ? baseItem.name : '装备';
-
-    if (isSuccess) {
-      equip.star = curStar + 1;
-      this.playerData.recalculateStats(false);
-      window.Sound.playCrit();
-      window.showGameMessage(`🎉【神兵淬火通灵】金石激荡！【${equipName}】成功升星至 +${equip.star}！基础属性大幅飙升！`, 'success', 4500);
-    } else {
-      if (info.penalty === 'down_1') equip.star = Math.max(0, curStar - 1);
-      if (info.penalty === 'down_2') equip.star = Math.max(0, curStar - 2);
-      this.playerData.recalculateStats(false);
-      window.Sound.playFailure();
-      window.showGameMessage(`【淬火失手】炉温不均，强化失败！装备星级变为 +${equip.star}`, 'warning', 4000);
-    }
-
+    const res = window.ForgeSystem.enhance(equip, this.inventory, this.playerData, useProtect);
     this.updatePlayerHud();
-    this.openForgeModal(slotKey);
+    window.showGameMessage(res.msg, res.success ? 'success' : 'warning');
+
+    const remainingProtect = this.inventory ? this.inventory.getItemCount('dingxing_shi') : 0;
+    this.openForgeModal(slotKey, useProtect && remainingProtect > 0);
+    return res;
   }
 
   // =========================================================================
@@ -10955,6 +12107,26 @@ class GameApp2D {
 
     const ultimateGoal = '求取大乘真经三十五部，普度东土受苦众生，匡扶天道秩序，证得无上金身正果！';
 
+    // 0. 优先尝试统一序章至长安主线历程查询 (R3 统一目标来源)
+    if (window.GAME_DATA && typeof window.GAME_DATA.getUnifiedStoryLead === 'function') {
+      const unified = window.GAME_DATA.getUnifiedStoryLead(sp, this.currentMapId, this.questKills, this.playerData);
+      if (unified) {
+        return {
+          ordealNumber: unified.ordealNumber,
+          ordealName: unified.ordealName,
+          ordealDesc: unified.ordealDesc,
+          chapter: unified.chapter,
+          stepName: unified.stepName,
+          stepTarget: unified.stepTarget,
+          stepProgress: unified.stepProgress,
+          stepProgressRatio: unified.stepProgressRatio,
+          stepHint: unified.stepHint,
+          isDone: !!unified.isDone,
+          ultimateGoal
+        };
+      }
+    }
+
     if (sp.startsWith('heaven_')) {
       ordealNumber = '【序章·天宫风云】';
       ordealName = '瑶池蟠桃与大闹天宫';
@@ -11257,6 +12429,9 @@ class GameApp2D {
               </div>
             </div>
 
+            <!-- 3.5. 山海经 · 生灵寻访独立追踪 (与主线并存，不覆盖主线) -->
+            ${this._renderQuestTrackerShanhaiCard()}
+
             <!-- 4. 每日历练与修行功德 (统一典雅暗金风格，拒绝花哨混色) -->
             <div style="font-size:11.5px;color:#d4af37;font-weight:bold;margin-top:2px;display:flex;align-items:center;gap:6px;">
               <span>🎋</span><span>三界每日修行功德</span>
@@ -11337,6 +12512,55 @@ class GameApp2D {
     v.insertAdjacentHTML('beforeend', modalHtml);
   }
 
+  // P2.2: 渲染任务簿中的山海经生灵寻访卡片（与主线完全独立，互不影响）
+  _renderQuestTrackerShanhaiCard() {
+    if (!this.shanhaiPursuitTarget) return '';
+    const pet = window.GAME_DATA?.PETS?.[this.shanhaiPursuitTarget];
+    if (!pet) return '';
+    const sourceInfo = window.GAME_DATA?.getShanhaiSpeciesSource ? window.GAME_DATA.getShanhaiSpeciesSource(pet.id) : null;
+    const catBadges = {
+      common_wild: { text: '🌲 地图常见', color: '#34d399', border: '#10b981', bg: 'rgba(6,78,59,0.7)' },
+      encounter: { text: '🎲 概率偶遇', color: '#fde047', border: '#f59e0b', bg: 'rgba(120,53,15,0.7)' },
+      gift_only: { text: '🎁 赠礼专属', color: '#c084fc', border: '#8b5cf6', bg: 'rgba(76,29,149,0.7)' },
+      unreachable: { text: '⏳ 尚未开放', color: '#9ca3af', border: '#6b7280', bg: 'rgba(55,65,81,0.7)' }
+    };
+    const badge = catBadges[sourceInfo?.category] || catBadges.common_wild;
+    const isCollected = !!(this.getShanhai().entries?.[pet.id]);
+    const vesselDesc = pet.quality === 'jinxian' ? '需紫金红葫芦招降' : (pet.quality === 'sanxian' ? '需收仙银壶招降' : '直接招降');
+
+    return `
+      <div style="background:rgba(20,28,18,0.92);border:1.5px solid #2e7d32;border-radius:6px;padding:12px;box-shadow:0 0 12px rgba(46,125,50,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:14px;">🐾</span>
+            <span style="font-weight:bold;color:#a7f3d0;font-size:12.5px;">山海寻访:</span>
+            <span style="font-weight:bold;color:#ffffff;font-size:12.5px;">【${pet.name}】</span>
+            <span style="font-size:9.5px;padding:1px 6px;border-radius:3px;border:1px solid ${badge.border};background:${badge.bg};color:${badge.color};font-weight:bold;">${badge.text}</span>
+          </div>
+          <span style="font-size:10px;font-weight:bold;color:${isCollected ? '#34d399' : '#f59e0b'};background:rgba(10,8,6,0.7);padding:2px 8px;border-radius:4px;border:1px solid ${isCollected ? '#059669' : '#d97706'};">
+            ${isCollected ? '✅ 已献录入经' : '🔍 寻访中'}
+          </span>
+        </div>
+        <div style="font-size:11px;color:#d1fae5;line-height:1.5;margin-bottom:4px;">
+          <span style="color:#6ee7b7;">栖息出没：</span>${sourceInfo?.mapName || '未知地域'} · ${sourceInfo?.conditionDesc || '游历偶遇'}
+        </div>
+        <div style="font-size:10.5px;color:#94a3b8;margin-bottom:8px;">
+          🧭 招降要诀：${vesselDesc} · ${sourceInfo?.accessible ? '当前主线已可抵达' : '需后续主线开放场景'}
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          ${sourceInfo?.accessible && sourceInfo?.mapId ? `
+            <button class="dialogue-opt-btn" style="padding:4px 14px;font-size:11px;background:#065f46;border-color:#10b981;color:#fff;" onclick="window.App2D.guideToMap('${sourceInfo.mapId}', '${sourceInfo.mapName}'); document.querySelectorAll('.modal-overlay').forEach(m => m.remove());">
+              🧭 规划前往【${sourceInfo.mapName}】
+            </button>
+          ` : ''}
+          <button class="dialogue-opt-btn" style="padding:4px 10px;font-size:11px;background:#374151;border-color:#4b5563;color:#e5e7eb;" onclick="window.App2D.setShanhaiPursuitTarget(null); document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); window.App2D.openQuestTrackerModal();">
+            ✕ 取消寻访
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   // 跨地图引路只规划当前场景的下一道门，绝不直接装载目标地图跳过任务。
   guideToMap(targetMapId, targetName = '目标场景') {
     if (window.Dialogue) window.Dialogue.close();
@@ -11391,6 +12615,15 @@ class GameApp2D {
       this.handleClickCanvas(tgt.x - this.camera.x, tgt.y - this.camera.y);
       window.showGameMessage(`🎯 已开启自动寻路直指主线目标：【${tgt.name}】！`, 'success');
       return;
+    }
+
+    // 优先读取统一主线跨地图指引 (R3)
+    if (window.GAME_DATA && typeof window.GAME_DATA.getUnifiedStoryLead === 'function') {
+      const unified = window.GAME_DATA.getUnifiedStoryLead(this.storyPhase, this.currentMapId, this.questKills, this.playerData);
+      if (unified && unified.mapId && unified.mapId !== this.currentMapId) {
+        this.guideToMap(unified.mapId, unified.mapName);
+        return;
+      }
     }
 
     // 跨地图逐门引路，传送门仍执行剧情与等级检查。
@@ -11467,11 +12700,15 @@ class GameApp2D {
             📥 查看随行仙宠并献录
           </button>
         </div>
-        <p>献录的这一只仙宠将永久离开随行与出战阵列，转化为图鉴功德；同种其他仙宠保留。点击右侧按钮可查看并挑选当前仙宠。</p>
+        <p style="font-size:10.5px;color:#cbd5e1;line-height:1.5;margin-bottom:6px;">💡 见闻与献录法则：野外见过会记下见闻，献录才点亮收藏；被献录的这一只会离队，其他同种仙宠完好保留。受加锁保护的仙宠不会被误献录。</p>
         ${owned.map(p => `
-          <div class="shanhai-candidate">
-            <span>🐾 ${p.name} · Lv.${p.level} · 成长 ${p.growth || '标准'}${this.activeCombatPets?.some(a => a.instanceId === p.instanceId) ? ' · [出战中]' : ''}</span>
-            <button class="dialogue-opt-btn" onclick="window.App2D.confirmShanhaiCollection('${p.instanceId}')">选择献录</button>
+          <div class="shanhai-candidate" style="border: 1px solid ${p.isProtected ? '#ef4444' : '#78350f'};">
+            <span>🐾 ${p.name} · Lv.${p.level} · 成长 ${p.growth || '标准'}${p.isProtected ? ' · <strong style="color:#ef4444;">[🔒已保护]</strong>' : ''}${this.activeCombatPets?.some(a => a.instanceId === p.instanceId) ? ' · [出战中]' : ''}</span>
+            ${p.isProtected ? `
+              <button class="dialogue-opt-btn" style="padding:1px 6px;font-size:9.5px;background:#b45309;" onclick="window.App2D.togglePetProtection('${p.instanceId}')">解锁</button>
+            ` : `
+              <button class="dialogue-opt-btn" onclick="window.App2D.confirmShanhaiCollection('${p.instanceId}')">选择献录</button>
+            `}
           </div>
         `).join('') || '<div style="font-size:10.5px;color:#94a3b8;padding:4px 0;">当前随行仙宠中暂无该物种，可在野外战斗中招降。</div>'}
       </div>
@@ -11516,7 +12753,8 @@ class GameApp2D {
           <button class="modal-close-btn" onclick="window.App2D.closeShanhaiPetPickerModal()">✕</button>
         </div>
         <div style="padding:10px 14px 4px 14px;font-size:11px;color:#cbd5e1;line-height:1.5;">
-          当前随行仙宠共 <strong>${allPlayerPets.length}</strong> 只。请选择符合【<strong style="color:#ffd700;">${template.name}</strong>】物种的仙宠奉纳献录：
+          💡 <strong>献录法则：</strong>见过会记下见闻，献录才点亮绿色收藏；被献录的这一只会离队，其他同种仍保留。<br>
+          当前随行仙宠共 <strong>${allPlayerPets.length}</strong> 只。请仔细挑选符合【<strong style="color:#ffd700;">${template.name}</strong>】的实例（同种多个实例默认不替玩家选定）：
         </div>
         <div class="shanhai-picker-body">
           ${allPlayerPets.length === 0 ? `
@@ -11534,24 +12772,44 @@ class GameApp2D {
 
             <!-- 匹配可献录仙宠 -->
             ${matchingPets.map(p => {
-      const isCombat = this.activeCombatPets?.some(a => a.instanceId === p.instanceId);
-      return `
-                <div class="shanhai-candidate-card is-match">
+              const isCombat = this.activeCombatPets?.some(a => a.instanceId === p.instanceId);
+              const isProtected = !!p.isProtected;
+              const skillStr = p.skills && p.skills.length > 0 ? p.skills.map(s => s.name || s).join('、') : '仅普通攻击';
+              return `
+                <div class="shanhai-candidate-card is-match" style="border: 1px solid ${isProtected ? '#ef4444' : '#059669'};">
                   <div>
-                    <div style="color:#ffd700;font-weight:bold;font-size:12px;">
-                      🐾 ${p.name} <span style="font-size:11px;color:#fde047;">(Lv.${p.level})</span>
-                      ${isCombat ? '<span style="font-size:9.5px;color:#f59e0b;border:1px solid #f59e0b;padding:0 4px;border-radius:3px;margin-left:4px;">出战中</span>' : ''}
+                    <div style="color:#ffd700;font-weight:bold;font-size:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                      <span>🐾 ${p.name} <span style="font-size:11px;color:#fde047;">(Lv.${p.level})</span></span>
+                      ${isCombat ? '<span style="font-size:9.5px;color:#f59e0b;border:1px solid #f59e0b;padding:0 4px;border-radius:3px;">出战中</span>' : ''}
+                      ${isProtected ? '<span style="font-size:9.5px;color:#ef4444;border:1px solid #ef4444;background:rgba(239,68,68,0.18);padding:0 4px;border-radius:3px;">🔒 加锁保护</span>' : '<span style="font-size:9.5px;color:#10b981;border:1px solid #10b981;padding:0 4px;border-radius:3px;">🔓 未保护</span>'}
                     </div>
                     <div style="font-size:10px;color:#6ee7b7;margin-top:2px;">
                       气血: ${p.hp}/${p.maxHp} · 法力: ${p.mp}/${p.maxMp} · 成长率: ${p.growth || '标准'}
                     </div>
+                    <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">
+                      已学技能: ${skillStr}
+                    </div>
                   </div>
-                  <button class="shanhai-collect-trigger-btn" onclick="window.App2D.confirmShanhaiCollection('${p.instanceId}')">
-                    选择献录
-                  </button>
+                  <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+                    ${isProtected ? `
+                      <button class="dialogue-opt-btn" style="padding:2px 8px;font-size:9.5px;background:#b45309;color:#fff;" onclick="window.App2D.togglePetProtection('${p.instanceId}')">
+                        🔓 解除保护
+                      </button>
+                      <button class="shanhai-collect-trigger-btn" style="opacity:0.45;cursor:not-allowed;" disabled title="受加锁保护的仙宠无法献录，请先解除保护">
+                        受保护禁献
+                      </button>
+                    ` : `
+                      <button class="dialogue-opt-btn" style="padding:2px 8px;font-size:9.5px;background:#334155;color:#cbd5e1;" onclick="window.App2D.togglePetProtection('${p.instanceId}')">
+                        🔒 加锁保护
+                      </button>
+                      <button class="shanhai-collect-trigger-btn" onclick="window.App2D.confirmShanhaiCollection('${p.instanceId}')">
+                        选择献录
+                      </button>
+                    `}
+                  </div>
                 </div>
               `;
-    }).join('')}
+            }).join('')}
 
             <!-- 不匹配的其他仙宠列表 (置灰提示不可献录) -->
             ${nonMatchingPets.map(p => `
@@ -11566,7 +12824,7 @@ class GameApp2D {
           `}
         </div>
         <div style="padding:8px 14px;border-top:1px solid #78350f;display:flex;justify-content:space-between;align-items:center;background:rgba(20,10,5,0.6);">
-          <span style="font-size:10.5px;color:#94a3b8;">仅移除选中的这一只仙宠 · Esc 返回</span>
+          <span style="font-size:10.5px;color:#94a3b8;">仅奉纳选中的这一只 · Esc 返回</span>
           <button class="dialogue-opt-btn" onclick="window.App2D.closeShanhaiPetPickerModal()">关闭取消</button>
         </div>
       </div>
@@ -11586,16 +12844,27 @@ class GameApp2D {
   confirmShanhaiCollection(instanceId) {
     const pet = this.pets?.find(p => p.instanceId === instanceId);
     if (!pet) return;
+    if (pet.isProtected) {
+      window.showGameMessage(`【${pet.name}】处于加锁保护状态，无法献录！请先在仙宠面板解除保护。`, 'warning');
+      return;
+    }
     const template = window.GAME_DATA?.PETS?.[pet.templateId] || { name: pet.name, quality: 'ordinary' };
+    const skillList = pet.skills && pet.skills.length > 0 ? pet.skills.map(s => s.name || s).join('、') : '仅普通物理攻击';
+    const isCombat = this.activeCombatPets?.some(a => a.instanceId === pet.instanceId);
     this.showConfirmModal({
       title: '⚠️ 山海经 · 二次确认献录',
       confirmText: '确认奉纳收录',
       cancelText: '暂不献录',
-      content: `确定要将随行仙宠【<strong>${pet.name} (Lv.${pet.level})</strong>】奉纳献录至《山海经》吗？<br><br>` +
+      content: `确定要将随行仙宠【<strong>${pet.name} (Lv.${pet.level})</strong>】奉纳献录至《山海经》吗？<br>` +
+        `<div style="font-size:11px;color:#cbd5e1;margin:6px 0;background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;border:1px solid #4a331c;">` +
+        `• 成长率: <strong>${pet.growth || '标准'}</strong><br>` +
+        `• 已学技能: <strong>${skillList}</strong><br>` +
+        `${isCombat ? '<strong style="color:#f59e0b;">• 提示：该仙宠当前正在出战队列中！</strong><br>' : ''}` +
+        `</div>` +
         `<span style="color:#f87171;font-weight:bold;">⚠️ 郑重提醒（不可逆）：</span><br>` +
-        `1. 献录后该仙宠将<strong>永久离开队伍与背包</strong>，其等级与培养进度将化为图鉴灵韵；<br>` +
-        `2. 永久点亮山海经【<strong>${template.name}</strong>】<span style="color:#4ade80;font-weight:bold;">绿色收录</span>成就与功德里程；<br>` +
-        `3. 只录同种一只，您保留的其他同种仙宠不受影响。`,
+        `1. 献录后<strong>仅该只仙宠永久离开队伍与背包</strong>，其等级与培养化为图鉴灵韵；<br>` +
+        `2. 队伍中保留的其他同种仙宠<strong>不受任何影响</strong>；<br>` +
+        `3. 永久点亮山海经【<strong>${template.name}</strong>】<span style="color:#4ade80;font-weight:bold;">绿色收录</span>成就与功德里程。`,
       onConfirm: () => {
         const result = this.getShanhai().collect(this, instanceId);
         window.showGameMessage(result.msg, result.success ? 'success' : 'warning');
@@ -11618,6 +12887,42 @@ class GameApp2D {
     }
   }
 
+  // P2.2: 设定或切换山海经寻访目标（单一生灵目标，不覆盖主线）
+  setShanhaiPursuitTarget(templateId) {
+    if (!templateId || this.shanhaiPursuitTarget === templateId) {
+      this.shanhaiPursuitTarget = null;
+      if (typeof window !== 'undefined' && window.showGameMessage) {
+        window.showGameMessage('已取消山海经寻访目标。', 'info');
+      }
+    } else {
+      this.shanhaiPursuitTarget = templateId;
+      const petDef = window.GAME_DATA?.PETS?.[templateId];
+      const name = petDef ? petDef.name : templateId;
+      if (typeof window !== 'undefined' && window.showGameMessage) {
+        window.showGameMessage(`已将【${name}】设为山海经寻访目标！`, 'success');
+      }
+    }
+    this.saveAutoProgress();
+    const curTab = this._currentRosterTab || 'ordinary';
+    if (typeof document !== 'undefined' && document.getElementById('scene-roster-modal')) {
+      this.renderSceneRosterModal(templateId, curTab);
+    }
+  }
+
+  // P2.2: 设定山海图鉴筛选（all: 全部, uncollected: 未献录, collectible: 可献录）
+  setShanhaiFilter(filter) {
+    this._shanhaiFilter = filter || 'all';
+    this._shanhaiSearchFocused = false;
+    this.renderSceneRosterModal(null, this._currentRosterTab || 'ordinary');
+  }
+
+  // P2.2: 设定山海图鉴名称搜索关键字
+  setShanhaiSearch(keyword) {
+    this._shanhaiSearchKeyword = (keyword || '').trim();
+    this._shanhaiSearchFocused = true;
+    this.renderSceneRosterModal(null, this._currentRosterTab || 'ordinary');
+  }
+
   // 切换场景生灵名册模态框 (Tab 键或右上角快捷按钮呼出)
   toggleSceneRosterModal(forceState) {
     if (typeof document === 'undefined') return;
@@ -11625,6 +12930,7 @@ class GameApp2D {
     if (existing) {
       if (forceState === true) return;
       this.closeShanhaiPetPickerModal();
+      this._shanhaiSearchFocused = false;
       existing.remove();
       if (window.Sound && window.Sound.playBeep) window.Sound.playBeep();
       return;
@@ -11679,7 +12985,28 @@ class GameApp2D {
     const book = this.getShanhai();
     for (const pet of this.pets || []) book.observe(pet);
     const allPets = Object.values(window.GAME_DATA?.PETS || {});
-    const codexMobs = allPets.filter(p => p.quality === currentTab);
+    const fullCodexMobs = allPets.filter(p => p.quality === currentTab);
+
+    // P2.2: 轻量筛选与名称搜索
+    this._shanhaiFilter = this._shanhaiFilter || 'all';
+    const activeFilter = this._shanhaiFilter;
+    const searchKw = (this._shanhaiSearchKeyword || '').trim().toLowerCase();
+
+    const allInTabCount = fullCodexMobs.length;
+    const uncollectedInTabCount = fullCodexMobs.filter(p => !book.entries?.[p.id]).length;
+    const collectibleInTabCount = fullCodexMobs.filter(p => !book.entries?.[p.id] && (this.pets || []).some(pet => pet.templateId === p.id && window.ShanhaiSystem.isCollectible(pet))).length;
+
+    let codexMobs = fullCodexMobs;
+    if (currentTab !== 'scene') {
+      if (activeFilter === 'uncollected') {
+        codexMobs = codexMobs.filter(p => !book.entries?.[p.id]);
+      } else if (activeFilter === 'collectible') {
+        codexMobs = codexMobs.filter(p => !book.entries?.[p.id] && (this.pets || []).some(pet => pet.templateId === p.id && window.ShanhaiSystem.isCollectible(pet)));
+      }
+      if (searchKw) {
+        codexMobs = codexMobs.filter(p => (p.name || '').toLowerCase().includes(searchKw));
+      }
+    }
 
     // 确定当前选中的生灵
     let selectedType = 'npc';
@@ -11736,6 +13063,54 @@ class GameApp2D {
       earth: '#f59e0b'
     };
 
+    // P2.2: 寻访目标横幅
+    let pursuitBannerHtml = '';
+    if (currentTab !== 'scene' && this.shanhaiPursuitTarget) {
+      const pursuingPet = window.GAME_DATA?.PETS?.[this.shanhaiPursuitTarget];
+      if (pursuingPet) {
+        const pursuingSource = window.GAME_DATA?.getShanhaiSpeciesSource ? window.GAME_DATA.getShanhaiSpeciesSource(pursuingPet.id) : null;
+        pursuitBannerHtml = `
+          <div class="shanhai-pursuit-banner" style="background:rgba(35,22,12,0.95);border-bottom:1.5px solid #c59b27;padding:5px 12px;display:flex;align-items:center;justify-content:space-between;font-size:11px;flex-wrap:wrap;gap:6px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:13px;">📍</span>
+              <span style="color:#fde047;font-weight:bold;">当前寻访生灵：</span>
+              <span style="color:#ffffff;font-weight:bold;">【${pursuingPet.name}】</span>
+              <span style="color:#38bdf8;">· 栖息地：${pursuingSource?.mapName || '未知'}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button class="dialogue-opt-btn" style="padding:2px 8px;font-size:10px;background:#451a03;border-color:#b45309;" onclick="window.App2D.renderSceneRosterModal('${pursuingPet.id}', '${pursuingPet.quality}')">查看档案</button>
+              <button class="dialogue-opt-btn" style="padding:2px 8px;font-size:10px;background:#7f1d1d;border-color:#b91c1c;" onclick="window.App2D.setShanhaiPursuitTarget(null)">取消寻访</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // P2.2: 筛选工具栏
+    let filterBarHtml = '';
+    if (currentTab !== 'scene') {
+      filterBarHtml = `
+        <div class="shanhai-subfilter-bar" style="display:flex;align-items:center;justify-content:space-between;background:#18110a;border-bottom:1px solid #4a331c;padding:5px 12px;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:10.5px;color:#a89682;">筛选：</span>
+            <button class="dialogue-opt-btn" onclick="window.App2D.setShanhaiFilter('all')" style="padding:2px 8px;font-size:10.5px;${activeFilter === 'all' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
+              全部 (${allInTabCount})
+            </button>
+            <button class="dialogue-opt-btn" onclick="window.App2D.setShanhaiFilter('uncollected')" style="padding:2px 8px;font-size:10.5px;${activeFilter === 'uncollected' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
+              未献录 (${uncollectedInTabCount})
+            </button>
+            <button class="dialogue-opt-btn" onclick="window.App2D.setShanhaiFilter('collectible')" style="padding:2px 8px;font-size:10.5px;${activeFilter === 'collectible' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
+              可献录 (${collectibleInTabCount})
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <input type="text" id="shanhai-search-input" placeholder="按物种名搜索..." value="${this._shanhaiSearchKeyword || ''}" oninput="window.App2D.setShanhaiSearch(this.value)" style="background:#22150c;border:1px solid #5a3d20;color:#fde047;border-radius:4px;padding:3px 8px;font-size:10.5px;width:110px;outline:none;" />
+            ${this._shanhaiSearchKeyword ? `<button onclick="window.App2D.setShanhaiSearch('')" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:11px;" title="清空搜索">✕</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
     // 构建生灵与场景任务万象名册 HTML
     modal.innerHTML = `
       <div class="roster-modal-box ${currentTab !== 'scene' ? 'is-shanhai' : ''}" onclick="event.stopPropagation()">
@@ -11758,23 +13133,25 @@ class GameApp2D {
         <div class="roster-tabs" style="display:flex;background:#18110a;border-bottom:1.5px solid #78350f;padding:4px 8px;gap:6px;overflow-x:auto;">
           <button class="dialogue-opt-btn" onclick="window.App2D.renderSceneRosterModal(null, 'scene')"
             style="padding:3px 10px;font-size:11px;${currentTab === 'scene' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
-            📌 本地
+              📌 本地
           </button>
           <button class="dialogue-opt-btn" onclick="window.App2D.renderSceneRosterModal(null, 'ordinary')"
             style="padding:3px 10px;font-size:11px;${currentTab === 'ordinary' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
-            🐾 凡兽卷
+              🐾 凡兽卷
           </button>
           <button class="dialogue-opt-btn" onclick="window.App2D.renderSceneRosterModal(null, 'sanxian')"
             style="padding:3px 10px;font-size:11px;${currentTab === 'sanxian' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
-            🌟 散仙卷
+              🌟 散仙卷
           </button>
           <button class="dialogue-opt-btn" onclick="window.App2D.renderSceneRosterModal(null, 'jinxian')"
             style="padding:3px 10px;font-size:11px;${currentTab === 'jinxian' ? 'background:#b45309;color:#fff;border-color:#f59e0b;font-weight:bold;' : 'opacity:0.75;'}">
-            👑 金仙卷
+              👑 金仙卷
           </button>
         </div>
 
         ${currentTab !== 'scene' ? this.renderShanhaiRewards(currentTab) : ''}
+        ${pursuitBannerHtml}
+        ${filterBarHtml}
         <!-- 主体：左侧名录 + 右侧生灵详案 -->
         <div class="roster-main-body">
           <!-- 左侧生灵两级列表 (固定宽 300px，自适应平滑滚动) -->
@@ -11844,6 +13221,8 @@ class GameApp2D {
       const elemCol = elemColors[p.element] || '#ffd700';
       const isCollected = !!(book.entries && book.entries[p.id]);
       const isSeen = !isCollected && !!(book.seen && book.seen[p.id]);
+      const isPursuitTarget = (this.shanhaiPursuitTarget === p.id);
+      const hasCollectiblePet = !isCollected && (this.pets || []).some(pet => pet.templateId === p.id && window.ShanhaiSystem.isCollectible(pet));
       const statusClass = isCollected ? 'status-green' : (isSeen ? 'status-white' : 'status-grey');
       const statusTagHtml = isCollected
         ? '<span class="shanhai-status-tag tag-green">✓ 已收录</span>'
@@ -11855,6 +13234,8 @@ class GameApp2D {
                         <div class="roster-item-title-row">
                           <span class="roster-item-name-text ${statusClass}">${p.name}</span>
                           <div style="display:flex;align-items:center;gap:3px;">
+                            ${isPursuitTarget ? '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(245,158,11,0.25);border:1px solid #f59e0b;color:#fde047;font-weight:bold;">📍寻访</span>' : ''}
+                            ${hasCollectiblePet ? '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(16,185,129,0.25);border:1px solid #10b981;color:#34d399;font-weight:bold;">📥可献</span>' : ''}
                             ${statusTagHtml}
                             <span style="font-size:9.5px;padding:1px 4px;border-radius:3px;border:1px solid ${elemCol};color:${elemCol};background:rgba(0,0,0,0.5);font-weight:bold;">${p.elementName || '中立'}</span>
                           </div>
@@ -11880,6 +13261,15 @@ class GameApp2D {
     `;
     const listPanel = modal.querySelector('.roster-list-panel');
     if (listPanel && previousTab === currentTab) listPanel.scrollTop = previousListScroll;
+
+    if (this._shanhaiSearchFocused) {
+      const searchInput = modal.querySelector('#shanhai-search-input');
+      if (searchInput) {
+        searchInput.focus();
+        const len = searchInput.value.length;
+        searchInput.setSelectionRange(len, len);
+      }
+    }
   }
 
   // 内部辅助：渲染名册右侧详案卡片 (国风玉简极度精细排版)
@@ -11975,6 +13365,65 @@ class GameApp2D {
       const isSeen = !isCollected && !!(book.seen && book.seen[p.id]);
       const statusClass = isCollected ? 'status-green' : (isSeen ? 'status-white' : 'status-grey');
 
+      // P2.1 & P2.2: 真实来源与可达性字典查询
+      const sourceInfo = window.GAME_DATA?.getShanhaiSpeciesSource ? window.GAME_DATA.getShanhaiSpeciesSource(p.id) : (p.sourceInfo || {
+        category: 'common_wild',
+        categoryName: '地图常见',
+        mapId: p.habitatMapId || 'huaguoshan',
+        mapName: locationStr,
+        conditionDesc: '野外常规遇敌',
+        accessible: true
+      });
+
+      const catBadges = {
+        common_wild: { text: '🌲 地图常见', color: '#34d399', border: '#10b981', bg: 'rgba(6,78,59,0.7)' },
+        encounter: { text: '🎲 概率偶遇', color: '#fde047', border: '#f59e0b', bg: 'rgba(120,53,15,0.7)' },
+        gift_only: { text: '🎁 赠礼专属', color: '#c084fc', border: '#8b5cf6', bg: 'rgba(76,29,149,0.7)' },
+        unreachable: { text: '⏳ 尚未开放', color: '#9ca3af', border: '#6b7280', bg: 'rgba(55,65,81,0.7)' }
+      };
+      const catBadge = catBadges[sourceInfo.category] || catBadges.common_wild;
+
+      // 随行持有与受保护数统计
+      const playerPets = this.pets || [];
+      const ownedSpeciesPets = playerPets.filter(pet => pet.templateId === p.id);
+      const ownedCount = ownedSpeciesPets.length;
+      const protectedCount = ownedSpeciesPets.filter(pet => pet.isProtected).length;
+
+      // 招降容器与道具持有实时核验
+      const inv = this.inventory;
+      const silverCount = inv?.getItemCount ? inv.getItemCount('silver_gourd') : (Array.isArray(inv) ? inv.find(i => i.id === 'silver_gourd')?.count || 0 : 0);
+      const goldCount = inv?.getItemCount ? inv.getItemCount('gold_gourd') : (Array.isArray(inv) ? inv.find(i => i.id === 'gold_gourd')?.count || 0 : 0);
+      let vesselText = '无需特殊容器，在对战中削弱敌方血量后使用【招降】指令即可收服，成功率约 80%';
+      if (p.quality === 'sanxian') {
+        vesselText = `需消耗仙家法宝【收仙银壶】招降（当前持有: <strong style="color:${silverCount > 0 ? '#34d399' : '#f87171'}">${silverCount}</strong> 个）`;
+      } else if (p.quality === 'jinxian') {
+        vesselText = `需消耗道祖至宝【紫金红葫芦】招降（当前持有: <strong style="color:${goldCount > 0 ? '#34d399' : '#f87171'}">${goldCount}</strong> 个）`;
+      }
+
+      // 下一档里程碑赠礼距离
+      const bookRewards = book.rewards().filter(r => r.quality === p.quality);
+      const nextReward = bookRewards.find(r => !r.unlocked);
+      const collectedCount = book.counts()[p.quality];
+      const distToNext = nextReward ? Math.max(0, nextReward.threshold - collectedCount) : 0;
+      const rewardDistStr = nextReward
+        ? `距下档【${nextReward.label}】赠礼还差 <strong style="color:#fde047;">${distToNext}</strong> 种新物种`
+        : '🎉 本卷功德赠礼已全部达成！';
+
+      // 寻访目标实时方向与状态
+      const isPursuing = (this.shanhaiPursuitTarget === p.id);
+      let directionHint = '';
+      if (sourceInfo.category === 'unreachable') {
+        directionHint = '该生灵尚未开放野外现身，建议先寻访其他生灵。';
+      } else if (sourceInfo.category === 'gift_only') {
+        directionHint = '该生灵为山海经里程碑赠礼专属，无法在野外直接招降。';
+      } else if (this.currentMapId === sourceInfo.mapId) {
+        directionHint = `少侠已身处栖息地【${sourceInfo.mapName}】！在野外踱步巡查即有机缘偶遇招降。`;
+      } else if (sourceInfo.accessible) {
+        directionHint = `自当前【${window.GAME_DATA?.MAPS_2D?.[this.currentMapId]?.name || '场景'}】沿途前往【${sourceInfo.mapName}】寻访。`;
+      } else {
+        directionHint = `栖息地【${sourceInfo.mapName}】暂未对当前主线开放，请先推进西行历练。`;
+      }
+
       return `
         <div class="roster-card-content">
           <!-- 头部肖像与名称、品质与五行 -->
@@ -11994,11 +13443,36 @@ class GameApp2D {
           : `<button class="shanhai-collect-trigger-btn" onclick="window.App2D.openShanhaiPetPickerModal('${p.id}')">📥 献录至山海经</button>`
         }
               </div>
-              <div class="roster-card-location" style="color:#fde047;">📍 栖息出没：${locationStr}</div>
+              <div class="roster-card-location" style="color:#fde047;">📍 栖息出没：${sourceInfo.mapName || locationStr}</div>
             </div>
           </div>
 
           <div class="roster-card-divider"></div>
+
+          <!-- P2.2: 真实出没与寻访指引 -->
+          <div class="roster-info-block" style="background:rgba(26,17,10,0.82);border-color:#a16207;padding:8px 10px;">
+            <div class="roster-block-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span>🗺️ 真实出没与寻访线索</span>
+              <span style="font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid ${catBadge.border};background:${catBadge.bg};color:${catBadge.color};font-weight:bold;">${catBadge.text}</span>
+            </div>
+            <div style="font-size:11px;color:#cbd5e1;line-height:1.6;">
+              <div>• 栖息场景：<strong style="color:#fde047;">${sourceInfo.mapName || '未知'}</strong> (${sourceInfo.accessible ? '<span style="color:#34d399;">✓ 当前主线可抵达</span>' : '<span style="color:#f87171;">🔒 需推进主线解锁</span>'})</div>
+              <div>• 偶遇条件：<span style="color:#f5e8d0;">${sourceInfo.conditionDesc || '野外常规遇敌'}</span></div>
+              <div>• 招降法门：<span style="color:#38bdf8;">${vesselText}</span></div>
+              <div>• 随行持有：<span style="color:#e2d5c2;">共 <strong>${ownedCount}</strong> 只${protectedCount > 0 ? ` (其中 <strong style="color:#ef4444;">${protectedCount}</strong> 只受加锁保护)` : ''}</span></div>
+              <div style="margin-top:2px;">• 献录进展：<span style="color:#a89682;">${rewardDistStr}</span></div>
+            </div>
+
+            <!-- 寻访目标按钮与方向说明 -->
+            <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #5a3d20;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+              <div style="font-size:10.5px;color:#a89682;">
+                🧭 寻访指引：${directionHint}
+              </div>
+              <button class="dialogue-opt-btn" onclick="window.App2D.setShanhaiPursuitTarget('${p.id}')" style="padding:4px 12px;font-size:11px;${isPursuing ? 'background:#6b281b;border-color:#b91c1c;color:#fff;' : 'background:linear-gradient(180deg, #b4833e, #825a22);border-color:#d4af37;color:#fff;font-weight:bold;'}">
+                ${isPursuing ? '📍 正在寻访中 · 点击取消' : '📍 设为本次寻访目标'}
+              </button>
+            </div>
+          </div>
 
           <!-- 核心：初始属性与上下边界对照表 (两列展示) -->
           <div class="roster-info-block" style="background:rgba(30,18,9,0.78);border-color:#b45309;padding:6px 10px;">

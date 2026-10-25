@@ -3,7 +3,11 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b0c10">
   <title>汉风西游 - 正统2D自由探索与西游大闹天宫复刻版</title>
   <meta name="description"
     content="正统复刻《汉风西游》2D自由行走探索RPG：威灵显赫大将军天宫执勤，御马监选坐骑，蟠桃园采摘仙桃经验飞升，暗助孙悟空大闹天宫，贬落凡尘刘家村，随刘伯钦打猎，长安见玄奘菩萨，五行山揭帖破封救大圣！">
@@ -187,6 +191,24 @@
                     <div class="clean-card-name">蟠桃</div>
                     <div class="clean-card-key">[1]</div>
                   </div>
+
+                  <!-- 9. 同行闲谈 -->
+                  <div class="menu-clean-card"
+                    onclick="window.App2D.openCompanionBanterModal(); window.App2D.toggleFoldableMenu(false);"
+                    title="西行路上的同伴闲谈 (随剧情解锁，纯对话无奖励)">
+                    <div class="clean-card-icon">🍵</div>
+                    <div class="clean-card-name">闲谈</div>
+                    <div class="clean-card-key">闲</div>
+                  </div>
+
+                  <!-- 10. 舒适设置 -->
+                  <div class="menu-clean-card"
+                    onclick="window.App2D.openComfortSettingsModal(); window.App2D.toggleFoldableMenu(false);"
+                    title="战斗演出速度与低动态效果 (即时生效并记住)">
+                    <div class="clean-card-icon">🌿</div>
+                    <div class="clean-card-name">舒适</div>
+                    <div class="clean-card-key">设</div>
+                  </div>
                 </div>
 
                 <!-- 紧凑系统辅助栏 -->
@@ -339,6 +361,7 @@
   <script src="js/core/battle.js?v=5.5.0"></script>
   <script src="js/core/chat.js?v=5.5.0"></script>
   <script src="js/core/save.js?v=5.5.0"></script>
+  <script src="js/core/cloud.js?v=1.0.0"></script>
 
   <!-- 2D 引擎组件与国风立绘系统 -->
   <script src="js/engine/portraits.js?v=5.5.0"></script>

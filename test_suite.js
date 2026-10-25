@@ -109,6 +109,20 @@ window.requestAnimationFrame = () => 0;
 window.cancelAnimationFrame = () => {};
 window.location = { search: '', href: 'http://localhost/', pathname: '/', origin: 'http://localhost' };
 
+// 模拟 localStorage
+if (!global.localStorage) {
+  const _storageMap = new Map();
+  global.localStorage = {
+    getItem: (k) => _storageMap.has(k) ? _storageMap.get(k) : null,
+    setItem: (k, v) => _storageMap.set(k, String(v)),
+    removeItem: (k) => _storageMap.delete(k),
+    clear: () => _storageMap.clear(),
+    get length() { return _storageMap.size; },
+    key: (i) => Array.from(_storageMap.keys())[i] || null
+  };
+}
+window.localStorage = global.localStorage;
+
 // 依次加载游戏数据与核心逻辑
 const filesToLoad = [
   'js/engine/visualIdentity.js',
@@ -130,6 +144,7 @@ const filesToLoad = [
   'js/core/forge.js',
   'js/core/battle.js',
   'js/core/peachGarden.js',
+  'js/core/save.js',
   'js/engine/tilemap.js',
   'js/engine/character.js',
   'js/engine/minimap.js',
@@ -2165,8 +2180,10 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     assert(visibleAfterHalfSec === false, '采摘后过 0.5s 蘑菇绝对不会重新刷新或幽灵复现');
 
     // 测试存档持久化：保存后再读档，已采摘状态依然有效
+    const originalSaveMgr = window.SaveManager;
     let savedState = null;
     window.SaveManager = {
+      ...originalSaveMgr,
       saveGameFullState: (st) => { savedState = JSON.parse(JSON.stringify(st)); },
       loadGameFullState: () => savedState,
       hasAutoSave: () => !!savedState
@@ -2179,6 +2196,7 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     assert(app.collectedProps.has(testShroom.id) === false, '内存重置后初始不包含该道具');
     app.loadAutoSavedProgress();
     assert(app.collectedProps.has(testShroom.id) === true, '读档后成功恢复 collectedProps 永续集合，绝不再重刷');
+    window.SaveManager = originalSaveMgr;
 
     // 3. 按 Tab 键查看场景任务与名册面板全新排版样式校验
     app.toggleSceneRosterModal(true);
@@ -4869,15 +4887,15 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     const woodDefender = { id: 'wood_mob', name: '千年树精', atk: 100, def: 50, hp: 2000, maxHp: 2000, level: 20, element: 'wood', resistances: {} };
     const neutralDefender = { id: 'neutral_mob', name: '凡人守卫', atk: 100, def: 50, hp: 2000, maxHp: 2000, level: 20, element: null, resistances: {} };
 
-    // 禁用随机浮动，仅测试五行倍率
-    const dmgCounter = window.BattleEngine.calculateAttackDamage(goldAttacker, woodDefender, { dmgFluctuate: 1.0, forceElemMult: 1.20 });
-    const dmgNeutral = window.BattleEngine.calculateAttackDamage(goldAttacker, neutralDefender, { dmgFluctuate: 1.0, forceElemMult: 1.0 });
+    // 禁用随机浮动与暴击，仅测试五行倍率 (暴击随机会令固定种子下断言漂移)
+    const dmgCounter = window.BattleEngine.calculateAttackDamage(goldAttacker, woodDefender, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 1.20 });
+    const dmgNeutral = window.BattleEngine.calculateAttackDamage(goldAttacker, neutralDefender, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 1.0 });
     assert(dmgCounter.totalDamage > dmgNeutral.totalDamage, `金克木伤害 (${dmgCounter.totalDamage}) 显著高于中立伤害 (${dmgNeutral.totalDamage})`);
     assert(dmgCounter.attackerElement === 'gold' && dmgCounter.targetElement === 'wood', '伤害结算精确标注攻守双方五行属性');
 
     // 攻击方木属性 vs 防守方金属性 (木被金克 -> 削伤 15%~25%)
-    const dmgCountered = window.BattleEngine.calculateAttackDamage(woodDefender, goldAttacker, { dmgFluctuate: 1.0, forceElemMult: 0.80 });
-    const dmgWoodToNeutral = window.BattleEngine.calculateAttackDamage(woodDefender, neutralDefender, { dmgFluctuate: 1.0, forceElemMult: 1.0 });
+    const dmgCountered = window.BattleEngine.calculateAttackDamage(woodDefender, goldAttacker, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 0.80 });
+    const dmgWoodToNeutral = window.BattleEngine.calculateAttackDamage(woodDefender, neutralDefender, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 1.0 });
     assert(dmgCountered.totalDamage < dmgWoodToNeutral.totalDamage, `木攻金被克伤害 (${dmgCountered.totalDamage}) 显著低于中立伤害 (${dmgWoodToNeutral.totalDamage})`);
   }
 
@@ -5053,6 +5071,13 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
   await require('./test_presentation.js')(assert);
   await require('./test_visual_identity.js')(assert);
   await require('./test_story_rewards.js')(assert);
+  await require('./test_r1_reliability.js')(assert);
+  await require('./test_r2_movement.js')(assert);
+  await require('./test_r3_p1_gameplay.js')(assert);
+  await require('./test_p2_shanhai.js')(assert);
+  await require('./test_p3_gameplay.js')(assert);
+  await require('./test_p4_flavor.js')(assert);
+  await require('./test_p5_feedback.js')(assert);
 
   console.log('\n======================================================');
   console.log(`🎉 全部自动化测试执行完毕！通过率: ${passedTests}/${totalTests} (${totalTests ? (passedTests / totalTests * 100).toFixed(1) : 0}%)`);

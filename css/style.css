@@ -5903,3 +5903,312 @@ body:not(.modern-mode) .dialogue-speaker-name {
   .roster-modal-box { max-height: calc(100% - 8px); }
   #battle-target-panel { max-height: calc(100% - 12px); overflow-y: auto; }
 }
+
+/* ==========================================================================
+   H5 全设备适配增强 (手机/平板浏览器直开即玩)
+   触摸零延迟、防误触缩放滚动、刘海屏安全区、动态视口高度 (dvh) 与小屏微调
+   ========================================================================== */
+html, body {
+  /* 禁止下拉刷新与橡皮筋滚动干扰游戏操作 (弹窗内部滚动不受影响) */
+  overscroll-behavior: none;
+}
+
+body {
+  /* 消除移动端双击缩放的 300ms 延迟与点按灰色高亮 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* 动态视口高度：地址栏收放时不再出现多余滚动条 (不支持 dvh 的旧浏览器自动回落 vh) */
+  min-height: 100dvh;
+}
+
+/* 游戏画布：触摸操作即点即走，屏蔽画布区域的页面滚动与双指缩放 */
+#game-canvas {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* 刘海屏 / 灵动岛安全区：顶部状态条与主舞台留出系统安全间距 */
+@supports (padding: env(safe-area-inset-top)) {
+  .top-nav {
+    padding-top: calc(6px + env(safe-area-inset-top));
+  }
+  body.modern-mode .phone-device {
+    padding-left: calc(12px + env(safe-area-inset-left));
+    padding-right: calc(12px + env(safe-area-inset-right));
+  }
+  .modern-bottom-bar {
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+  }
+}
+
+/* 全屏遮罩层跟随动态视口，避免移动端地址栏收放时底部露出背景 */
+.level-up-modal-overlay,
+.game-confirm-overlay,
+.foldable-menu-overlay,
+.chapter-opening-overlay {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* 超窄小屏 (<360px)：顶栏控件与字号进一步收敛，保证不换行溢出 */
+@media (max-width: 359px) {
+  .top-nav { gap: 4px; padding: 4px; flex-wrap: nowrap; }
+  .nav-controls .nav-btn { padding: 3px 6px; font-size: 10px; }
+  .hud-player-name { font-size: 11px; }
+  .hud-hp-group { max-width: 70px; }
+  .game-viewport { height: 400px; }
+}
+
+/* 横屏矮视口 (高度 < 480px)：压缩顶栏给画布让位，战斗界面保持可操作 */
+@media (max-height: 479px) and (orientation: landscape) {
+  .top-nav { padding: 2px 6px; }
+  .top-nav .brand-title { display: none; }
+  .hud-hp-group { max-width: 90px; }
+  .nav-controls .nav-btn { padding: 3px 7px; font-size: 10.5px; }
+}
+
+/* ==========================================================================
+   章回开幕 · 画卷展开 (左右木轴自中央舒卷，山海画心随轴显现)
+   ========================================================================== */
+.chapter-opening-brand {
+  font-size: clamp(10px, 2.2vw, 13px);
+  letter-spacing: 6px;
+  color: #c9a75c;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
+  margin-bottom: 14px;
+  opacity: 0;
+  animation: chapterBrandIn 0.6s ease-out 0.15s forwards;
+}
+
+.chapter-scroll-stage {
+  position: relative;
+  width: min(88%, 640px);
+  height: clamp(150px, 34vh, 250px);
+}
+
+.chapter-scroll-paper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #f3e4c2 0%, #e8d3a8 55%, #dcc48f 100%);
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.65);
+  /* 初始收卷：仅中央一线，active 时向两侧展开 */
+  clip-path: inset(0 50% 0 50%);
+}
+.chapter-opening-overlay.active .chapter-scroll-paper {
+  animation: scrollPaperUnroll 1.05s cubic-bezier(0.22, 0.68, 0.32, 1) forwards;
+}
+
+.chapter-scroll-art {
+  position: absolute;
+  inset: 0;
+  background-image: url('../assets/shanhai_scroll_art.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.5;
+  filter: saturate(0.85) sepia(0.12);
+}
+.chapter-scroll-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(24, 16, 8, 0.32) 0%, rgba(24, 16, 8, 0.55) 60%, rgba(24, 16, 8, 0.68) 100%);
+}
+
+.chapter-scroll-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 26px;
+  text-align: center;
+  opacity: 0;
+}
+.chapter-opening-overlay.active .chapter-scroll-content {
+  animation: scrollContentEmerge 0.7s ease-out 0.5s forwards;
+}
+
+/* 左右木轴：深色木杆 + 鎏金轴头，随画心同步自中央推向两侧 */
+.chapter-scroll-roller {
+  position: absolute;
+  top: -3%;
+  height: 106%;
+  width: 15px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #4a2f18 0%, #7a5426 45%, #3a2312 100%);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.7), inset 0 0 4px rgba(255, 215, 0, 0.25);
+  z-index: 2;
+  opacity: 0;
+}
+.chapter-scroll-roller i {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 21px;
+  height: 13px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #f5d678 0%, #b98a2e 60%, #7a5a18 100%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.chapter-scroll-roller i:first-child { top: -9px; }
+.chapter-scroll-roller i:last-child { bottom: -9px; }
+
+.chapter-scroll-roller-left { left: calc(50% - 8px); }
+.chapter-scroll-roller-right { left: calc(50% - 8px); }
+.chapter-opening-overlay.active .chapter-scroll-roller {
+  opacity: 1;
+}
+.chapter-opening-overlay.active .chapter-scroll-roller-left {
+  animation: scrollRollerLeft 1.05s cubic-bezier(0.22, 0.68, 0.32, 1) forwards;
+}
+.chapter-opening-overlay.active .chapter-scroll-roller-right {
+  animation: scrollRollerRight 1.05s cubic-bezier(0.22, 0.68, 0.32, 1) forwards;
+}
+
+.chapter-scroll-shadow {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: -16px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55) 0%, transparent 70%);
+  opacity: 0;
+}
+.chapter-opening-overlay.active .chapter-scroll-shadow {
+  animation: chapterBrandIn 0.5s ease-out 0.6s forwards;
+}
+
+@keyframes scrollPaperUnroll {
+  from { clip-path: inset(0 50% 0 50%); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes scrollRollerLeft {
+  from { left: calc(50% - 8px); }
+  to { left: -7px; }
+}
+@keyframes scrollRollerRight {
+  from { left: calc(50% - 8px); }
+  to { left: calc(100% - 8px); }
+}
+@keyframes scrollContentEmerge {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes chapterBrandIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 低动态效果：跳过舒卷动画，直接呈现完全展开的画卷 */
+.chapter-opening-overlay.reduced-motion .chapter-scroll-paper,
+.chapter-opening-overlay.reduced-motion .chapter-scroll-content,
+.chapter-opening-overlay.reduced-motion .chapter-scroll-roller-left,
+.chapter-opening-overlay.reduced-motion .chapter-scroll-roller-right,
+.chapter-opening-overlay.reduced-motion .chapter-scroll-shadow,
+.chapter-opening-overlay.reduced-motion .chapter-opening-brand {
+  animation: none !important;
+  clip-path: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+.chapter-opening-overlay.reduced-motion .chapter-scroll-roller-left { left: -7px !important; }
+.chapter-opening-overlay.reduced-motion .chapter-scroll-roller-right { left: calc(100% - 8px) !important; }
+
+/* 画卷开幕内容纵向排布 (品牌行 / 画卷 / 跳过提示) */
+.chapter-opening-overlay {
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   P5.1 战斗反馈分级：抵抗独立配色 (区别于闪避的白与伤害的红)
+   ========================================================================== */
+.float-resist {
+  color: #d9a066;
+  text-shadow: 0 0 4px rgba(120, 70, 20, 0.9);
+}
+
+/* ==========================================================================
+   P5.3 胜利战果清点面板 (到账与待领取严格分列)
+   ========================================================================== */
+.battle-summary-overlay {
+  position: absolute;
+  top: 46px;
+  right: 8px;
+  z-index: 950;
+  pointer-events: none;
+  animation: chapterBrandIn 0.3s ease-out;
+}
+.battle-summary-card {
+  pointer-events: auto;
+  cursor: pointer;
+  min-width: 210px;
+  max-width: min(320px, 82vw);
+  background: linear-gradient(180deg, rgba(32, 22, 12, 0.96) 0%, rgba(18, 12, 8, 0.97) 100%);
+  border: 1.5px solid #c59b27;
+  border-radius: 8px;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.65), inset 0 0 18px rgba(197, 155, 39, 0.12);
+  padding: 8px 11px;
+  font-size: 11px;
+  color: #f3e7cd;
+}
+.battle-summary-head {
+  font-size: 12.5px;
+  font-weight: bold;
+  color: #ffd700;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(197, 155, 39, 0.45);
+  padding-bottom: 5px;
+  margin-bottom: 6px;
+}
+.battle-summary-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bs-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  line-height: 1.5;
+}
+.bs-k {
+  flex-shrink: 0;
+  color: #c9a75c;
+  font-size: 10.5px;
+  width: 62px;
+}
+.bs-v {
+  color: #e8dcc0;
+  word-break: break-all;
+}
+.bs-v b { color: #7ee08a; }
+.battle-summary-pending {
+  margin-top: 6px;
+  border: 1px dashed #d9862f;
+  border-radius: 6px;
+  background: rgba(120, 70, 15, 0.22);
+  padding: 5px 7px;
+}
+.bs-pending-title {
+  color: #f0a649;
+  font-weight: bold;
+  font-size: 10.5px;
+  margin-bottom: 2px;
+}
+.bs-pending-text {
+  color: #e3c9a4;
+  font-size: 10px;
+  line-height: 1.55;
+}
+.battle-summary-foot {
+  margin-top: 6px;
+  text-align: right;
+  font-size: 9px;
+  color: #887766;
+}

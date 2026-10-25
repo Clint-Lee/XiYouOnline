@@ -57,8 +57,8 @@ window.GAME_DATA.ITEMS = {
     type: 'consumable',
     icon: '📜',
     price: 150,
-    desc: '仙家神符，使用后瞬移返回长安城。',
-    effect: { teleport: 'changan' }
+    desc: '仙家神符，历练至长安城后方可引动，使用后瞬移回转大唐王都。',
+    effect: { teleport: 'changan_city' }
   },
 
   // === 炼妖养成材料 ===

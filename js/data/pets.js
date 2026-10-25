@@ -1445,3 +1445,68 @@ window.GAME_DATA.getPetInitialBounds = function(petOrId) {
     { key: 'spd', name: '🌪️ 出手速度', init: initSpd, range: `${spdMin} ~ ${spdMax}` }
   ];
 };
+
+/**
+ * P3.3 物种战斗定位档案 (getSpeciesRoleProfile)
+ * 按同品质档内百分位排名判定该物种相对同类的战斗定位，仅作展示指引，不改动任何数值：
+ * - 耐久承伤：血/防在同类中出挑，适合顶在阵前消耗伤害
+ * - 速度先手：出手在同类中靠前，先手压制或抢先控场
+ * - 物理输出：攻击在同类中领先，稳定物攻主力
+ * - 均衡成长：各维平稳，先随队培养再看实际成长
+ * 判定在同一品质档 (ordinary/sanxian/jinxian) 内部比较，避免跨档数值悬殊导致误判。
+ */
+window.GAME_DATA.getSpeciesRoleProfile = function(petOrId) {
+  const P = window.GAME_DATA.PETS;
+  const p = (typeof petOrId === 'string') ? P[petOrId] : petOrId;
+  if (!p || !p.initialStats || !p.quality) return null;
+
+  // 惰性构建并缓存各品质档的百分位基准 (挂在函数属性上，不污染 PETS 物种枚举)
+  const fnCache = window.GAME_DATA.getSpeciesRoleProfile;
+  fnCache._baseCache = fnCache._baseCache || {};
+  let base = fnCache._baseCache[p.quality];
+  if (!base) {
+    const peers = Object.values(P).filter(s => s.quality === p.quality && s.initialStats);
+    const n = peers.length;
+    const maxOf = key => Math.max(...peers.map(s => s.initialStats[key].init));
+    base = {
+      n,
+      sortedDesc: {},
+      max: { hp: maxOf('hp'), atk: maxOf('atk'), spd: maxOf('spd'), def: maxOf('def') }
+    };
+    ['hp', 'atk', 'spd', 'def'].forEach(key => {
+      base.sortedDesc[key] = peers.map(s => s.initialStats[key].init).sort((a, b) => b - a);
+    });
+    fnCache._baseCache[p.quality] = base;
+  }
+
+  // 百分位：1.0 = 该档该项第一，0 = 该档该项垫底
+  const pctOf = key => {
+    const val = p.initialStats[key].init;
+    if (base.n <= 1) return 1;
+    const rank = base.sortedDesc[key].indexOf(val);
+    return (base.n - 1 - rank) / (base.n - 1);
+  };
+  const pSpd = pctOf('spd');
+  const pAtk = pctOf('atk');
+  const pHp = pctOf('hp');
+  const pDef = pctOf('def');
+  const tank = (pHp + pDef) / 2;
+  const absSpd = p.initialStats.spd.init / base.max.spd;
+  const absAtk = p.initialStats.atk.init / base.max.atk;
+
+  let tag;
+  if (Math.max(tank, pAtk, pSpd) < 0.15) tag = '均衡成长';
+  else if (tank >= 0.95) tag = (pAtk > pHp) ? '物理输出' : '耐久承伤';
+  else if (pSpd >= 0.8 && absSpd >= 0.5 && (pSpd - pAtk) >= 0.05) tag = '速度先手';
+  else if (pAtk >= 0.75 && absAtk >= 0.75 && (pAtk - pSpd) >= 0.05) tag = '物理输出';
+  else if (tank >= 0.3 && tank >= Math.max(pAtk, pSpd)) tag = '耐久承伤';
+  else tag = (pAtk >= pSpd) ? '物理输出' : '速度先手';
+
+  const ROLE_DEFS = {
+    '耐久承伤': { icon: '🛡️', desc: '血防在同类中出挑，适合顶在阵前消耗伤害' },
+    '速度先手': { icon: '💨', desc: '出手在同类中靠前，可先手压制或抢先控场' },
+    '物理输出': { icon: '⚔️', desc: '攻击在同类中领先，是稳定的物攻主力' },
+    '均衡成长': { icon: '🌱', desc: '各维平稳，先随队培养，再看这只的实际成长' }
+  };
+  return { tag, ...ROLE_DEFS[tag] };
+};

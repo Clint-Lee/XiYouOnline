@@ -768,6 +768,33 @@ class PetSystem {
       desc: '变身后全属性提升 15%，受到伤害减免 10%。'
     };
   }
+
+  /**
+   * P2.3: 切换仙宠实例加锁保护标记
+   */
+  static toggleProtection(pet) {
+    if (!pet) return false;
+    pet.isProtected = !pet.isProtected;
+    return pet.isProtected;
+  }
+
+  /**
+   * P2.3: 放生仙宠（受保护或出战中的仙宠禁止放生）
+   */
+  static releasePet(app, instanceId) {
+    if (!app || !Array.isArray(app.pets)) return { success: false, msg: '仙宠数据异常。' };
+    const index = app.pets.findIndex(p => p.instanceId === instanceId);
+    if (index === -1) return { success: false, msg: '未找到选定的仙宠。' };
+    const pet = app.pets[index];
+    if (pet.isProtected) return { success: false, msg: `【${pet.name}】处于加锁保护状态，无法放生！请先解除保护。` };
+    if ((app.activeCombatPets || []).some(p => p.instanceId === instanceId)) {
+      return { success: false, msg: `【${pet.name}】正在出战中，请先转为备战待命后再放生。` };
+    }
+    app.pets.splice(index, 1);
+    if (app.tempWashResult?.instanceId === instanceId) app.tempWashResult = null;
+    return { success: true, pet, msg: `已将【${pet.name}】放归天地山林。` };
+  }
 }
 
 window.PetSystem = PetSystem;
+

@@ -119,6 +119,90 @@ class BattleEngine {
 
     // 计算初始速度序数
     this.calcTurnOrders();
+
+    // 专属 Boss 意图机制 (P1: 银角大王“移山压顶”等机制样板)
+    this.bossIntents = [];
+    this.updateBossIntents();
+  }
+
+  // 刷新与推进 Boss 专属战术意图 (回合初与每轮行动前确定并公开)
+  updateBossIntents() {
+    this.bossIntents = this.bossIntents || [];
+    const aliveEnemies = (typeof this.getAliveEnemies === 'function') ? this.getAliveEnemies() : this.enemies.filter(e => e.hp > 0);
+    const yinjiao = aliveEnemies.find(e => e.id === 'boss_yinjiao');
+    if (!yinjiao) {
+      this.bossIntents = this.bossIntents.filter(i => i.enemyId !== 'boss_yinjiao');
+      return;
+    }
+
+    // 银角大王 3 回合意图循环：
+    // 第 1 轮 (3n+1): 蓄力并预告下回合发动【移山压顶】
+    // 第 2 轮 (3n+2): 锁定执行轮 (若被控制则中断，若目标阵亡则取消，若防御则减伤60%)
+    // 第 3 轮 (3n): 喘息轮 (调匀气息，不施展强招)
+    const cycleTurn = ((this.round - 1) % 3) + 1;
+    let yinjiaoIntent = this.bossIntents.find(i => i.enemyId === 'boss_yinjiao');
+
+    if (cycleTurn === 1) {
+      const aliveAllies = (typeof this.getAliveAllies === 'function') ? this.getAliveAllies() : this.allies.filter(a => a.hp > 0);
+      if (!aliveAllies.length) return;
+      const targetAlly = aliveAllies.find(a => a.isPlayer) || aliveAllies[0];
+
+      yinjiaoIntent = {
+        id: 'intent_yinjiao_yishan',
+        enemyId: yinjiao.id,
+        enemyIndex: yinjiao.enemyIndex,
+        enemyName: yinjiao.name,
+        skillId: 'yishan_yading',
+        skillName: '移山压顶',
+        targetId: targetAlly.id,
+        targetName: targetAlly.name,
+        telegraphRound: this.round,
+        executeRound: this.round + 1,
+        status: 'telegraphed',
+        warningText: `【预警】银角大王正在搬运须弥峨眉泰山，锁定了【${targetAlly.name}】！下一回合将施展【移山压顶】！防御可大幅减轻伤害！`
+      };
+      this.bossIntents = this.bossIntents.filter(i => i.enemyId !== 'boss_yinjiao').concat(yinjiaoIntent);
+      this.log(`【移山预告】银角大王脚踏罡斗，口念真言，搬来巍峨大山虚影笼罩在【${targetAlly.name}】头顶！下一回合将施展【移山压顶】！防御可减轻60%伤害！`);
+    } else if (cycleTurn === 2) {
+      if (!yinjiaoIntent || yinjiaoIntent.executeRound !== this.round) {
+        const aliveAllies = (typeof this.getAliveAllies === 'function') ? this.getAliveAllies() : this.allies.filter(a => a.hp > 0);
+        const targetAlly = aliveAllies.find(a => a.isPlayer) || aliveAllies[0];
+        if (targetAlly) {
+          yinjiaoIntent = {
+            id: 'intent_yinjiao_yishan',
+            enemyId: yinjiao.id,
+            enemyIndex: yinjiao.enemyIndex,
+            enemyName: yinjiao.name,
+            skillId: 'yishan_yading',
+            skillName: '移山压顶',
+            targetId: targetAlly.id,
+            targetName: targetAlly.name,
+            telegraphRound: this.round - 1,
+            executeRound: this.round,
+            status: 'telegraphed',
+            warningText: `【预警】银角大王锁定了【${targetAlly.name}】！本回合将发动【移山压顶】！请做好防御或打断！`
+          };
+          this.bossIntents = this.bossIntents.filter(i => i.enemyId !== 'boss_yinjiao').concat(yinjiaoIntent);
+        }
+      }
+    } else if (cycleTurn === 3) {
+      yinjiaoIntent = {
+        id: 'intent_yinjiao_breathing',
+        enemyId: yinjiao.id,
+        enemyIndex: yinjiao.enemyIndex,
+        enemyName: yinjiao.name,
+        skillId: 'breathing',
+        skillName: '调匀气息',
+        status: 'breathing',
+        warningText: `【调匀气息】银角大王移山真元耗竭，本回合正在调匀气息，无法施展强力法术！`
+      };
+      this.bossIntents = this.bossIntents.filter(i => i.enemyId !== 'boss_yinjiao').concat(yinjiaoIntent);
+      this.log(`【气脉亏耗】银角大王移山法力消耗甚巨，正在调匀气息，本回合无法施展强力法术！`);
+    }
+  }
+
+  getBossIntents() {
+    return this.bossIntents || [];
   }
 
   // 安全访问接口
@@ -1001,6 +1085,36 @@ class BattleEngine {
     const enemyActions = {};
     this.enemies.forEach(enemy => {
       if (enemy.hp > 0) {
+        // Boss 专属机制意图优先消费 (P1: 银角大王“移山压顶”)
+        const activeIntent = (this.bossIntents || []).find(i =>
+          (i.enemyId === enemy.id || i.enemyIndex === enemy.enemyIndex) &&
+          i.executeRound === this.round &&
+          i.status === 'telegraphed'
+        );
+        if (activeIntent) {
+          enemyActions['enemy_' + enemy.enemyIndex] = {
+            type: 'boss_intent',
+            intent: activeIntent,
+            targetId: activeIntent.targetId
+          };
+          return;
+        }
+
+        const breathingIntent = (this.bossIntents || []).find(i =>
+          (i.enemyId === enemy.id || i.enemyIndex === enemy.enemyIndex) &&
+          i.status === 'breathing'
+        );
+        if (breathingIntent) {
+          const aliveAllies = this.getAliveAllies();
+          if (aliveAllies.length > 0) {
+            enemyActions['enemy_' + enemy.enemyIndex] = {
+              type: 'attack',
+              targetId: aliveAllies[Math.floor(Math.random() * aliveAllies.length)].id
+            };
+          }
+          return;
+        }
+
         const aliveAllies = this.getAliveAllies();
         if (aliveAllies.length > 0) {
           const targetAlly = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
@@ -1074,6 +1188,7 @@ class BattleEngine {
     this.round += 1;
     this.actions = {};
     this.calcTurnOrders();
+    this.updateBossIntents();
     this.status = 'player_input';
     return this.status;
   }
@@ -1847,8 +1962,127 @@ class BattleEngine {
     return true;
   }
 
+  // 银角大王专属“移山压顶”策略轮执行 (P1)
+  async handleYinjiaoYishanTurn(enemy, intent, cb) {
+    // 1. 控制打断检测：封印或定身 (明确控制是否取消蓄力并给出清晰反馈)
+    const sealed = enemy.buffs && enemy.buffs.some(b => b.id === 'fengyin');
+    const bound = enemy.buffs && enemy.buffs.some(b => b.id === 'dingshen');
+    if (sealed || bound) {
+      intent.status = 'interrupted';
+      const reason = sealed ? '封印咒' : '定身咒';
+      this.log(`【移山打断】银角大王身受【${reason}】制约真言溃散，万钧大山未能压下，【移山压顶】被迫中断！`);
+      if (cb) {
+        await cb({
+          type: 'boss_intent_interrupted',
+          attacker: 'enemy_' + enemy.enemyIndex,
+          target: intent.targetId,
+          skillName: '移山压顶',
+          text: `移山被打断！(${reason})`
+        });
+      }
+      return;
+    }
+
+    // 乱魂控制
+    const confused = enemy.buffs && enemy.buffs.some(b => b.id === 'luanhun');
+    if (confused) {
+      intent.status = 'interrupted';
+      this.log(`【神志混乱】银角大王中【乱魂咒】气机错乱，移山大法溃散未能成阵！`);
+      if (cb) {
+        await cb({
+          type: 'boss_intent_interrupted',
+          attacker: 'enemy_' + enemy.enemyIndex,
+          target: intent.targetId,
+          skillName: '移山压顶',
+          text: '乱魂错乱·移山中断！'
+        });
+      }
+      return;
+    }
+
+    // 2. 目标存活与有效性检测 (目标已离场或被替换时取消蓄力，不偷换目标)
+    const targetAlly = this.allies.find(a => a.id === intent.targetId && a.hp > 0);
+    if (!targetAlly) {
+      intent.status = 'cancelled';
+      this.log(`【移山落空】原锁定目标已不在阵中，万钧须弥大山轰然落空，震裂周围石径！`);
+      if (cb) {
+        await cb({
+          type: 'boss_intent_cancelled',
+          attacker: 'enemy_' + enemy.enemyIndex,
+          skillName: '移山压顶',
+          text: '目标失锁·移山落空！'
+        });
+      }
+      return;
+    }
+
+    // 3. 执行移山压顶 (防御只使用一次减伤计算，减免 60% 伤害)
+    intent.status = 'completed';
+    const rawDamage = Math.max(120, Math.floor(targetAlly.maxHp * 0.52 + (enemy.atk || 340) * 0.6));
+    const isDefending = targetAlly.buffs && targetAlly.buffs.some(b => b.name === '防御');
+
+    // 防御可减免 60% 伤害 (只承受 40%)
+    let finalDamage = isDefending ? Math.max(1, Math.floor(rawDamage * 0.40)) : rawDamage;
+
+    // 防御天赋结算：法力抵扣 / 逆御免伤 / 画皮移伤
+    const mitigation = this.applyAvatarMitigation(targetAlly, finalDamage);
+    if (mitigation.notes.length) this.log(`　└ ${mitigation.notes.join('　')}`);
+    finalDamage = mitigation.damage;
+
+    this.applyDamage(targetAlly, finalDamage);
+
+    // 挂链反击/反震判定
+    if (finalDamage > 0) {
+      const traits = BattleEngine.getCounterTraits(targetAlly);
+      const reflectRatio = Math.max(traits.reflectRatio, traits.counterShockRate);
+      if (reflectRatio > 0) {
+        const reflected = Math.max(1, Math.floor(finalDamage * reflectRatio));
+        const capped = Math.min(reflected, enemy.hp);
+        this.applyDamage(enemy, capped);
+        this.log(`【🔄反震】${targetAlly.name} 反弹 ${capped} 点伤害给 ${enemy.name}！`);
+        if (cb) {
+          await cb({
+            type: 'reflect',
+            attacker: targetAlly.id,
+            targetIndex: enemy.enemyIndex,
+            damage: capped,
+            text: `🔄 反震 -${capped}`
+          });
+        }
+      }
+    }
+
+    const didRevive = this.tryRebirth(targetAlly);
+
+    if (isDefending) {
+      this.log(`【移山压顶·坚守】万钧大山当头压下！【${targetAlly.name}】摆开防御架势沉稳硬扛，受到伤害大幅减轻 60%，承受 ${finalDamage} 点重压伤害！`);
+    } else {
+      this.log(`【移山压顶·重创】万钧须弥泰山轰然倾压！【${targetAlly.name}】未及完全防御，承受 ${finalDamage} 点浩瀚巨创！`);
+    }
+
+    if (cb) {
+      await cb({
+        type: didRevive ? 'revive' : 'boss_special_cast',
+        attacker: 'enemy_' + enemy.enemyIndex,
+        target: targetAlly.id,
+        skillName: '移山压顶',
+        damage: finalDamage,
+        isDefended: isDefending,
+        text: didRevive ? '✨高级神佑复活！' : (isDefending ? `🛡️防御减免 -${finalDamage}` : `💥移山压顶 -${finalDamage}`)
+      });
+    }
+  }
+
   // 敌方单位行动
   async handleEnemyTurn(enemy, action, cb) {
+    // 0. Boss 专属机制意图消费 (P1: 银角大王“移山压顶”)
+    if (action.type === 'boss_intent' && action.intent) {
+      if (action.intent.skillId === 'yishan_yading') {
+        await this.handleYinjiaoYishanTurn(enemy, action.intent, cb);
+        return;
+      }
+    }
+
     if (await this.handleControlState(enemy, action, cb)) return;
     const aliveAllies = this.getAliveAllies();
     if (aliveAllies.length === 0) return;

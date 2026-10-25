@@ -1,15 +1,29 @@
 /**
  * 汉风西游 - 本地极速开发与游戏服务器 (Zero-Dependency Node Server)
- * 无需等待脆弱庞大的 npm 下载管道，零依赖瞬间启动，一键在浏览器畅玩！
+ * 在纯静态服务之上叠加：Badge 统一登录 SSO、会话与按用户云存档。
+ * 依旧零 npm 依赖；换票使用 Node 20 内置 fetch。
  */
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { exec } = require('child_process');
 
-const PORT = 5173;
+const PORT = Number(process.env.PORT) || 5173;
 const ROOT_DIR = __dirname;
+
+const BADGE_URL = (process.env.BADGE_URL || 'http://localhost:8080').replace(/\/$/, '');
+// 浏览器侧登录页在 Badge 门户（前端）上，API 只提供服务（生产为两个域名）。
+const BADGE_PORTAL_URL = (process.env.BADGE_PORTAL_URL || 'http://localhost:5173').replace(/\/$/, '');
+const CLIENT_ID = process.env.BADGE_CLIENT_ID || 'app_xiyou_game';
+const CLIENT_SECRET = process.env.BADGE_CLIENT_SECRET || 'sec_xiyou_game_secret_2026';
+const PUBLIC_URL = (process.env.XIYOU_PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const SESSION_COOKIE = 'xiyou_session';
+const STATE_COOKIE = 'xiyou_badge_state';
+const SESSION_TTL = 30 * 86400000;
+const SAVE_DIR = path.join(ROOT_DIR, 'saves');
+const SAVE_MAX_BYTES = 256 * 1024;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -34,44 +48,246 @@ function getContentType(filePath) {
   return MIME_TYPES[ext] || 'application/octet-stream';
 }
 
+// ── 会话：HMAC 签名 Cookie，绝不存明文凭据 ─────────────────────────
+let sessionSecret = process.env.XIYOU_SESSION_SECRET || '';
+if (!sessionSecret) {
+  const secretFile = path.join(SAVE_DIR, '.session-secret');
+  try { sessionSecret = fs.readFileSync(secretFile, 'utf8').trim(); } catch {}
+  if (!sessionSecret || sessionSecret.length < 32) {
+    sessionSecret = crypto.randomBytes(32).toString('hex');
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
+    fs.writeFileSync(secretFile, sessionSecret, { mode: 0o600 });
+  }
+}
+
+function sign(value) { return crypto.createHmac('sha256', sessionSecret).update(value).digest('base64url'); }
+function issueSession(player) {
+  const payload = Buffer.from(JSON.stringify({ u: player.key, n: player.username, exp: Date.now() + SESSION_TTL })).toString('base64url');
+  return `${payload}.${sign(payload)}`;
+}
+function readSession(req) {
+  const raw = readCookie(req, SESSION_COOKIE);
+  if (!raw) return null;
+  const dot = raw.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const payload = raw.slice(0, dot), sig = raw.slice(dot + 1);
+  const expected = sign(payload);
+  const a = Buffer.from(sig), b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!data.u || !data.exp || data.exp <= Date.now()) return null;
+    return data;
+  } catch { return null; }
+}
+function readCookie(req, name) {
+  return String(req.headers.cookie || '').split(';').map(v => v.trim())
+    .find(v => v.startsWith(name + '='))?.slice(name.length + 1) || '';
+}
+
+// ── 玩家与云存档 ────────────────────────────────────────────────────
+function playerKey(badgeUsername, badgeUserId) {
+  const safe = String(badgeUsername || 'player').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 40);
+  return `${badgeUserId || 0}_${safe}`;
+}
+function playerDir(key) {
+  const dir = path.join(SAVE_DIR, key);
+  // key 已被清洗为 [a-z0-9_-]，这里再确认不越界
+  if (!path.resolve(dir).startsWith(path.resolve(SAVE_DIR) + path.sep)) throw new Error('invalid player key');
+  return dir;
+}
+function readPlayer(key) {
+  try { return JSON.parse(fs.readFileSync(path.join(playerDir(key), 'player.json'), 'utf8')); } catch { return null; }
+}
+function writePlayer(key, player) {
+  const dir = playerDir(key);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'player.json'), JSON.stringify(player, null, 2));
+}
+
+function sendJSON(res, status, body, extraHeaders = {}) {
+  const text = JSON.stringify(body);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Content-Length': Buffer.byteLength(text),
+    ...extraHeaders,
+  });
+  res.end(text);
+}
+
+function readBody(req, limit = SAVE_MAX_BYTES + 4096) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > limit) { reject(new Error('body too large')); req.destroy(); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+// Badge 换票（Node 20 内置 fetch，零依赖）
+async function exchangeTicket(ticket) {
+  const response = await fetch(BADGE_URL + '/api/sso/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket, clientId: CLIENT_ID, clientSecret: CLIENT_SECRET }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body || body.code !== 200 || !body.data || !body.data.user) {
+    throw new Error((body && body.message) || `换票失败（${response.status}）`);
+  }
+  return body.data;
+}
+
+function sameOriginOk(req) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return true;
+  const origin = req.headers.origin;
+  if (!origin) return true; // 同源 GET 表单/非浏览器客户端
+  try { return new URL(origin).host === req.headers.host; } catch { return false; }
+}
+
 function startServer(port) {
-  const server = http.createServer((req, res) => {
-    // 允许跨域
+  const server = http.createServer(async (req, res) => {
+    // 允许跨域读取静态资源；写接口由 sameOriginOk 保护
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    let reqPath = decodeURIComponent(req.url.split('?')[0]);
-    if (reqPath === '/' || reqPath === '') {
-      reqPath = '/index.html';
-    }
+    const route = req.url.split('?')[0];
 
-    let filePath = path.join(ROOT_DIR, reqPath);
-
-    // 安全检查，防止路径穿越
-    if (!filePath.startsWith(ROOT_DIR)) {
-      res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('403 访问被拒绝');
-      return;
-    }
-
-    fs.stat(filePath, (err, stats) => {
-      if (err || !stats.isFile()) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end(`404 资源未找到: ${reqPath}`);
+    try {
+      // ── Badge 统一登录 ──
+      if (route === '/auth/badge') {
+        const state = crypto.randomBytes(16).toString('hex');
+        const redirectUri = encodeURIComponent(PUBLIC_URL + '/auth/badge/callback');
+        res.setHeader('Set-Cookie', `${STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`);
+        res.writeHead(302, { Location: `${BADGE_PORTAL_URL}/login?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${redirectUri}&state=${state}` });
+        res.end();
         return;
       }
 
-      const contentType = getContentType(filePath);
-      res.writeHead(200, {
-        'Content-Type': contentType,
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
+      if (route === '/auth/badge/callback') {
+        const query = new URL(req.url, 'http://x').searchParams;
+        const state = query.get('state') || '';
+        const expected = readCookie(req, STATE_COOKIE);
+        const ticket = query.get('ticket') || '';
+        const clearState = `${STATE_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+        if (!expected || expected.length !== state.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(state))) {
+          res.setHeader('Set-Cookie', clearState);
+          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('登录状态校验失败，请返回重新发起登录');
+          return;
+        }
+        if (!ticket || ticket.length > 256) {
+          res.setHeader('Set-Cookie', clearState);
+          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('缺少有效登录票据');
+          return;
+        }
+        const badgeUser = await exchangeTicket(ticket);
+        const key = playerKey(badgeUser.user.username, badgeUser.user.userId);
+        let player = readPlayer(key);
+        if (!player) {
+          player = { key, badgeUserId: badgeUser.user.userId, username: badgeUser.user.username,
+            nickname: badgeUser.user.appNickname || badgeUser.user.username, email: badgeUser.user.email || '',
+            createdAt: new Date().toISOString() };
+          writePlayer(key, player);
+        }
+        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${issueSession(player)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL / 1000}`);
+        res.writeHead(302, { Location: '/' });
+        res.end();
+        console.log(`[Badge SSO] 玩家登录: ${player.username} (${key})`);
+        return;
+      }
 
-      const stream = fs.createReadStream(filePath);
-      stream.pipe(res);
-    });
+      if (route === '/auth/logout') {
+        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+        res.writeHead(302, { Location: '/' });
+        res.end();
+        return;
+      }
+
+      // ── 身份与云存档 API ──
+      if (route === '/api/me') {
+        const session = readSession(req);
+        if (!session) { sendJSON(res, 200, { guest: true }); return; }
+        const player = readPlayer(session.u);
+        sendJSON(res, 200, { guest: false, user: player ? { username: player.username, nickname: player.nickname, createdAt: player.createdAt } : { username: session.n } });
+        return;
+      }
+
+      if (route === '/api/save' && req.method === 'GET') {
+        const session = readSession(req);
+        if (!session) { sendJSON(res, 401, { success: false, message: '请先使用 Badge 登录' }); return; }
+        try {
+          const raw = fs.readFileSync(path.join(playerDir(session.u), 'auto_progress.json'), 'utf8');
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+          res.end(raw);
+        } catch {
+          sendJSON(res, 200, { success: true, empty: true, message: '云端暂无存档' });
+        }
+        return;
+      }
+
+      if (route === '/api/save' && req.method === 'POST') {
+        if (!sameOriginOk(req)) { sendJSON(res, 403, { success: false, message: '拒绝跨站写入' }); return; }
+        const session = readSession(req);
+        if (!session) { sendJSON(res, 401, { success: false, message: '请先使用 Badge 登录' }); return; }
+        const body = await readBody(req);
+        if (!body || body.length > SAVE_MAX_BYTES) { sendJSON(res, 413, { success: false, message: '存档超出 256KB 上限' }); return; }
+        let parsed;
+        try { parsed = JSON.parse(body); } catch { sendJSON(res, 400, { success: false, message: '存档不是有效 JSON' }); return; }
+        if (!parsed || typeof parsed !== 'object' || !parsed.data || !parsed.data.playerData) {
+          sendJSON(res, 400, { success: false, message: '存档缺少核心数据（data.playerData）' }); return;
+        }
+        const dir = playerDir(session.u);
+        fs.mkdirSync(dir, { recursive: true });
+        const target = path.join(dir, 'auto_progress.json');
+        const temp = target + '.' + crypto.randomUUID() + '.tmp';
+        fs.writeFileSync(temp, JSON.stringify(parsed), { mode: 0o600 });
+        fs.renameSync(temp, target);
+        sendJSON(res, 200, { success: true, syncedAt: Date.now() });
+        return;
+      }
+
+      if (route === '/favicon.ico') {
+        res.writeHead(204); res.end();
+        return;
+      }
+
+      // ── 静态资源 ──
+      let reqPath = decodeURIComponent(route);
+      if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
+
+      const filePath = path.join(ROOT_DIR, reqPath);
+      if (!filePath.startsWith(ROOT_DIR)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('403 访问被拒绝');
+        return;
+      }
+
+      fs.stat(filePath, (err, stats) => {
+        if (err || !stats.isFile()) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end(`404 资源未找到: ${reqPath}`);
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': getContentType(filePath),
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        });
+        fs.createReadStream(filePath).pipe(res);
+      });
+    } catch (error) {
+      console.error('[Server] 请求处理异常:', error.message);
+      if (!res.headersSent) sendJSON(res, 500, { success: false, message: '服务内部错误' });
+    }
   });
 
   server.on('error', (err) => {
@@ -90,6 +306,8 @@ function startServer(port) {
     console.log('======================================================');
     console.log(`  🌟 游戏本地服务已极速就绪！`);
     console.log(`  🔗 本地访问地址: \x1b[36m${url}\x1b[0m`);
+    console.log(`  🛡️  统一登录: ${BADGE_URL} (${CLIENT_ID})`);
+    console.log(`  ☁️  云存档: 已登录玩家自动同步至 saves/ 目录`);
     console.log(`  🎮 控制方式:`);
     console.log(`     • 走动移动: [W/A/S/D] 或 [↑/↓/←/→] 或 屏幕虚拟摇杆`);
     console.log(`     • 对话互动: [空格键 Space] 或 [按键 5]`);
@@ -97,9 +315,8 @@ function startServer(port) {
     console.log(`     • 蟠桃采摘: [按键 1] 蟠桃胜境每日吃桃升级`);
     console.log('======================================================\n');
 
-    // 桌面端或受限环境可能禁止拉起浏览器；服务本身应始终可用。
     if (process.env.XIYOU_OPEN_BROWSER === '1') {
-      const openCmd = process.platform === 'win32' ? `start ${url}` : (process.platform === 'darwin' ? `open ${url}` : `xdg-open ${url}`);
+      const openCmd = process.platform === 'win32' ? `start ${url}` : (process.platform === 'darwin' ? 'open ' + url : 'xdg-open ' + url);
       try {
         exec(openCmd, (error) => {
           if (error) console.log(`💡 请在浏览器中手动打开地址: ${url}`);

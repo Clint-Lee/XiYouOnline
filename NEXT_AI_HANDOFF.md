@@ -1,6 +1,157 @@
 # 西游项目下一轮开发交接
 
-## 最新接手说明：全链奖励原子化、移动手感与存档防御边界（2026-10-11 更新）
+## 当前接手入口：下一阶段玩法与体验开发（2026-10-25 更新）
+
+**从本节开始。** 2026-10-25 两轮交付：①P0 开局卡键根治、P4 两段趣闻支线、H5 全设备适配、章回画卷开幕与远景氛围层；②P5.1 反馈分级与 P5.3 战果清点收官。测试基线扩充至 **2683/2683 (100.0%)**。至此 **P3/P4/P5 全部完成**，剩余 C1 火云洞整章与实机验收。下方旧日期章节保留作历史参考。
+
+完整实施说明见 [NEXT_GAMEPLAY_PLAN.md](NEXT_GAMEPLAY_PLAN.md)：包含各任务的代码入口、玩家操作过程、状态约定、完成标准、对白样例和下一章阶段表。已有 [OPTIMIZATION_ROADMAP.md](OPTIMIZATION_ROADMAP.md) 保留为早期工作包与执行记录，新任务按本文编号推进。
+
+### 2026-10-25 第二批新增落地 (P5.1 反馈分级 + P5.3 战果清点，2683/2683 全绿)
+
+1. **P5.1 战斗反馈分级** (`_floatClassForType` / `_decorateDamageFloatText` / playBattleStep)：
+   - **抵抗与闪避视觉分离**：控制未中等"抵抗"(`hit.type === 'resist'`) 此前与闪避共用白色 `float-dodge`，现独立为暖橙 `float-resist`，玩家可分辨"没打中"与"被抗住"。
+   - **伤害飘字五行标记**：普通攻击伤害事件携带 `attackResult.elementRelation`，克制关系飘字前缀 `⚡`、被克前缀 `🛡`，中立无标记；与战报文字的【⚡五行克制/🛡五行被克】口径一致。
+   - 飘字类型映射重构为 `_floatClassForType` 纯函数 (暴击/治疗/法力/闪避/抵抗/状态/伤害七类)，两处生成入口共用。
+   - **未做项说明**："护盾吸收单独展示"需 battle.js 伤害事件新增吸收值字段 (金刚护体为双抗减算、流沙护体法力抵扣在 notes)，待后续需要时再扩展事件结构。
+2. **P5.3 胜利战果清点面板** (`_snapshotVictoryState` / `showBattleVictorySummary`，endBattle victory 分支)：
+   - 胜利时快照结算前状态 (经验/银两/等级/背包计数/仙宠等级)，差量生成右上角国风"战果清点"卡：🧬修为(升级/经验)、🪙银两、🎒实际入包(物品×数量)、🎺招降得宠、🐾仙宠成长 (Lv.a→b)。
+   - **到账与待领取严格分列**：结算期间捕获满包拦截类提示 (行囊/整理背包/腾出/暂存等关键词)，命中时展示独立琥珀色"📌 尚待领取"区块，说明回访 NPC 可补领且不会丢失——绝不与入包物品混排。
+   - 无任何战果的普通野战保持安静不弹面板；面板点击收起、9 秒自动消失；新开战斗自动清理上一场面板。
+   - 对 `endBattle.call(plainFixture)` 等外部调用保持防御 (快照能力缺失时静默跳过清点)——修复了 test_shanhai 普通对象调用 endBattle 的崩溃。
+3. **测试**：新增 `test_p5_feedback.js` (18 项断言) 接入套件，覆盖七类飘字映射、克制/被克标记、抵抗独立渲染、战果清点全字段、待领取分列、无战果安静性。基线 2665 → **2683/2683**。
+
+### 2026-10-25 第一批落地 (P0 卡键根治 + P4 趣闻支线 + H5 适配 + 视觉升级)
+
+1. **P0 开局"卡死向左走、按键/寻路全失效"根治** (`js/app2d.js` bindInputs/update)：
+   - **根因一 (大小写错位)**：按住 `a` 移动时按下 Shift 再松开，`keyup` 事件的 `e.key` 变为 `A`，旧代码 `keysDown['a']` 永远不会被清除 → 角色永久向左走，且每帧清空点击寻路 (症状完全吻合"按键无效+点击无效")。现字母键统一小写规范化存储，keyup 同步清理大小写两种残留。
+   - **根因二 (keyup 丢失)**：Alt+Tab 切窗/焦点被夺/输入法吞事件时 keyup 不会派发。新增**失联按键看门狗**：物理按住的键会持续产生 `e.repeat` keydown，若某"按住中"的键超过 1.2s 未再收到任何键盘事件即强制清除 (`_keyEventTimes` 时间戳)。
+   - 兜底：`visibilitychange` (移动 WebView 对 blur 不可靠) 隐藏时清空全部按键。
+2. **P4.1a 刘家村趣闻支线「谁偷了米」** (`initRiceThiefQuest/playRiceThiefDialogue/triggerRiceThiefBattle/claimRiceThiefReward`)：
+   - 新 NPC 王大婶 (liujiacun 736,384，洪水填充可达)；状态机 `not_started→accepted→hunting→reward_ready→done` 存 `sideQuests.sq_rice_thief`。
+   - 玩法：听说法→两条可选线索 (爪印/拖痕)→二选一追查；选"后山草窝"只有趣味探查文案可回头无损失；选"东墙根草垛"触发 2 只偷粮硕鼠短遭遇 (templateId=shuo_shu 可招降可记见闻)；战胜回来修粮袋领奖 (金创药×2+600银+450经验，满包保留重试，`claimStoryReward('rice_thief_done')` 防重复)。
+3. **P4.1b 长安趣闻支线「写错的招牌」** (`playSignBoardDialogue/chooseSignBoardStyle`)：
+   - 新 NPC 胡饼摊主老孙 (changan_city 1152,512)；帮他把"一饼得道成仙"的夸口招牌改为朴实版"现烤现卖，皮脆馅足"或俏皮版"一口酥到凌霄殿——本摊概不渡劫"。
+   - 两选一同奖 (500银+300经验)，选择持久化 `storyEvents.changan_sign_style`，回访对白展示所选文案；重复题字不重发不悄悄改。
+   - 感叹号：两位新 NPC 未完成前挂翠绿 side 感叹号，完成后消失；绝不占用唯一金色主线感叹号 (回归覆盖)。
+   - 肖像：`Dialogue.inferRoleId` 新增 大婶/大娘→teashop_granny、摊主/胡饼→changan_hawker 分支；对白步骤显式 roleId。
+4. **H5 全设备适配**：
+   - `index.html`：viewport 加 `viewport-fit=cover`，补 mobile-web-app-capable / apple-mobile-web-app / theme-color 元信息。
+   - `css/style.css` 末尾统一适配块：全局 `touch-action: manipulation` (消除双击缩放 300ms 延迟) + `-webkit-tap-highlight-color`；`overscroll-behavior: none` 防下拉刷新；`#game-canvas` `touch-action: none` + 禁长按呼出；安全区 `env(safe-area-inset-*)` (顶栏/掌机外壳/底栏)；`100dvh` 动态视口；<360px 超窄屏与横屏矮视口 (高度<480px) 收敛布局。
+   - `bindInputs`：画布 `contextmenu` 屏蔽 + `touchmove` preventDefault (仅画布，弹窗滚动不受影响)。
+5. **视觉升级一：章回开幕改画卷展开** (`showChapterOpening` 重构)：
+   - 由"金纹收幅+大字"改为**画卷舒卷**：左右木轴 (深色木杆+鎏金轴头) 自中央向两侧推开，画心以山海卷轴素材 (`assets/shanhai_scroll_art.jpg`) 暗化为底，题字/诗号/御印随卷轴渐显；保留原 2s 时序、点击跳过与 `onComplete` 生命周期。
+   - 低动态模式联动：`reduced-motion` 类直接呈现完全展开画卷。
+6. **视觉升级二：远景氛围层** (`renderSkyAmbience`，render() 第 0.5 步)：
+   - 常规地图绘制天色渐变 + 双层视差远山 (种子稳定轮廓，随镜头 0.12/0.26 视差) + 缓行流云；三套国风水色 (青绿/晨曦/暮霭) 按 mapId 稳定选择；瓦片未覆盖的地图边缘不再死黑。
+   - 洞窟/水下等封闭场景 (id 含 dong/gong/shuilien/xiagu) 不叠加；每帧仅十余次路径填充；低动态下流云静止。
+7. **测试**：新增 `test_p4_flavor.js` (49 项断言) 接入套件，覆盖卡键根治 (大小写错位 keyup/看门狗/正常按住不误伤)、两条支线全链路 (含满包重试、错误追查无损失、防重复、感叹号规则)、画卷开幕结构、氛围层绘制与洞窟豁免、H5 样式与元信息声明。
+8. **顺手修复的测试脆弱点**：测试42 五行伤害断言补 `forceCrit: false` (原断言对随机种子敏感，注释本就写明"仅测试五行倍率")。
+
+### 2026-10-24 上轮落地 (P3 + P5.2 + P4.2 轻量版)
+
+1. **P3.3 物种战斗定位标签 (`window.GAME_DATA.getSpeciesRoleProfile`，位于 `js/data/pets.js` 末尾)**：
+   - 按同品质档 (ordinary/sanxian/jinxian) 内百分位排名判定定位：`耐久承伤 / 速度先手 / 物理输出 / 均衡成长`，返回 `{tag, icon, desc}`；纯展示不改任何数值，缓存挂在函数属性 `_baseCache` 上（不污染 PETS 枚举）。
+   - 三只前期宠定位互异构成样板：偷粮硕鼠=均衡成长、百年树精=耐久承伤、街头混混=速度先手；设计原型核对通过（雷公/电母/白骨精=速度先手，巨灵神/石妖=耐久承伤，猿猴将/猪八戒=物理输出）。
+   - 仙宠面板卡片名行渲染定位徽章（悬停显示用途说明）；加点面板建议区块带出标签。
+2. **P3.1 加点定位建议与成长区间 (`App2D.getAllocationAdvice` + 加点弹窗)**：
+   - 加点弹窗新增「🧭 加点定位参考」区块：本尊按门派分发 (金刚血量优先/妖魔法力优先/神仙速度优先，未选门派回落通用三向)；仙宠按定位标签分发两套取向；明示"仅供参照，不会自动分配"。
+   - 仙宠加点弹窗展示「实际成长 X.XX（物种区间 A ~ B）」对照，区分"这一只的实际成长"与"物种区间"。
+   - 回归覆盖：会话内加点预览联动、未保存关闭不修改属性、保存才正式生效。
+3. **P3.2 传法资格准确指引 (`App2D.getMasterLessonGuidance`)**：
+   - 四种状态与准确原因：`ineligible`(普通仙宠仅能普攻) / `under_level`(当前 Lv.X，还差 N 级) / `learned`(已受法：门派·技能名) / `ready`(已可受法：长安神坛菩提祖师身边，每只一次)。
+   - 仙宠面板未学技卡片按此展示（不再是一刀切的"10级后到神坛"），`ready` 状态高亮绿色。
+4. **P3.3 战时仙宠名册 (`App2D.openBattlePetRosterModal`)**：
+   - 战斗蜂窝【仙宠】按钮由"仅弹提示"改为真实打开战时名册：展示每只仙宠真实残血/法力条、`⚔️阵前作战/🛡️备战待命` 状态、定位标签、攻防速、低气血 (`≤30%`) 醒目警示、头部出战位占用 `X/Y`。
+   - 纯展示不改动战斗状态；面板底部说明出战阵列开战时确定的规则与调整入口。
+5. **P5.2 舒适设置 (`App2D.getCombatSpeedPref/setCombatSpeedPref/isReducedMotionEnabled/setReducedMotion/openComfortSettingsModal`)**：
+   - 战斗演出速度两档持久化 (`localStorage: xiyou_combat_speed_pref`)：`toggleCombatSpeed` 与新开战斗 (`start2DBattle`) 均沿用偏好；非法值安全回落 1x。
+   - 低动态效果 (`localStorage: xiyou_reduced_motion`)：跳过战斗 `arena-shake` 震屏与探索 `hit-shake`，受击抖动幅度 5→2；飘字与状态提示保持完整；不触碰任何结算。
+   - 折叠主菜单新增「🍵 闲谈」「🌿 舒适」两张卡片入口 (`index.html`)；设置面板明示仅影响演出。
+6. **P4.2 同伴闲谈轻量版 (`App2D.getCompanionBanterGroups/openCompanionBanterModal/playCompanionBanter`)**：
+   - 三组话题按剧情解锁：八戒入队 (companion_bajie) → 高老庄闲谈；`storyEvents.wuzhuang_tree_restored` → 五庄观闲谈；`storyPhase === 'pingding_cleared'` → 平顶山闲谈。
+   - 每组 2~4 句纯对白，人物口吻遵循计划约定 (悟空敏锐/八戒饭食省力/沙僧留心行李路况)；无 action、无选项、无奖励、不写任何存档状态；战斗/转场中温和拦截不开放。
+   - 首版玩家主动点开可随时重温，不做自动弹出；后续如需"看过标记"再扩展。
+7. **测试**：新增 `test_p3_gameplay.js` (250 项断言) 并接入 `test_suite.js`，覆盖以上全部入口与边界 (含非法入参、取消不修改、战斗按钮真实打开名册、闲谈纯净性、速度偏好跨战斗沿用)。注意：套件测试38遗留 `app.start2DBattle` 实例桩未恢复，验证真实开战链路时需显式取 `Object.getPrototypeOf(app).start2DBattle` 调用。
+
+### 历史落地 (R1、R2、R3、P1、P2 均已 100% 验证)
+
+自动化测试基线曾由 1724 扩充至 2366/2366 (100.0%)，涵盖以下五个核心工作包全部标准：
+
+1. **R1 存档与道具实际生效 (100% 收官)**：
+   - **R1.1 真实气血法力重建**：`Player.prototype.recalculateStats(preserveCurrentRatios)`。`preserveCurrentRatios=false` 重建等级/装备派生属性时完整保留存档中有限 HP/MP（且 `hp === 0` 时不被回满，超出新上限自动钳制）；主动升级与回春堂调用传 `true` 恢复满状态；`loadAutoSavedProgress()` 杜绝刷新网页回满。
+   - **R1.2 坏档灾备与存储容错**：`SaveManager.isStorageAvailable()` 安全拦截不可用存储；`SaveManager.loadGameFullState()` 遇坏档将损坏文本暂存至 `xiyou_save_corrupted_backup`；`saveAutoProgress()` 在坏档保护状态下安全拒绝静默覆写；`importSaveJson()` 增加严格属性与合法地图前置校验。
+   - **R1.3 飞行符真实传送**：`Inventory.prototype.useItem()` 返回传送意图对象；`App2D.prototype.useConsumableItem()` 校验战斗、对白、切图与主线解锁状态后，原子扣除 1 张神符并精确切图降落至长安大街中心 `(640, 512)`；早期刘家村阶段神符受禁制，失败不扣符。
+   - **R1.4 强化窗口接入定星石**：`#forge-protect-toggle` 交互开关与 `ForgeSystem.enhance(..., useProtect)` 核心打通；仅在高星失手惩罚为降星时消耗 1 颗定星石保护星级不降；背包无石时前置拒绝，不扣除银两与强化石。
+   - 验证回归：`test_r1_reliability.js` (24 项断言全绿)。
+
+2. **R2 探索移动与点击一致 (100% 收官)**：
+   - **R2.1 帧率独立物理步进与防瞬移**：`Character.prototype._stepMove()` 将长位移拆分为小步长（<= tileSize/4，即 8px），彻底消除穿墙隧道效应；斜走方向矢量归一化，杜绝 $\sqrt{2}\times$ 移速倍增；`App2D.prototype.gameLoop(timestamp)` 接入 60Hz 固定逻辑时间步长累加器 (`FIXED_STEP = 1000/60`)，后台切回时单帧耗时安全截断在 100ms（最多 6 步）；`autoMove` 卡死判定结合帧数 (>=9) 与时间 (>350ms)。
+   - **R2.2 画布留白偏移校准与弹窗防护**：`App2D.prototype.getCanvasPointerPosition(clientX, clientY)` 按照 `object-fit: contain` 的实际渲染矩形 (`scale = Math.min(viewW/canvasW, viewH/canvasH)`) 减去居中黑边；黑边区域点击安全返回 `null` 不寻路；存在任何探索弹窗时立即阻断画布点击。
+   - 验证回归：`test_r2_movement.js` (10 项断言全绿)。
+
+3. **R3 开局节奏、主线指引与对白 (100% 收官)**：
+   - **统一历程定义与纯查询函数**：[`js/data/storyQuests.js`](file:///d:/Extends/antigravityProj/XiYouOnline/js/data/storyQuests.js) 新增 `window.GAME_DATA.UNIFIED_STORY_PHASES`（收录天宫序章至长安辞行共 28 个主线阶段）；实现 `window.GAME_DATA.getUnifiedStoryLead(storyPhase, currentMapId, questKills, playerData)` 纯查询函数，支持蘑菇、枯树、硕鼠动态进度与完成态计算。
+   - **三方统一调用**：功德簿 [`getOrdealAndQuestInfo()`](file:///d:/Extends/antigravityProj/XiYouOnline/js/app2d.js#L11075)、小地图信标 [`MiniMapEngine.getCurrentQuestTarget()`](file:///d:/Extends/antigravityProj/XiYouOnline/js/engine/minimap.js#L66)、自动引路 [`teleportToStoryLead()`](file:///d:/Extends/antigravityProj/XiYouOnline/js/app2d.js#L11530) 共同读取统一查询源，离开/读档/跨图自动导航一致。
+   - **刘伯钦对白分支与生活化文案**：`liuboqin_talk` 与 `liuboqin_mushroom_done` 增加“继续主线”、“问问缘由”、“稍后再来”分支；对白采纳生活化口吻：“干枝带回来，青树留着。明年咱们还得烧火，不能一顿饭把山吃完。”且兼容旧测试 `steps[3].action()`。
+   - 验证回归：[`test_r3_p1_gameplay.js`](file:///d:/Extends/antigravityProj/XiYouOnline/test_r3_p1_gameplay.js) R3 部分。
+
+4. **P1 银角大王“移山压顶”策略机制样板 (100% 收官)**：
+   - **Boss 意图系统**：[`js/core/battle.js`](file:///d:/Extends/antigravityProj/XiYouOnline/js/core/battle.js) 的 `BattleEngine` 接入 `bossIntents`、`updateBossIntents()`、`getBossIntents()`、`handleYinjiaoYishanTurn(enemy, intent, cb)`。
+   - **3 回合策略循环**：
+     - **第 1 回合 (3n+1)**：预告蓄力，锁定一名存活己方队友，意图状态 `telegraphed`，排定下回合发动。
+     - **第 2 回合 (3n+2)**：执行爆发。受封印咒/定身咒/乱魂咒控制时，招式被立即打断（状态 `interrupted`，造成 0 伤害）；目标离场/阵亡时，技能安全取消（状态 `cancelled`，不误伤其他队友）；目标摆开防御架势时，受到伤害真实大幅减轻 60%（只承受 40%）。
+     - **第 3 回合 (3n)**：喘息休整，意图状态 `breathing`（调匀气息，只进行普通攻击），给玩家留出补血治疗与重整队伍的窗口；第 4 回合自动重入下一周期。
+   - **战斗表现层**：[`js/app2d.js`](file:///d:/Extends/antigravityProj/XiYouOnline/js/app2d.js) 顶部渲染高亮意图预警横幅与喘息横幅；被锁定目标头顶展示 `[山]` 锁定印记；`playBattleStep` 接入 `boss_special_cast`（震屏与暴击音效）、`boss_intent_interrupted` 与 `boss_intent_cancelled` 飘字。
+   - 验证回归：[`test_r3_p1_gameplay.js`](file:///d:/Extends/antigravityProj/XiYouOnline/test_r3_p1_gameplay.js) (70 项断言全绿)。
+
+5. **P2 山海经寻访与实例保护 (100% 收官)**：
+   - **P2.1 77种物种真实来源字典**：
+     - [`js/data/shanhaiSpecies.js`](file:///d:/Extends/antigravityProj/XiYouOnline/js/data/shanhaiSpecies.js) 权威定义 `window.GAME_DATA.SHANHAI_SPECIES_SOURCES`，全量覆盖 50 凡兽 / 12 散仙 / 15 金仙共 77 种物种。
+     - 严格划分四大来源类别：`common_wild` ("地图常见", 31种)、`encounter` ("概率偶遇", 34种)、`gift_only` ("赠礼专属", 6种)、`unreachable` ("尚未开放", 6种)。
+     - 提供 `window.GAME_DATA.getShanhaiSpeciesSource(templateId)` 查询函数，为每只物种附加栖息场景、出没条件、招降容器与当前主线可达性说明；保持原有 `pets[id].habitatMapId` 约束，旧单元测试 100% 兼容。
+   - **P2.2 轻量筛选、名称搜索与单一生灵寻访目标**：
+     - 图鉴名册 (`renderSceneRosterModal`) 引入“全部 / 未献录 / 可献录”快速筛选 (`_shanhaiFilter`) 与物种名称实时搜索 (`_shanhaiSearchKeyword`)。
+     - 左侧列表项展示 `[📍寻访]` 与 `[📥可献]` 徽标。
+     - 右侧档案详情卡提供品质/分类徽章、真实出没场景、偶遇条件、招降容器持有统计、下一档赠礼所需种数，以及 `[📍 设为本次寻访目标]` 切换。
+     - 独立寻访目标（`shanhaiPursuitTarget`）：独立于主线，不覆盖 `MiniMapEngine.getCurrentQuestTarget()` 与统一历程引路；在功德簿任务面板 (`openQuestTrackerModal`) 渲染独立 `🐾 山海经 · 生灵寻访` 专区卡片，提供规划前往栖息地与取消寻访入口；读写档完整持久化 (`saveAutoProgress` / `loadAutoSavedProgress`)。
+   - **P2.3 仙宠实例加锁保护与安全奉纳**：
+     - 仙宠实例引入加锁保护标记 `isProtected`，严格按 `instanceId` 生效（同种多只互不干扰，旧档默认未保护）。
+     - 仙宠面板 (`openPetManageModal`) 增加 `[🔒 加锁]` / `[🔓 解锁]` 与 `[🍃 放生]` 按钮。
+     - 核心拦截：`ShanhaiSystem.prototype.collect` 与 `PetSystem.releasePet` 严密前置拦截受保护仙宠的奉纳与放生操作。
+     - 献录挑选 (`openShanhaiPetPickerModal`) 详尽展示等级、成长、技能、出战与加锁保护状态，多只同种不替玩家擅自选定，明确只有被献录的单只离队，其他同种仙宠（包括受保护仙宠）完好保留。
+   - 验证回归：[`test_p2_shanhai.js`](file:///d:/Extends/antigravityProj/XiYouOnline/test_p2_shanhai.js) (508 项断言全绿)。
+
+---
+
+### 下一阶段优先开发任务 (P3/P4/P5 已全部收官，从 C1 开始)
+
+| 编号 | 首批要做什么 | 范围与交付 |
+| --- | --- | --- |
+| C1 | 火云洞完整一章 | 按当前平顶山后续方向编排，覆盖线索、诱骗、真火、寻援、再战、善后；阶段、NPC、奖励、重试和读档一起交付；建议复用银角 Boss 意图框架做红孩儿三昧真火机制 |
+| 实机验收 | 实体手机与微信 WebView 验证 | H5 适配代码已就位 (2026-10-25)，但触控手感、安全区、横竖屏切换仍需真机确认；开局移动修复与战果清点面板也建议真机复测 |
+| 美术储备 | 用户提供贴图后接线 | 若后续提供角色/野怪 PNG/SVG 贴图，按 `MonsterModelArtMap`(全身) 与 `Portraits.customMonsterImages`(头像) 接入，参照猴族 SVG 先例 |
+
+详细方案均在 [NEXT_GAMEPLAY_PLAN.md](NEXT_GAMEPLAY_PLAN.md)，此处不复制全部规格。先修 R1 的实际功能，再做 R2 与 R3 开局样板，随后交付 P1/P2/P3；不必等全部章节重写完才加入有趣内容。
+
+### 必须沿用的基础与规则
+
+- 真实入口是 `index.html` → `js/app2d.js`，`src/` 不是当前游戏入口；沿用原生 Canvas/CSS/JS。
+- 继续复用 `Player.claimStoryReward`、`storyEvents` / `storyRewards`、`Inventory.canAddItems` / `addItemsAtomically`，事件发生与奖励到账分别保存。
+- 保留当前 50 凡兽 / 12 散仙 / 15 金仙、五行与四维成长、全量绿白灰图鉴、单物种一次且只消耗一个实例的献录规则。收益门槛和成长概率不在体验优化中悄悄改动。
+- 普通宠与散仙/金仙的技能资格不同；散仙/金仙达到 10 级后每只一次免费随机传法，仍遵守性别约束。
+- `templateId` 管物种、`instanceId` 管具体仙宠；改名不改变身份。宠物 `sha_wujing` 是巡海夜叉，金仙沙僧是 `sha_seng`，别与剧情沙悟净混用。
+- 主线当前到平顶山第十一回；后续地图和宠物数据存在不等于后续章节完成。神佛身份、五庄观赔偿救树、白骨三重画皮的因果继续保留。
+- `rules/` 中旧日期说明也可能滞后，尤其物种缺失与已实装状态；核对当前数据后修正文案，不为匹配旧说明删除新内容。
+
+### 可直接交给下一位开发者的指令
+
+> 阅读本文件 2026-10-17 当前节和 `NEXT_GAMEPLAY_PLAN.md`。先检查工作区是否有更新，只修改真实 `js/` 入口。优先处理 R1 中读档残血、存储异常/坏档保护、飞行符实际传送、强化窗口定星石接线，每项通过玩家入口验证后再做下一项。随后修正 R2 移动与点击，完成 R3 序章至长安目标样板，再实现 P1 银角“移山压顶”的预告与应对。保留已完成奖励和收藏逻辑，不批量修改数值。完成后在本节记录做完的编号、可复用入口和下一项；不要将计划写成已实现，也不要用历史测试数量代替实际行为验收。
+
+---
+
+## 历史接手说明：奖励、移动与存档修补（2026-10-11）
+
+> 以下为当时记录。当前缺口、运行速度口径与下一步工作以顶部 2026-10-17 节及新方案为准。
 
 真实入口仍为 `index.html` → `js/`。本轮从 1724/1724 基线出发，当前 `node test_suite.js` 为 **1745/1745 (100.0%)**。平顶山以后仍未扩写新主线。
 
@@ -33,9 +184,9 @@
 
 ---
 
-## 最新接手说明：视觉身份与场景剧情打磨（2026-10-08）
+## 历史接手说明：视觉身份与场景剧情打磨（2026-10-08）
 
-**从本节接手。真实运行入口仍是 `index.html` → `js/`。自动化基线 1694/1694；本轮没有扩写新主线章节，平顶山之后仍为后续工作。**
+**本节保留当时实现记录；当前工作从顶部 2026-10-17 节接手。** 当时运行入口为 `index.html` → `js/`，自动化基线 1694/1694，没有扩写平顶山之后的新主线章节。
 
 ### 本轮已经完成，后续直接复用
 

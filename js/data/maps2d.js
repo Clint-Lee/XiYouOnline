@@ -4785,6 +4785,15 @@ window.GAME_DATA.MAPS_2D = {
         "isSideQuest": true
       },
       {
+        "id": "npc_liujiacun_dashen",
+        "name": "王大婶",
+        "title": "【看粮人家】",
+        "x": 736,
+        "y": 384,
+        "appearance": "changan_tea_granny",
+        "icon": "🧺"
+      },
+      {
         "id": "prop_mushroom_1",
         "name": "野生青蘑菇",
         "title": "【鲜嫩野蕈】",
@@ -6695,6 +6704,15 @@ window.GAME_DATA.MAPS_2D = {
         "appearance": "changan_hawker",
         "icon": "🍡",
         "dialogueKey": "changan_hawker_talk"
+      },
+      {
+        "id": "npc_changan_bingtan",
+        "name": "老孙",
+        "title": "【胡饼摊主】",
+        "x": 1152,
+        "y": 512,
+        "appearance": "changan_hawker",
+        "icon": "🫓"
       },
       {
         "id": "npc_changan_child",
