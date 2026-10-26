@@ -32,6 +32,7 @@ class Camera {
   }
 
   // 屏幕坐标 -> 世界坐标
+  // 传入的 screenX/screenY 为逻辑画布坐标（已由 App2D.getCanvasPointer 完成信箱偏移与 DPR 换算）
   screenToWorld(screenX, screenY) {
     return {
       x: screenX + this.x,

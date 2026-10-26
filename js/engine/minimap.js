@@ -8,6 +8,67 @@ class MiniMapEngine {
     this.pulseTime = 0;
     this.width = 130;
     this.height = 90;
+    // 地貌底图缓存：key = mapId + 尺寸，值 = 离屏 canvas
+    this._terrainCache = new Map();
+    this._terrainCacheLimit = 4;
+  }
+
+  // 生成（或复用）当前地图的小地图地貌底图。
+  // 只有地图 id 与像素尺寸变化时才重绘，剧情/位置变化不影响该层。
+  getTerrainLayer(mapData, mapW, mapH, scaleX, scaleY) {
+    if (!mapData || !mapData.tiles || typeof document === 'undefined' || !document.createElement) return null;
+    const layerW = Math.ceil(mapW * scaleX);
+    const layerH = Math.ceil(mapH * scaleY);
+    if (!(layerW > 0) || !(layerH > 0)) return null;
+    const key = `${mapData.id}|${layerW}x${layerH}`;
+    const cached = this._terrainCache.get(key);
+    if (cached) return cached;
+
+    let canvas = null;
+    try {
+      canvas = document.createElement('canvas');
+    } catch (e) {
+      return null;
+    }
+    if (!canvas || typeof canvas.getContext !== 'function') return null;
+    canvas.width = layerW;
+    canvas.height = layerH;
+    const tctx = canvas.getContext('2d');
+    if (!tctx) return null;
+
+    const biomeBase = window.App2D?.tilemap?.biomes?.[mapData.id]?.base || '#27ae60';
+    for (let r = 0; r < mapH; r++) {
+      const row = mapData.tiles[r] || [];
+      for (let c = 0; c < mapW; c++) {
+        const tile = row[c];
+        let color = '#2c3e50';
+
+        if (tile === 'heaven_floor') color = mapData.id === 'wuzhuangguan' ? '#99a397' : '#ecf0f1';
+        else if (tile === 'cloud_void') color = '#0a0d14';
+        else if (tile === 'heaven_pillar') color = '#f39c12';
+        else if (tile === 'grass') color = biomeBase;
+        else if (tile === 'dirt_path') color = '#795548';
+        else if (tile === 'bamboo') color = '#1e824c';
+        else if (tile === 'water') color = '#2980b9';
+        else if (tile === 'city_wall') color = '#34495e';
+        else if (tile === 'mountain_rock') color = '#424242';
+        else if (tile === 'wuxing_seal') color = '#ffd700';
+        else if (tile === 'demon_cave_wall') color = '#292632';
+        else if (tile === 'cave_floor') color = '#857888';
+        else if (tile === 'cave_lantern') color = '#e7ba74';
+
+        tctx.fillStyle = color;
+        tctx.fillRect(c * scaleX, r * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
+      }
+    }
+
+    // 简单 FIFO 淘汰，避免长时间游玩累积离屏画布占用内存
+    if (this._terrainCache.size >= this._terrainCacheLimit) {
+      const oldestKey = this._terrainCache.keys().next().value;
+      this._terrainCache.delete(oldestKey);
+    }
+    this._terrainCache.set(key, canvas);
+    return canvas;
   }
 
   // 获取当前主线任务目标点 (世界像素坐标与名称)
@@ -129,12 +190,26 @@ class MiniMapEngine {
           desc: '凌霄宝殿听候玉帝圣旨公审发落'
         };
       }
-      return {
-        x: 15 * 32,
-        y: 12 * 32,
-        name: '天蓬元帅',
-        desc: '巡视仙宴，解救嫦娥仙子制止醉酒天蓬'
-      };
+      // 出征花果山后，天蓬已因醉酒被贬，不能再作为兜底目标指向；统一引向南天门下界传送阵
+      if (storyPhase === 'heaven_huaguoshan' || storyPhase === 'heaven_juling_defeated') {
+        return {
+          x: 19 * 32,
+          y: 25 * 32,
+          name: '南天门下界传送阵',
+          desc: '出南天门向南下界，前往东胜神洲·花果山'
+        };
+      }
+      // 擒圣凯旋阶段的目标是李天王，不是早已退场的天蓬元帅
+      if (storyPhase === 'heaven_yangjian_capture') {
+        return {
+          x: 11 * 32,
+          y: 13 * 32,
+          name: '托塔李天王',
+          desc: '向李天王复命，押解大圣回凌霄宝殿'
+        };
+      }
+      // 未知阶段不再误导性地指向天蓬，交回上层按实际 NPC 感叹号解析
+      return null;
     }
 
     // 1.1 东胜神洲·花果山主山
@@ -220,11 +295,13 @@ class MiniMapEngine {
         };
       }
       if (storyPhase === 'liujiacun_go_cut_wood' || storyPhase === 'liujiacun_wood_gathering') {
+        // 枯树精在五行山地图，信标必须指向刘家村通往五行山的山道入口；
+        // 若把异图坐标直接画在本地图上，玩家走到光柱下将毫无反应。
         return {
-          x: 6 * 32,
-          y: 15 * 32,
-          name: '两界山脚枯树精',
-          desc: '击倒西侧山脚 4 株枯树精取柴'
+          x: 32,
+          y: 448,
+          name: '五行山山道入口',
+          desc: '穿过山脚通道进入五行山小径，击倒 4 株百年枯树精取柴'
         };
       }
       if (storyPhase === 'liujiacun_wood_collected') {
@@ -413,14 +490,24 @@ class MiniMapEngine {
       };
     }
 
-    // 12. 东海之滨 -> 目标：巡海夜叉
+    // 12. 东海之滨 -> 目标按阶段解析：战前指向巡海夜叉，战后指向龙王
     if (mapId === 'donghai_coast') {
-      return {
-        x: 10 * 32,
-        y: 9 * 32,
-        name: '巡海夜叉',
-        desc: '凭避水神诀潜入东海水晶宫'
-      };
+      if (storyPhase === 'donghai_yecha_ready') {
+        return {
+          x: 10 * 32,
+          y: 9 * 32,
+          name: '巡海夜叉',
+          desc: '拦下截船伤人的巡海夜叉，救回渔民'
+        };
+      }
+      if (storyPhase === 'donghai_dragon_arrived') {
+        return {
+          x: 736,
+          y: 448,
+          name: '东海龙王敖广',
+          desc: '随龙王入龙宫挑选神装'
+        };
+      }
     }
 
     // 13. 东海水晶宫 -> 目标：龟丞相珍宝阁
@@ -454,9 +541,19 @@ class MiniMapEngine {
     }
 
     // 16. 白虎岭 -> 目标：白骨夫人 (幽冥尸魔)
-    if (mapId === 'baihuling' && ['wuzhuang_cleared', 'baihu_first_cleared', 'baihu_second_cleared'].includes(storyPhase)) {
-      const rewardPending = storyPhase === 'baihu_second_cleared' && window.App2D?.playerData?.storyEvents?.baigu_final_won;
-      if (rewardPending) return { npcId:'npc_baihu_wukong', x:608, y:352, name:'孙悟空', desc:'整理行囊后领取白骨岭战利品' };
+    if (mapId === 'baihuling' && ['wuzhuang_cleared', 'baihu_first_cleared', 'baihu_second_cleared', 'baihu_cleared'].includes(storyPhase)) {
+      const claimed = !!window.App2D?.playerData?.storyRewards?.baigu_final;
+      const won = !!window.App2D?.playerData?.storyEvents?.baigu_final_won;
+      // 真身已破但奖励还没入包 -> 指向悟空作为领取入口
+      if (storyPhase === 'baihu_second_cleared' && won && !claimed) {
+        return { npcId: 'npc_baihu_wukong', x: 608, y: 352, name: '孙悟空', desc: '整理行囊后领取白骨岭战利品' };
+      }
+      // 三打已毕且奖励到账 -> 悟空只作战后收尾对话，不再显示领奖误导
+      if (storyPhase === 'baihu_cleared' && claimed) {
+        return { npcId: 'npc_baihu_wukong', x: 608, y: 352, name: '孙悟空', desc: '白虎岭善后已了，可与悟空作别西行' };
+      }
+      // baihu_cleared 阶段白骨夫人已被诛灭，不能继续当作可追踪目标
+      if (storyPhase === 'baihu_cleared') return null;
       return {
         npcId: 'npc_baigujing',
         x: 608,
@@ -519,6 +616,98 @@ class MiniMapEngine {
       };
     }
 
+    // 20.1 号山·枯松涧火云洞（第十二回）
+    if (mapId === 'huoyundong') {
+      if (storyPhase === 'pingding_cleared' || storyPhase === 'huoyun_arrived') {
+        return { x: 864, y: 448, name: '号山土地神', desc: '问明火云洞虚实与圣婴大王底细' };
+      }
+      if (storyPhase === 'huoyun_redboy_ready') {
+        return { x: 352, y: 448, name: '枯松涧求救孩童', desc: '查验脚印与火痕，辨其真假' };
+      }
+      if (storyPhase === 'huoyun_boss_ready') {
+        const pending = !!window.App2D?.playerData?.storyEvents?.huoyun_boss_won
+          && !window.App2D?.playerData?.storyRewards?.huoyun_completion;
+        if (pending) return { x: 608, y: 352, name: '孙悟空', desc: '整理行囊后领取火云洞战利' };
+        return { x: 512, y: 320, name: '圣婴大王·三昧真身', desc: '破五行车阵，决战三昧真火' };
+      }
+      if (storyPhase === 'huoyun_cleared') return null;
+    }
+
+    // 20.2 黑水河·衡阳峪（第十三回）
+    if (mapId === 'heishuihe') {
+      const targets = {
+        heishui_arrived: { x: 320, y: 288, name: '摆渡船夫', desc: '与渡口船夫交涉，安排过河' },
+        heishui_captives_taken: { x: 192, y: 672, name: '失府河神', desc: '寻访失府河神，问明夺府经过' },
+        heishui_scout_ready: { x: 768, y: 320, name: '水府守将', desc: '随沙僧探查水府，击退守门水卒' },
+        heishui_aid_needed: { x: 192, y: 672, name: '失府河神', desc: '核实鼍洁来历，商议请西海援手' },
+        heishui_moang_arrived: { x: 864, y: 352, name: '西海龙太子摩昂', desc: '与摩昂会合，确认收服次序' },
+        heishui_boss_ready: { x: 1024, y: 448, name: '鼍洁', desc: '破其水势，为摩昂创造擒拿之机' },
+        heishui_reward_pending: { x: 960, y: 544, name: '黑水河神', desc: '领取黑水河谢礼' },
+        heishui_cleared: { x: 1088, y: 800, name: '唐三藏', desc: '黑水河事毕，与师父确认渡河行程' }
+      };
+      const t = targets[storyPhase];
+      if (t) return t;
+    }
+
+    // 20.3 车迟国（第十四回）
+    if (mapId === 'chediguo') {
+      const chediTargets = {
+        chedi_arrival: { x: 576, y: 704, name: '受役僧人', desc: '查明僧人受役情况，接受申诉' },
+        chedi_audience: { x: 896, y: 352, name: '车迟国国王', desc: '面见国王，约定停役与斗法条件' },
+        chedi_rain: { x: 832, y: 384, name: '虎力大仙', desc: '依序验风云雷雨，赢下第一场祈雨' },
+        chedi_discern: { x: 288, y: 288, name: '鹿力大仙', desc: '坐禅定心，隔板辨物' },
+        chedi_final_trial: { x: 928, y: 512, name: '羊力大仙', desc: '破除邪术，三仙同场决战' },
+        chedi_reward_pending: { x: 896, y: 352, name: '车迟国国王', desc: '领取谢礼与西行关文' }
+      };
+      const t = chediTargets[storyPhase];
+      if (t) return t;
+    }
+
+    // 20.4 通天河（第十五回）
+    if (mapId === 'tongtianhe') {
+      const tt = {
+        tongtian_arrival: { x: 224, y: 416, name: '陈家长者', desc: '查明通天河祭童之事' },
+        tongtian_vowed: { x: 576, y: 448, name: '河畔祭坛', desc: '安置孩子，随替身赴约' },
+        tongtian_altar: { x: 576, y: 448, name: '河畔祭坛', desc: '引妖现身，护住村民' },
+        tongtian_rescue: { x: 864, y: 640, name: '水府入口', desc: '循暗流侧口潜入，救出师父' },
+        tongtian_await_guanyin: { x: 640, y: 416, name: '观世音菩萨', desc: '请菩萨鱼篮收妖' },
+        tongtian_reward: { x: 224, y: 416, name: '陈家长者', desc: '领取谢礼，渡河东去' }
+      };
+      const t = tt[storyPhase];
+      if (t) return t;
+    }
+
+    // 20.5 火焰山（第十六回）
+    if (mapId === 'huoyanshan') {
+      const hy = {
+        huoyan_arrived: { x: 192, y: 672, name: '灾民代表', desc: '查明火焰山灾情' },
+        huoyan_borrow_fan: { x: 384, y: 160, name: '铁扇公主', desc: '前往芭蕉洞借扇' },
+        huoyan_test_fan: { x: 608, y: 416, name: '试扇火口', desc: '验明手中扇是真是假' },
+        huoyan_seek_true_fan: { x: 384, y: 160, name: '铁扇公主', desc: '再赴芭蕉洞求取真扇' },
+        huoyan_confront_bull: { x: 768, y: 192, name: '牛魔王', desc: '摩云台对质牛魔王' },
+        huoyan_renew_request: { x: 384, y: 160, name: '铁扇公主', desc: '重新议借真扇' },
+        huoyan_quench_fire: { x: 608, y: 576, name: '火根台', desc: '断绝火根，领取谢礼' }
+      };
+      const t = hy[storyPhase];
+      if (t) return t;
+    }
+
+    // 20.6 盘丝洞（第十七回）
+    if (mapId === 'pansidong') {
+      const ps = {
+        pansi_arrived: { x: 416, y: 416, name: '盘丝七女妖', desc: '与唐僧确认泉边边界' },
+        pansi_webbound: { x: 416, y: 416, name: '盘丝七女妖', desc: '解除丝洞主缚，救出师父与八戒' },
+        pansi_huanghua: { x: 800, y: 320, name: '黄花观主', desc: '往黄花观求解毒之法' },
+        pansi_poisoned: { x: 640, y: 640, name: '指路老妇', desc: '询问破光救人之法' },
+        pansi_seeking_rooster: { x: 768, y: 448, name: '昴日星官', desc: '请昴日星官下山相助' },
+        pansi_breaking_light: { x: 768, y: 448, name: '昴日星官', desc: '随昴日星官破除金光' },
+        pansi_restoring: { x: 416, y: 416, name: '唐三藏', desc: '交代救治与善后，领取谢礼' },
+        pansi_cleared: { x: 1056, y: 480, name: '西行关口', desc: '盘丝事了，继续西去' }
+      };
+      const t = ps[storyPhase];
+      if (t) return t;
+    }
+
     // 21. 苍茫三岭支线伏魔引导
     if (mapId === 'yehu_ling') {
       return {
@@ -574,27 +763,34 @@ class MiniMapEngine {
     const innerX = posX + 4;
     const innerY = posY + 18;
 
-    for (let r = 0; r < mapH; r++) {
-      for (let c = 0; c < mapW; c++) {
-        const tile = mapData.tiles[r][c];
-        let color = '#2c3e50';
+    // 地貌层是纯静态数据：按地图缓存到离屏画布，避免每帧重复数百次 fillRect
+    // （长安 36×26 每帧约 936 次；小地图内容只在换图时变化）
+    const terrain = this.getTerrainLayer(mapData, mapW, mapH, scaleX, scaleY);
+    if (terrain) {
+      ctx.drawImage(terrain, innerX, innerY);
+    } else {
+      for (let r = 0; r < mapH; r++) {
+        for (let c = 0; c < mapW; c++) {
+          const tile = mapData.tiles[r][c];
+          let color = '#2c3e50';
 
-        if (tile === 'heaven_floor') color = mapData.id === 'wuzhuangguan' ? '#99a397' : '#ecf0f1';
-        else if (tile === 'cloud_void') color = '#0a0d14';
-        else if (tile === 'heaven_pillar') color = '#f39c12';
-        else if (tile === 'grass') color = window.App2D?.tilemap?.biomes[mapData.id]?.base || '#27ae60';
-        else if (tile === 'dirt_path') color = '#795548';
-        else if (tile === 'bamboo') color = '#1e824c';
-        else if (tile === 'water') color = '#2980b9';
-        else if (tile === 'city_wall') color = '#34495e';
-        else if (tile === 'mountain_rock') color = '#424242';
-        else if (tile === 'wuxing_seal') color = '#ffd700';
-        else if (tile === 'demon_cave_wall') color = '#292632';
-        else if (tile === 'cave_floor') color = '#857888';
-        else if (tile === 'cave_lantern') color = '#e7ba74';
+          if (tile === 'heaven_floor') color = mapData.id === 'wuzhuangguan' ? '#99a397' : '#ecf0f1';
+          else if (tile === 'cloud_void') color = '#0a0d14';
+          else if (tile === 'heaven_pillar') color = '#f39c12';
+          else if (tile === 'grass') color = window.App2D?.tilemap?.biomes[mapData.id]?.base || '#27ae60';
+          else if (tile === 'dirt_path') color = '#795548';
+          else if (tile === 'bamboo') color = '#1e824c';
+          else if (tile === 'water') color = '#2980b9';
+          else if (tile === 'city_wall') color = '#34495e';
+          else if (tile === 'mountain_rock') color = '#424242';
+          else if (tile === 'wuxing_seal') color = '#ffd700';
+          else if (tile === 'demon_cave_wall') color = '#292632';
+          else if (tile === 'cave_floor') color = '#857888';
+          else if (tile === 'cave_lantern') color = '#e7ba74';
 
-        ctx.fillStyle = color;
-        ctx.fillRect(innerX + c * scaleX, innerY + r * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
+          ctx.fillStyle = color;
+          ctx.fillRect(innerX + c * scaleX, innerY + r * scaleY, Math.ceil(scaleX), Math.ceil(scaleY));
+        }
       }
     }
 

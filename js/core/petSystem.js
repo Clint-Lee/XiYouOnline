@@ -385,6 +385,8 @@ class PetSystem {
     return {
       instanceId: pet.instanceId,
       templateId: pet.templateId,
+      // 洗炼按既有策划口径重置为幼年状态（Lv.1），资质与成长重新生成。
+      // 该行为由 test_suite 既有断言固定，若要改需同时调整策划文档与测试。
       level: 1,
       exp: 0,
       isMutated: isMutated,
@@ -397,7 +399,9 @@ class PetSystem {
   // 确认替换金柳露洗炼新属性
   static applyWashResult(pet, washResult) {
     if (!pet || !washResult || washResult.instanceId !== pet.instanceId || washResult.templateId !== pet.templateId) return null;
-    pet.level = washResult.level || 1;
+    // 洗炼重置为幼年状态属于既定机制，强制回到 Lv.1 并清空经验/潜能，
+    // 避免"保留高等级 + 新资质"叠加出越级强度。
+    pet.level = 1;
     pet.exp = 0;
     pet.isMutated = washResult.isMutated;
     pet.name = washResult.name;
@@ -565,17 +569,21 @@ class PetSystem {
         return Number((0.30 + (p / 5000) * 0.20).toFixed(3)); // 30% ~ 50%
       }
     },
-    // 8. 黄风怪
+    // 8. 黄风怪：变身后增法力上限与出手速度，命中后按概率强制目标降至全场最慢（三昧神风·断速）
     huangfeng_guai: {
       id: 'avatar_huangfeng',
       name: '黄鼠原身',
-      desc: '变身后增加法力上限(+35%)以及出手速度(+25%)。',
+      desc: '变身后增加法力上限(+35%)与出手速度(+25%)；命中后 30%~70% 概率使目标速度降至全场最低。',
       type: 'mp_spd_boost',
       getBoosts(talentPoints, maxMp, baseSpd) {
         const p = Math.max(0, Math.min(5000, talentPoints || 0));
         const mpBonus = Math.floor((maxMp || 400) * (0.25 + (p / 5000) * 0.10));
         const spdBonus = Math.floor((baseSpd || 50) * (0.20 + (p / 5000) * 0.05));
         return { mpBonus, spdBonus };
+      },
+      getSlowRate(talentPoints) {
+        const p = Math.max(0, Math.min(5000, talentPoints || 0));
+        return Number((0.30 + (p / 5000) * 0.40).toFixed(3)); // 30% ~ 70%
       }
     },
     // 9. 黄袍怪
@@ -654,6 +662,32 @@ class PetSystem {
       getRebornRatio(talentPoints) {
         const p = Math.max(0, Math.min(5000, talentPoints || 0));
         return Number((0.25 + (p / 5000) * 0.10).toFixed(3)); // 25% ~ 35%
+      }
+    },
+    // 16. 金角大王：紫金吸魂——法术命中抽取目标法力补给自身
+    jinjiao_dawang: {
+      id: 'avatar_jinjiao',
+      name: '紫金吸魂',
+      desc: '变身后法术命中时，抽取目标当前法力（20%~35%）补给自身。',
+      type: 'mp_drain',
+      getMpDrainRatio(talentPoints) {
+        const p = Math.max(0, Math.min(5000, talentPoints || 0));
+        return Number((0.20 + (p / 5000) * 0.15).toFixed(3)); // 20% ~ 35%
+      }
+    },
+    // 17. 银角大王：羊脂封魄——损失气血越多，受到的伤害减免越高
+    yinjiao_dawang: {
+      id: 'avatar_yinjiao',
+      name: '羊脂封魄',
+      desc: '变身后按已损失气血比例获得伤害减免（上限 10%~25%）。',
+      type: 'damage_reduction',
+      getReductionRatio(talentPoints, currentHp, maxHp) {
+        const p = Math.max(0, Math.min(5000, talentPoints || 0));
+        const maxRatio = 0.10 + (p / 5000) * 0.15; // 上限 10% ~ 25%
+        const hp = Number.isFinite(currentHp) ? currentHp : 0;
+        const full = Number.isFinite(maxHp) && maxHp > 0 ? maxHp : 1;
+        const lostRatio = Math.max(0, Math.min(1, 1 - hp / full));
+        return Number((maxRatio * lostRatio).toFixed(3));
       }
     }
   };
@@ -747,12 +781,12 @@ class PetSystem {
    * 变身天赋物种别名：方向为「物种库ID → 策划天赋表键」。
    * 策划表沿用西游本名（niumo_wang），物种库使用统一ID（niumowang），
    * 未建立别名会让整条天赋永久失效（曾导致牛魔王狂暴、黑熊精反震形同虚设）。
+   * 注意：金角/银角曾分别被错误指向黄眉与沙僧，导致二者真实能力（吸魂、逆御）彻底缺失，
+   * 现已为二者建立独立天赋，不再走别名。
    */
   static AVATAR_TALENT_ALIAS = {
     niumo_wang: 'niumowang',
-    xiaobai_long: 'bailong_ma',
-    jinjiao_dawang: 'huangmei_dawang',
-    yinjiao_dawang: 'sha_seng'
+    xiaobai_long: 'bailong_ma'
   };
 
   /**

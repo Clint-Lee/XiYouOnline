@@ -225,6 +225,9 @@ class GameApp2D {
     this.camera.viewportWidth = 760;
     this.camera.viewportHeight = 580;
 
+    // 依据真实容器与设备像素比同步画布尺寸，杜绝点击偏移
+    this.syncCanvasSize();
+
     // 初始化已播放章节记录
     this.initShownChapterSet();
 
@@ -353,7 +356,13 @@ class GameApp2D {
         this.saveAutoProgress();
       }
     });
-    setInterval(() => this.saveAutoProgress(), 15000);
+    // 心跳自动保存留存句柄，便于轮回重开时彻底清理，避免叠加多套定时器
+    this._autoSaveTimer = setInterval(() => {
+      if (this._saveDirty) {
+        this._saveDirty = false;
+        this.saveAutoProgress();
+      }
+    }, 15000);
 
     // 启动 60FPS 渲染主循环
     requestAnimationFrame((t) => this.gameLoop(t));
@@ -587,8 +596,7 @@ class GameApp2D {
       return { success: false, reason: 'corrupted_protection', msg: '原存档损坏保护中，暂未自动覆盖。' };
     }
     try {
-      const state = {
-        mapId: this._mapDestination?.mapId || this.currentMapId,
+      const state = {        mapId: this._mapDestination?.mapId || this.currentMapId,
         playerPos: {
           x: Math.round(this._mapDestination?.spawn.x ?? this.playerChar.x),
           y: Math.round(this._mapDestination?.spawn.y ?? this.playerChar.y),
@@ -1052,9 +1060,50 @@ class GameApp2D {
       pingding_silver_cleared: 126,
       pingding_gold_cleared: 128,
       pingding_cleared: 130,
+      huoyun_arrived: 132,
+      huoyun_redboy_ready: 134,
+      huoyun_boss_ready: 136,
       huoyun_cleared: 140,
-      poer_cleared: 150,
-      chedi_cleared: 160,
+      heishui_arrived: 142,
+      heishui_captives_taken: 144,
+      heishui_scout_ready: 146,
+      heishui_aid_needed: 148,
+      heishui_moang_arrived: 150,
+      heishui_boss_ready: 152,
+      heishui_reward_pending: 154,
+      heishui_cleared: 156,
+      chedi_arrival: 158,
+      chedi_audience: 160,
+      chedi_rain: 162,
+      chedi_discern: 164,
+      chedi_final_trial: 166,
+      chedi_reward_pending: 168,
+      chedi_cleared: 170,
+      tongtian_arrival: 172,
+      tongtian_vowed: 174,
+      tongtian_altar: 176,
+      tongtian_rescue: 178,
+      tongtian_await_guanyin: 180,
+      tongtian_reward: 182,
+      tongtian_cleared: 184,
+      huoyan_arrived: 186,
+      huoyan_borrow_fan: 188,
+      huoyan_test_fan: 190,
+      huoyan_seek_true_fan: 192,
+      huoyan_confront_bull: 194,
+      huoyan_renew_request: 196,
+      huoyan_quench_fire: 198,
+      huoyan_cleared: 200,
+      pansi_arrived: 202,
+      pansi_webbound: 204,
+      pansi_huanghua: 206,
+      pansi_poisoned: 208,
+      pansi_seeking_rooster: 210,
+      pansi_breaking_light: 212,
+      pansi_restoring: 214,
+      pansi_cleared: 216,
+      poer_cleared: 218,
+      chedi_cleared: 164,
       tongtian_cleared: 170,
       huoyan_cleared: 180,
       pansi_cleared: 190,
@@ -1113,8 +1162,13 @@ class GameApp2D {
         !this.playerData?.storyEvents?.baigu_final_won;
     }
     if (npcId === 'npc_baihu_wukong') {
-      return storyPhase === 'baihu_second_cleared' && !!this.playerData?.storyEvents?.baigu_final_won &&
-        !this.playerData?.storyRewards?.baigu_final;
+      // 两种用途：
+      //  1) 满包待领：真身已破但奖励还没入包，此处作为领取入口；
+      //  2) 三打已毕：奖励到账后仍保留悟空作战后收尾对话，不再是第二个发奖点。
+      const won = !!this.playerData?.storyEvents?.baigu_final_won;
+      const claimed = !!this.playerData?.storyRewards?.baigu_final;
+      if (storyPhase === 'baihu_second_cleared' && won && !claimed) return true;
+      return storyPhase === 'baihu_cleared' && claimed;
     }
 
     // 8. 宝象国黄袍怪与公主：必须在三打白骨精之后 (baihu_cleared 及之后) 出现
@@ -1140,6 +1194,130 @@ class GameApp2D {
     }
     if (npcId === 'npc_taishang_laojun') {
       return currentWeight >= phaseWeights.pingding_gold_cleared;
+    }
+
+    // 8.1.1 第十二回 火云洞：土地神在号山阶段常驻接引；红孩儿按阶段显隐
+    if (npcId === 'npc_haoshan_tudi') {
+      return currentWeight >= phaseWeights.pingding_cleared;
+    }
+    if (npcId === 'npc_redboy_disguise') {
+      return storyPhase === 'huoyun_redboy_ready';
+    }
+    if (npcId === 'npc_redboy_boss') {
+      return storyPhase === 'huoyun_boss_ready';
+    }
+
+    // 8.1.6 第十七回 盘丝洞
+    // 蜘蛛精代表（七女妖用一名代表承载，群体分歧由对白呈现）
+    if (npcId === 'npc_pansi_spider') {
+      return ['pansi_arrived', 'pansi_webbound'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_tangseng') {
+      // 泉边与解缚阶段唐僧在场；中毒后被护送照护，仍可见
+      return ['pansi_arrived', 'pansi_webbound', 'pansi_huanghua',
+        'pansi_poisoned', 'pansi_restoring'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_huanghua') {
+      // 黄花观主：解缚后至啼鸣前在场（毒茶与金光都由他发动）
+      return ['pansi_huanghua', 'pansi_poisoned', 'pansi_breaking_light'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_oldwoman') {
+      return storyPhase === 'pansi_poisoned';
+    }
+    if (npcId === 'npc_pansi_maori') {
+      return ['pansi_seeking_rooster', 'pansi_breaking_light', 'pansi_restoring'].includes(storyPhase);
+    }
+    if (npcId === 'npc_pansi_west_exit') {
+      // 西行出口只在终态放行
+      return storyPhase === 'pansi_cleared';
+    }
+
+    // 8.1.5 第十六回 火焰山
+    if (npcId === 'npc_huoyan_villager') {
+      return ['huoyan_arrived', 'huoyan_borrow_fan', 'huoyan_test_fan',
+        'huoyan_seek_true_fan', 'huoyan_confront_bull', 'huoyan_renew_request',
+        'huoyan_quench_fire'].includes(storyPhase);
+    }
+    if (npcId === 'npc_huoyan_land') {
+      return ['huoyan_arrived', 'huoyan_borrow_fan', 'huoyan_test_fan',
+        'huoyan_seek_true_fan', 'huoyan_quench_fire', 'huoyan_cleared'].includes(storyPhase);
+    }
+    if (npcId === 'npc_huoyan_princess') {
+      // 铁扇公主全章复用同一实体；试扇/对质期间留洞中（旁听对白）
+      return ['huoyan_borrow_fan', 'huoyan_seek_true_fan', 'huoyan_renew_request',
+        'huoyan_quench_fire', 'huoyan_cleared'].includes(storyPhase);
+    }
+    if (npcId === 'npc_huoyan_bull_king') {
+      return ['huoyan_seek_true_fan', 'huoyan_confront_bull', 'huoyan_renew_request'].includes(storyPhase);
+    }
+    if (npcId === 'npc_huoyan_fan_trial') {
+      return storyPhase === 'huoyan_test_fan';
+    }
+    if (npcId === 'npc_huoyan_fire_root') {
+      // 熄火前台灭火，熄火后领谢礼
+      return storyPhase === 'huoyan_quench_fire';
+    }
+
+    // 8.1.4 第十五回 通天河
+    // 陈家长者：除水府救援战期间外均在场（接案、领奖共用）
+    if (npcId === 'npc_tongtian_elder') {
+      return storyPhase !== 'tongtian_rescue';
+    }
+    // 被选中的孩童：只在初到与表态阶段可见，动身即撤（不把儿童当诱饵/可交互对象）
+    if (npcId === 'npc_tongtian_child') {
+      return ['tongtian_arrival', 'tongtian_vowed'].includes(storyPhase);
+    }
+    if (npcId === 'npc_tongtian_altar') {
+      return ['tongtian_vowed', 'tongtian_altar'].includes(storyPhase);
+    }
+    if (npcId === 'npc_tongtian_watergate') {
+      return storyPhase === 'tongtian_rescue';
+    }
+    if (npcId === 'npc_tongtian_guanyin') {
+      return ['tongtian_await_guanyin', 'tongtian_reward', 'tongtian_cleared'].includes(storyPhase);
+    }
+
+    // 8.1.3 第十四回 车迟国：三仙在决战前可见，胜利进入领奖阶段即隐藏
+    if (npcId === 'npc_chedi_monk') {
+      return ['chedi_arrival', 'chedi_audience', 'chedi_rain', 'chedi_discern',
+        'chedi_final_trial', 'chedi_reward_pending'].includes(storyPhase);
+    }
+    if (npcId === 'npc_chedi_tiger') {
+      return ['chedi_rain', 'chedi_discern', 'chedi_final_trial'].includes(storyPhase);
+    }
+    if (npcId === 'npc_chedi_deer') {
+      return ['chedi_discern', 'chedi_final_trial'].includes(storyPhase);
+    }
+    if (npcId === 'npc_chedi_sheep') {
+      return storyPhase === 'chedi_final_trial';
+    }
+    if (npcId === 'npc_chedi_king') {
+      // 国王常驻，但决战后的纠错与领奖只在 reward_pending / cleared 显示
+      return storyPhase === 'chedi_audience' || storyPhase === 'chedi_reward_pending' ||
+        storyPhase === 'chedi_cleared';
+    }
+
+    // 8.1.2 第十三回 黑水河：按阶段集合严格显隐
+    if (npcId === 'npc_heishui_ferryman') {
+      return storyPhase === 'heishui_arrived';
+    }
+    if (npcId === 'npc_heishui_rivergod_exiled') {
+      return ['heishui_captives_taken', 'heishui_scout_ready', 'heishui_aid_needed'].includes(storyPhase);
+    }
+    if (npcId === 'npc_heishui_gate_guard') {
+      return storyPhase === 'heishui_scout_ready';
+    }
+    if (npcId === 'npc_heishui_moang') {
+      return ['heishui_moang_arrived', 'heishui_boss_ready'].includes(storyPhase);
+    }
+    if (npcId === 'npc_heishui_tuojie') {
+      return storyPhase === 'heishui_boss_ready';
+    }
+    if (npcId === 'npc_heishui_rivergod_restored') {
+      return ['heishui_reward_pending', 'heishui_cleared'].includes(storyPhase);
+    }
+    if (npcId === 'npc_heishui_tangseng_rescued') {
+      return ['heishui_reward_pending', 'heishui_cleared'].includes(storyPhase);
     }
 
     // 8.2 苍茫三岭支线伏魔 NPC 与妖物
@@ -1439,10 +1617,20 @@ class GameApp2D {
       this.cancelStoryDialogue();
       return false;
     }
+    // 对白键不存在时绝不静默返回：静默会让剧情永久卡死且坏档自我延续。
+    const dialogueData = window.GAME_DATA?.STORY_DIALOGUES?.[pending.key];
+    if (!dialogueData || !Array.isArray(dialogueData.steps) || dialogueData.steps.length === 0) {
+      console.error(`[剧情断链] 找不到对白键「${pending.key}」，请检查 storyQuests.js。已解除断点以免锁死流程。`);
+      if (window.showGameMessage) {
+        window.showGameMessage(`⚠️ 剧情脚本缺失（${pending.key}），已跳过该段以免卡关。`, 'warning', 5000);
+      }
+      this.cancelStoryDialogue();
+      return false;
+    }
     if (this.currentBattle || this.isTransitioning || window.Dialogue?.currentDialogue) return true;
     this.cancelStoryDialogue();
     this._activeStoryDialogue = pending;
-    window.Dialogue.start(window.GAME_DATA.STORY_DIALOGUES[pending.key]);
+    window.Dialogue.start(dialogueData);
     return true;
   }
 
@@ -1481,6 +1669,13 @@ class GameApp2D {
     }
     this.updateLocationHeader(mapData.name, mapData.region);
     this.updatePlayerHud();
+
+    // 章节起点初始化：只在上一个章节刚完结时触发，重复入图或后续章节回访均不回退
+    this.ensureHeishuiChapterStarted();
+    this.ensureChediChapterStarted();
+    this.ensureTongtianChapterStarted();
+    this.ensureHuoyanChapterStarted();
+    this.ensurePansiChapterStarted();
 
     // 每次过图或进入新场景，自动持久化历练进度
     this.saveAutoProgress();
@@ -1553,7 +1748,56 @@ class GameApp2D {
       'baoxiang_cleared': 'npc_xiaozuanfeng',
       'pingding_scout_cleared': 'npc_yinjiao_boss',
       'pingding_silver_cleared': 'npc_jinjiao_boss',
-      'pingding_gold_cleared': 'npc_taishang_laojun'
+      'pingding_gold_cleared': 'npc_taishang_laojun',
+      // 第十二回 火云洞
+      'pingding_cleared': 'npc_haoshan_tudi',
+      'huoyun_arrived': 'npc_haoshan_tudi',
+      'huoyun_redboy_ready': 'npc_redboy_disguise',
+      'huoyun_boss_ready': 'npc_redboy_boss',
+      'huoyun_cleared': null,
+      // 第十三回 黑水河
+      'heishui_arrived': 'npc_heishui_ferryman',
+      'heishui_captives_taken': 'npc_heishui_rivergod_exiled',
+      'heishui_scout_ready': 'npc_heishui_gate_guard',
+      'heishui_aid_needed': 'npc_heishui_rivergod_exiled',
+      'heishui_moang_arrived': 'npc_heishui_moang',
+      'heishui_boss_ready': 'npc_heishui_tuojie',
+      'heishui_reward_pending': 'npc_heishui_rivergod_restored',
+      'heishui_cleared': 'npc_heishui_tangseng_rescued',
+      // 第十四回 车迟国（终态无目标）
+      'chedi_arrival': 'npc_chedi_monk',
+      'chedi_audience': 'npc_chedi_king',
+      'chedi_rain': 'npc_chedi_tiger',
+      'chedi_discern': 'npc_chedi_deer',
+      'chedi_final_trial': 'npc_chedi_sheep',
+      'chedi_reward_pending': 'npc_chedi_king',
+      'chedi_cleared': null,
+      // 第十五回 通天河
+      'tongtian_arrival': 'npc_tongtian_elder',
+      'tongtian_vowed': 'npc_tongtian_altar',
+      'tongtian_altar': 'npc_tongtian_altar',
+      'tongtian_rescue': 'npc_tongtian_watergate',
+      'tongtian_await_guanyin': 'npc_tongtian_guanyin',
+      'tongtian_reward': 'npc_tongtian_elder',
+      'tongtian_cleared': null,
+      // 第十六回 火焰山
+      'huoyan_arrived': 'npc_huoyan_villager',
+      'huoyan_borrow_fan': 'npc_huoyan_princess',
+      'huoyan_test_fan': 'npc_huoyan_fan_trial',
+      'huoyan_seek_true_fan': 'npc_huoyan_princess',
+      'huoyan_confront_bull': 'npc_huoyan_bull_king',
+      'huoyan_renew_request': 'npc_huoyan_princess',
+      'huoyan_quench_fire': 'npc_huoyan_fire_root',
+      'huoyan_cleared': null,
+      // 第十七回 盘丝洞
+      'pansi_arrived': 'npc_pansi_spider',
+      'pansi_webbound': 'npc_pansi_spider',
+      'pansi_huanghua': 'npc_pansi_huanghua',
+      'pansi_poisoned': 'npc_pansi_oldwoman',
+      'pansi_seeking_rooster': 'npc_pansi_maori',
+      'pansi_breaking_light': 'npc_pansi_maori',
+      'pansi_restoring': 'npc_pansi_tangseng',
+      'pansi_cleared': 'npc_pansi_west_exit'
     };
 
     const shouldShowQuestExclamation = (n) => {
@@ -1686,8 +1930,58 @@ class GameApp2D {
     }
   }
 
+  // 依据真实容器尺寸与设备像素比同步画布，保证 CSS 显示尺寸、画布属性尺寸与点击换算三者一致
+  // canvas 不支持 object-fit，必须显式按 contain 语义计算信箱黑边偏移
+  syncCanvasSize() {
+    if (!this.canvas) return null;
+    const viewport = this.canvas.parentElement || document.getElementById('game-viewport');
+    const rect = viewport ? viewport.getBoundingClientRect() : null;
+    const isHandheld = !document.body.classList.contains('modern-mode');
+    // 逻辑基准分辨率：大屏 760x580，掌机 320x380
+    const baseW = isHandheld ? 320 : 760;
+    const baseH = isHandheld ? 380 : 580;
+    const cssW = Math.max(1, Math.floor(rect && rect.width > 0 ? rect.width : baseW));
+    const cssH = Math.max(1, Math.floor(rect && rect.height > 0 ? rect.height : baseH));
+
+    const dpr = Math.min(3, Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+    const attrW = Math.max(1, Math.round(cssW * dpr));
+    const attrH = Math.max(1, Math.round(cssH * dpr));
+
+    if (this.canvas.width !== attrW) this.canvas.width = attrW;
+    if (this.canvas.height !== attrH) this.canvas.height = attrH;
+
+    // 记录逻辑视口与信箱偏移，供 screenToWorld 与指针换算使用
+    this._canvasCssWidth = cssW;
+    this._canvasCssHeight = cssH;
+    this._canvasDpr = dpr;
+    const scale = Math.min(cssW / baseW, cssH / baseH);
+    this._canvasScale = scale > 0 ? scale : 1;
+    this._canvasOffsetX = (cssW - baseW * this._canvasScale) / 2;
+    this._canvasOffsetY = (cssH - baseH * this._canvasScale) / 2;
+
+    if (this.camera && typeof this.camera.resize === 'function') {
+      this.camera.resize(baseW, baseH);
+    }
+    this._vignetteGrad = null;
+    return this._canvasScale;
+  }
+
+  // 将指针事件坐标换算为逻辑画布坐标（已含信箱黑边与设备像素比）
+  getCanvasPointer(clientX, clientY) {
+    if (!this.canvas) return { x: 0, y: 0 };
+    const rect = this.canvas.getBoundingClientRect();
+    const scale = this._canvasScale || 1;
+    const offsetX = this._canvasOffsetX || 0;
+    const offsetY = this._canvasOffsetY || 0;
+    const localX = (clientX - rect.left - offsetX) / scale;
+    const localY = (clientY - rect.top - offsetY) / scale;
+    return { x: localX, y: localY };
+  }
+
   // 输入监听
   bindInputs() {
+    if (this._inputsBound) return;
+    this._inputsBound = true;
     window.addEventListener('keydown', (e) => {
       // 输入框与最上层确认窗口优先处理，避免输入名字或取消献录时触发游戏指令。
       if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
@@ -1794,11 +2088,11 @@ class GameApp2D {
         this.openPetManageModal();
       } else if (e.key === 'q' || e.key === 'Q') {
         this.openQuestTrackerModal();
-      } else if (e.key === 'm' || e.key === 'M') {
-        this.toggleFoldableMenu();
       } else if (e.key === 'Escape') {
+        // 主菜单开启时 Esc 只收菜单，不再顺带清空其它面板状态
         if (this.isMenuOpen) {
           this.toggleFoldableMenu(false);
+          return;
         }
         this.toggleSceneRosterModal(false);
         if (window.Dialogue) window.Dialogue.close();
@@ -1830,14 +2124,23 @@ class GameApp2D {
       this.canvas.addEventListener('click', (e) => {
         if (this.hasExplorationModal()) return;
         const pt = this.getCanvasPointerPosition(e.clientX, e.clientY);
-        if (!pt) return; // 点击在留白黑边处，安全忽略
-        this.handleClickCanvas(pt.x, pt.y);
+        if (!pt) return; // 点击在留白黑边处，安全忽略        this.handleClickCanvas(pt.x, pt.y);
       });
 
       // H5 触屏适配：屏蔽画布长按系统菜单与触摸拖动引发的页面滚动 (弹窗内部滚动不受影响)
       this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
       this.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
     }
+
+    // 窗口尺寸变化后重新同步画布，保证点击换算始终准确（含掌机/大屏切换与转屏）
+    let resizeDebounce = null;
+    window.addEventListener('resize', () => {
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(() => {
+        resizeDebounce = null;
+        this.syncCanvasSize();
+      }, 100);
+    });
 
     // 名册顶部快捷按钮绑定
     const rosterBtn = document.getElementById('btn-scene-roster');
@@ -1855,20 +2158,56 @@ class GameApp2D {
         const isModern = document.body.classList.contains('modern-mode');
         modeBtn.innerHTML = isModern ? '📱 切换掌机' : '💻 切换大屏';
 
-        if (isModern) {
-          this.canvas.width = 760;
-          this.canvas.height = 580;
-          this.camera.viewportWidth = 760;
-          this.camera.viewportHeight = 580;
-        } else {
-          this.canvas.width = 320;
-          this.canvas.height = 380;
-          this.camera.viewportWidth = 320;
-          this.camera.viewportHeight = 380;
-        }
+        // 画布尺寸统一交由 syncCanvasSize 依据真实容器结算，不再硬编码
+        this.syncCanvasSize();
         window.Sound.playBeep();
       });
     }
+
+    // 掌机模式实体按键：五维方向键与九宫格数字键映射键盘状态，彻底恢复功能机手感
+    const bindHoldButton = (id, key) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const press = (e) => {
+        e.preventDefault();
+        this.keysDown[key] = true;
+      };
+      const release = (e) => {
+        if (e) e.preventDefault();
+        this.keysDown[key] = false;
+      };
+      el.addEventListener('pointerdown', press);
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointerleave', release);
+      el.addEventListener('pointercancel', release);
+    };
+    bindHoldButton('dpad-up', 'ArrowUp');
+    bindHoldButton('dpad-down', 'ArrowDown');
+    bindHoldButton('dpad-left', 'ArrowLeft');
+    bindHoldButton('dpad-right', 'ArrowRight');
+    bindHoldButton('key-2', 'ArrowUp');
+    bindHoldButton('key-4', 'ArrowLeft');
+    bindHoldButton('key-6', 'ArrowRight');
+    bindHoldButton('key-8', 'ArrowDown');
+
+    const bindTapButton = (id, handler) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        handler();
+      });
+    };
+    bindTapButton('dpad-ok', () => this.interactNearby());
+    bindTapButton('key-5', () => this.interactNearby());
+    bindTapButton('key-soft-left', () => this.interactNearby());
+    bindTapButton('key-soft-right', () => {
+      if (window.Dialogue && window.Dialogue.currentDialogue) {
+        window.Dialogue.close();
+      } else {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+      }
+    });
 
     // 音效一键开关 (默认关闭，支持随时一键开启/关闭)
     const soundBtn = document.getElementById('toggle-sound-btn');
@@ -1928,8 +2267,9 @@ class GameApp2D {
 
   // 场景鼠标点击智能分发
   handleClickCanvas(screenX, screenY) {
-    if (this.isPaused || this.isTransitioning || this.currentBattle || this.hasExplorationModal()) return;
-    if (window.Dialogue && window.Dialogue.currentDialogue) {
+    if (this.isPaused || this.isTransitioning || this.currentBattle) return;
+    // 弹窗、主菜单与章回开幕期间点击画布不得触发寻路或交互
+    if (this.hasExplorationModal() || this.isMenuOpen) return;    if (window.Dialogue && window.Dialogue.currentDialogue) {
       // 用户点击了场景画布，直接解除对话并走完流程
       this.skipCurrentDialogue();
       return;
@@ -2511,7 +2851,13 @@ class GameApp2D {
     if (npc.id === 'npc_shawujing' && this.playerData.storyEvents?.shaseng_battle_won) {
       npc.dialogueKey = 'shaseng_reward_ready';
     }
-    if (npc.id === 'npc_baihu_wukong') npc.dialogueKey = 'baigujing_reward_ready';
+    if (npc.id === 'npc_baihu_wukong') {
+      // 仅当奖励尚未入包时才给"领取战利品"入口；
+      // 已领奖后再对话只作战后收尾闲聊，不重复发奖。
+      npc.dialogueKey = this.playerData?.storyRewards?.baigu_final
+        ? 'baigujing_wukong_farewell'
+        : 'baigujing_reward_ready';
+    }
     if (npc.id === 'npc_zhenyuanzi' && this.storyPhase === 'liusha_cleared') {
       npc.dialogueKey = this.playerData.storyEvents?.wuzhuang_tree_restored ? 'zhenyuanzi_gift_ready' :
         this.playerData.storyEvents?.wuzhuang_trial_won ? 'zhenyuanzi_post_battle' : 'zhenyuanzi_encounter';
@@ -2842,7 +3188,7 @@ class GameApp2D {
                 驯化提升 1 级 (${500 + mount.level * 150}两)
               </button>
               <button class="dialogue-opt-btn" onclick="window.App2D.trainActiveMount(5); this.closest('.modal-overlay').remove();" style="flex:1;background:#5c1d18;">
-                精训连升 5 级
+                精训连升 5 级 (按实际可升级数收费)
               </button>
             </div>
 
@@ -3394,10 +3740,46 @@ class GameApp2D {
         matchedChapterKey = 'chapter_9';
       }
     }
-    // 11. 第十回：宝象国
+    // 11. 第十一回：平顶山
     else if (mapId === 'baoxiangguo') {
       if (!this.shownChapterSet.has('chapter_10')) {
         matchedChapterKey = 'chapter_10';
+      }
+    }
+    // 12. 第十二回：号山火云洞（圣婴大王）
+    else if (mapId === 'huoyundong') {
+      if (!this.shownChapterSet.has('chapter_12')) {
+        matchedChapterKey = 'chapter_12';
+      }
+    }
+    // 13. 第十三回：黑水河（鼍洁）
+    else if (mapId === 'heishuihe') {
+      if (!this.shownChapterSet.has('chapter_13')) {
+        matchedChapterKey = 'chapter_13';
+      }
+    }
+    // 14. 第十四回：车迟国（三仙斗法）
+    else if (mapId === 'chediguo') {
+      if (!this.shownChapterSet.has('chapter_14')) {
+        matchedChapterKey = 'chapter_14';
+      }
+    }
+    // 17. 第十七回：盘丝洞（七女妖/百眼魔君）
+    else if (mapId === 'pansidong') {
+      if (!this.shownChapterSet.has('chapter_17')) {
+        matchedChapterKey = 'chapter_17';
+      }
+    }
+    // 16. 第十六回：火焰山（铁扇公主/牛魔王）
+    else if (mapId === 'huoyanshan') {
+      if (!this.shownChapterSet.has('chapter_16')) {
+        matchedChapterKey = 'chapter_16';
+      }
+    }
+    // 15. 第十五回：通天河（灵感大王）
+    else if (mapId === 'tongtianhe') {
+      if (!this.shownChapterSet.has('chapter_15')) {
+        matchedChapterKey = 'chapter_15';
       }
     }
 
@@ -6279,16 +6661,22 @@ class GameApp2D {
       // 五行山砍柴伐树任务推进
       if (monsterChar.id.includes('tree') || (monsterChar.monsterData && monsterChar.monsterData.appearance === 'tree') || monsterChar.name.includes('枯树精')) {
         if (this.storyPhase === 'liujiacun_go_cut_wood' || this.storyPhase === 'liujiacun_wood_gathering') {
-          this.storyPhase = 'liujiacun_wood_gathering';
           if (!this.questKills) this.questKills = { mushrooms: 0, trees: 0, rats: 0 };
-          this.questKills.trees = Math.min(4, (this.questKills.trees || 0) + defeatedCount);
-          this.inventory.addItem('item_dry_wood', defeatedCount);
-          if (this.questKills.trees >= 4) {
-            this.storyPhase = 'liujiacun_wood_collected';
-            if (window.Sound) window.Sound.playCrit();
-            window.showGameMessage('🎉 4捆坚韧柴木已收集齐全！请回刘家村向刘伯钦交差！', 'success', 4500);
+          // 满包时必须先拦下：否则计数推进到 4/4 却没有对应柴木，交差时会缺件
+          const canStore = this.inventory?.canAddItems([{ itemId: 'item_dry_wood', count: defeatedCount }]);
+          if (!canStore) {
+            window.showGameMessage('🪵 柴木无处安放！请先整理行囊，再回来收这批坚韧柴木。', 'warning', 5000);
           } else {
-            window.showGameMessage(`🪵 砍倒一组枯树精(${defeatedCount}只)！收集坚韧柴木 (${this.questKills.trees}/4)`, 'info', 3000);
+            this.storyPhase = 'liujiacun_wood_gathering';
+            this.inventory.addItem('item_dry_wood', defeatedCount);
+            this.questKills.trees = Math.min(4, (this.questKills.trees || 0) + defeatedCount);
+            if (this.questKills.trees >= 4) {
+              this.storyPhase = 'liujiacun_wood_collected';
+              if (window.Sound) window.Sound.playCrit();
+              window.showGameMessage('🎉 4捆坚韧柴木已收集齐全！请回刘家村向刘伯钦交差！', 'success', 4500);
+            } else {
+              window.showGameMessage(`🪵 砍倒一组枯树精(${defeatedCount}只)！收集坚韧柴木 (${this.questKills.trees}/4)`, 'info', 3000);
+            }
           }
           this.refreshMapNpcs();
         }
@@ -6481,16 +6869,30 @@ class GameApp2D {
   }
 
   // 8. 观音赐宝 (五行山前)
+  // 正常主线在观音点化对白结束后已推进到 changan_meet_xuanzang，
+  // 旧守卫只认 chentang_guanyin_revelation 会让赐宝永远领不到。
+  // 允许阶段：点化当场，或已进入长安见玄奘之前（尚未破封五行山）。
   grantGuanyinGift() {
-    if (this.storyPhase !== 'chentang_guanyin_revelation') return false;
+    const GIFT_PHASES = [
+      'chentang_guanyin_revelation',
+      'changan_meet_xuanzang',
+      'changan_meet_taizong',
+      'changan_farewell'
+    ];
+    const alreadyClaimed = this.playerData?.storyRewards?.guanyin_gift === true;
+    if (!alreadyClaimed && !GIFT_PHASES.includes(this.storyPhase)) return false;
     const result = this.playerData.claimStoryReward('guanyin_gift', {
       items:[{itemId:'eq_nk_dinghun',count:1},{itemId:'feixing_fu',count:5},{itemId:'jiuzhuan_dan',count:3}]
     }, this.inventory);
-    if (!result.success && result.reason !== 'already_claimed') {
+    if (!result.success) {
+      if (result.reason === 'already_claimed') return false;
       window.showGameMessage('菩萨的法宝先由她保管，整理行囊后再来领取。', 'warning');
       return false;
     }
-    this.storyPhase = 'wuxingshan_ready';
+    // 只有仍停留在点化阶段时才推进主线，避免从长安回访时把进度倒推或跳段
+    if (this.storyPhase === 'chentang_guanyin_revelation') {
+      this.storyPhase = 'wuxingshan_ready';
+    }
     window.Sound.playSuccess();
     this.updatePlayerHud();
     window.showGameMessage('【菩萨赐宝】获得【九转定魂珠】、飞行神符*5、九转还魂丹*3！前往五行山解救大圣！', 'success', 4000);
@@ -6538,7 +6940,9 @@ class GameApp2D {
       setTimeout(() => vp.classList.remove('hit-shake'), 800);
     }
 
-    this.scheduleStoryDialogue('wuxing_freed', 600);
+    // 对白键必须与 STORY_DIALOGUES 中的实际键名一致（wukong_freed），
+    // 否则会静默开不出对白、大圣永不入队、后续鹰愁涧门禁全部无法通过。
+    this.scheduleStoryDialogue('wukong_freed', 600);
   }
 
   // 7. 齐天大圣入队
@@ -7000,6 +7404,8 @@ class GameApp2D {
 
   // === 第十二回：平顶山·莲花洞主线战斗与太上道祖点化 ===
   triggerXiaozuanfengBattle() {
+    // 阶段守卫：仅允许在前驱阶段开战，避免重复触发刷经验银两
+    if (this.storyPhase !== 'baoxiang_cleared' || this.playerData.storyRewards?.pingding_scout) return;
     if (window.Dialogue) window.Dialogue.close();
     const enemies = [
       {
@@ -7054,8 +7460,12 @@ class GameApp2D {
     this.start2DBattle(enemies, () => {
       this.storyPhase = 'pingding_scout_cleared';
       this.npcs = this.npcs.filter(n => n.id !== 'npc_xiaozuanfeng');
-      this.playerData.gainExp(35000);
-      this.playerData.silver += 8000;
+      // 奖励走统一领取入口，保证重复回调/读档重进都不会二次发放
+      const reward = this.playerData.claimStoryReward('pingding_scout',
+        { exp: 35000, silver: 8000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🎺 小钻风的战利品暂由山神代收，稍后可再来领取。', 'warning', 5000);
+      }
       this.updatePlayerHud();
       this.saveAutoProgress();
       window.Sound.playLevelUp();
@@ -7066,6 +7476,8 @@ class GameApp2D {
   }
 
   triggerYinjiaoBattle() {
+    // 阶段守卫：必须在击退小钻风之后、且尚未领取银角战利品
+    if (this.storyPhase !== 'pingding_scout_cleared' || this.playerData.storyRewards?.pingding_silver) return;
     if (window.Dialogue) window.Dialogue.close();
     const boss = {
       id: 'boss_yinjiao',
@@ -7088,8 +7500,11 @@ class GameApp2D {
     this.start2DBattle([boss], () => {
       this.storyPhase = 'pingding_silver_cleared';
       this.npcs = this.npcs.filter(n => n.id !== 'npc_yinjiao_boss');
-      this.playerData.gainExp(55000);
-      this.playerData.silver += 12000;
+      const reward = this.playerData.claimStoryReward('pingding_silver',
+        { exp: 55000, silver: 12000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🥈 银角的战利品暂由山神代收，稍后可再来领取。', 'warning', 5000);
+      }
       this.updatePlayerHud();
       this.saveAutoProgress();
       window.Sound.playLevelUp();
@@ -7100,6 +7515,8 @@ class GameApp2D {
   }
 
   triggerJinjiaoBattle() {
+    // 阶段守卫：必须在银角退场之后、且尚未领取金角战利品
+    if (this.storyPhase !== 'pingding_silver_cleared' || this.playerData.storyRewards?.pingding_gold) return;
     if (window.Dialogue) window.Dialogue.close();
     const bosses = [
       {
@@ -7139,8 +7556,11 @@ class GameApp2D {
     this.start2DBattle(bosses, () => {
       this.storyPhase = 'pingding_gold_cleared';
       this.npcs = this.npcs.filter(n => n.id !== 'npc_jinjiao_boss');
-      this.playerData.gainExp(75000);
-      this.playerData.silver += 16000;
+      const goldReward = this.playerData.claimStoryReward('pingding_gold',
+        { exp: 75000, silver: 16000 }, this.inventory);
+      if (!goldReward.success && goldReward.reason !== 'already_claimed') {
+        window.showGameMessage('⚔️ 金角的战利品暂由山神代收，稍后可再来领取。', 'warning', 5000);
+      }
       this.updatePlayerHud();
       this.saveAutoProgress();
       window.Sound.playLevelUp();
@@ -7167,9 +7587,783 @@ class GameApp2D {
     window.showGameMessage('🎉【平顶风云伏双魔】功德圆满！获赠太上老君【九转玄都金丹】×2、神兵【七星伏魔宝剑】与【紫金红葫芦·仙葫灵蕴】！', 'success', 6000);
   }
 
+  // =========================================================================
+  // 第十二回：号山·枯松涧火云洞（圣婴大王红孩儿）
+  // 阶段链：pingding_cleared → huoyun_arrived → huoyun_redboy_ready
+  //        → huoyun_boss_ready → huoyun_cleared
+  // =========================================================================
+
+  // 第一战：红孩儿假意求救被识破后的遭遇战（带一名火云炎兵护卫）
+  triggerHuoyunScoutBattle() {
+    if (this.storyPhase !== 'huoyun_redboy_ready') return;
+    if (this.playerData.storyEvents?.huoyun_scout_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const redboy = {
+      id: 'boss_redboy_scout',
+      name: '圣婴大王·红孩儿 (初试火法)',
+      appearance: 'honghaier',
+      modelId: 'honghaier',
+      level: 54,
+      hp: 26000,
+      maxHp: 26000,
+      mp: 7000,
+      maxMp: 7000,
+      atk: 360,
+      def: 190,
+      matk: 340,
+      mdef: 185,
+      spd: 48,
+      skills: ['三昧真火', '飞沙走石', '封印咒']
+    };
+    const guard = {
+      id: 'mob_huoyun_guard',
+      name: '火云炎兵',
+      appearance: 'yecha',
+      modelId: 'yecha',
+      level: 50,
+      hp: 12000,
+      maxHp: 12000,
+      mp: 2000,
+      maxMp: 2000,
+      atk: 280,
+      def: 150,
+      spd: 42,
+      skills: ['连击']
+    };
+
+    this.start2DBattle([redboy, guard], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.huoyun_scout_won = true;
+      this.storyPhase = 'huoyun_boss_ready';
+      const reward = this.playerData.claimStoryReward('huoyun_scout', { exp: 60000, silver: 14000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🔥 号山土地神替你先收着这批战利，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('huoyun_boss_encounter');
+    });
+  }
+
+  // 第二战：红孩儿真身 + 五行车阵三昧真火决战
+  triggerRedboyBattle() {
+    if (this.storyPhase !== 'huoyun_boss_ready') return;
+    if (this.playerData.storyEvents?.huoyun_boss_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const redboyTrue = {
+      id: 'boss_redboy_true',
+      name: '圣婴大王·三昧真身',
+      appearance: 'honghaier',
+      modelId: 'honghaier',
+      level: 56,
+      hp: 42000,
+      maxHp: 42000,
+      mp: 9999,
+      maxMp: 9999,
+      atk: 420,
+      def: 215,
+      matk: 400,
+      mdef: 205,
+      spd: 52,
+      skills: ['三昧真火', '飞沙走石', '舍生取义', '定身咒'],
+      // 五行车阵 Boss 机制：方案见 HANDOFF_2026-10-22.md 与 battle.js 的 hh_cart_* 实现
+      mechanicId: 'five_element_cart',
+      mechanicConfig: {
+        breakRatio: 0.05,          // 破阵阈值 = 最大生命 × 5%（42000 → 2100）
+        burstFactor: 1.5,          // 车阵爆发威力倍率
+        guardFactor: 0.65,         // 守息减伤 35%
+        recoveryRounds: 2,         // 恢复期回合数
+        elements: ['gold', 'wood', 'water', 'fire', 'earth']
+      }
+    };
+    const fireWheel = {
+      id: 'mob_fire_wheel',
+      name: '五行火车阵',
+      appearance: 'yecha',
+      modelId: 'yecha',
+      level: 52,
+      hp: 16000,
+      maxHp: 16000,
+      mp: 3000,
+      maxMp: 3000,
+      atk: 300,
+      def: 160,
+      spd: 46,
+      skills: ['三昧真火']
+    };
+
+    this.start2DBattle([redboyTrue, fireWheel], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.huoyun_boss_won = true;
+      const reward = this.playerData.claimStoryReward('huoyun_boss', { exp: 90000, silver: 22000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🔥 火云洞战利暂由土地神代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('huoyun_aftermath');
+    });
+  }
+
+  // 战后领奖（满包可重试）：与既有 claimStoryReward 模式一致，不重复发放
+  claimHuoyunReward() {
+    if (!this.playerData.storyEvents?.huoyun_boss_won || this.playerData.storyRewards?.huoyun_completion) {
+      return false;
+    }
+    const result = this.playerData.claimStoryReward('huoyun_completion', {
+      items: [
+        { itemId: 'eq_nk_huoyun', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 40000,
+      silver: 10000
+    }, this.inventory);
+    if (!result.success) {
+      if (result.reason === 'already_claimed') return false;
+      window.showGameMessage('🔥 火云洞的谢礼暂由悟空看着，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+    this.storyPhase = 'huoyun_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【火云洞功成】获赠【火云辟火珠】、【雪莲丹】×5 与【九转还魂丹】×3！西行大道已开。', 'success', 6000);
+    return true;
+  }
+
+  // =========================================================================
+  // 第十三回：黑水河·衡阳峪（鼍洁）
+  // 阶段链：huoyun_cleared → heishui_arrived → heishui_captives_taken
+  //        → heishui_scout_ready → heishui_aid_needed → heishui_moang_arrived
+  //        → heishui_boss_ready → heishui_reward_pending → heishui_cleared
+  // =========================================================================
+
+  // 首次进入黑水河：只在上一章刚刚完结时初始化，重复入图/后续章节回访均不回退
+  ensureHeishuiChapterStarted() {
+    if (this.currentMapId !== 'heishuihe') return false;
+    if (this.storyPhase !== 'huoyun_cleared') return false;
+    this.storyPhase = 'heishui_arrived';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 探战：水府守将（含两名水卒）
+  triggerHeishuiScoutBattle() {
+    if (this.storyPhase !== 'heishui_scout_ready') return;
+    if (this.playerData.storyEvents?.heishui_scout_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const guard = {
+      id: 'boss_heishui_guard',
+      name: '水府守将',
+      appearance: 'yecha',
+      modelId: 'yecha',
+      level: 58,
+      hp: 20000,
+      maxHp: 20000,
+      mp: 4000,
+      maxMp: 4000,
+      atk: 400,
+      def: 205,
+      matk: 300,
+      mdef: 195,
+      spd: 46,
+      skills: ['连击', '飞沙走石']
+    };
+    const minions = [1, 2].map(i => ({
+      id: 'mob_heishui_gate_' + i,
+      name: '水府甲卒',
+      appearance: 'shrimp',
+      modelId: 'shrimp',
+      level: 55,
+      hp: 9000,
+      maxHp: 9000,
+      mp: 1500,
+      maxMp: 1500,
+      atk: 320,
+      def: 165,
+      spd: 42,
+      skills: ['连击']
+    }));
+
+    this.start2DBattle([guard, ...minions], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.heishui_scout_won = true;
+      // 先持久化阶段再排对白：离图导致对白取消也不能丢进展
+      this.storyPhase = 'heishui_scout_ready';
+      const reward = this.playerData.claimStoryReward('heishui_scout',
+        { exp: 70000, silver: 15000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🔱 战利暂由河神代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('heishui_scout_victory');
+    });
+  }
+
+  // 首领战：鼍洁（黑水换甲：凝鳞偏物防 / 散流偏法防，每 2 次有效行动切换）
+  triggerTuojieBattle() {
+    if (this.storyPhase !== 'heishui_boss_ready') return;
+    if (this.playerData.storyEvents?.heishui_boss_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const tuojie = {
+      id: 'boss_tuojie',
+      name: '鼍洁·黑水大王',
+      appearance: 'shuiyao',
+      modelId: 'shuiyao',
+      level: 60,
+      hp: 46000,
+      maxHp: 46000,
+      mp: 9000,
+      maxMp: 9000,
+      atk: 430,
+      def: 220,
+      matk: 410,
+      mdef: 215,
+      spd: 50,
+      skills: ['三昧真火', '飞沙走石', '金刚护体'],
+      // 黑水换甲：不做蓄力爆发，只切换物理/法术防护侧重
+      mechanicId: 'heishui_current_armor',
+      mechanicConfig: {
+        startStance: 'scaled',
+        switchEvery: 2,
+        scaledDefBonus: 0.45,   // 凝鳞：物防 +45%
+        flowingMdefBonus: 0.45  // 散流：法防 +45%
+      }
+    };
+
+    this.start2DBattle([tuojie], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.heishui_boss_won = true;
+      this.storyPhase = 'heishui_boss_ready';
+      const reward = this.playerData.claimStoryReward('heishui_boss',
+        { exp: 110000, silver: 26000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🐊 战利暂由河神代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('heishui_tuojie_defeated');
+    });
+  }
+
+  // 章节奖励：站在 heishui_reward_pending 才有资格，幂等，满包保留入口
+  claimHeishuiReward() {
+    if (this.playerData.storyRewards?.heishui_chapter_reward === true) {
+      // 已领过：补齐终态，不重复发放
+      if (this.storyPhase === 'heishui_reward_pending') {
+        this.storyPhase = 'heishui_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'heishui_reward_pending') return false;
+
+    const result = this.playerData.claimStoryReward('heishui_chapter_reward', {
+      items: [
+        { itemId: 'eq_nk_heishui', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 60000,
+      silver: 14000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'heishui_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('🌊 谢礼暂由河神保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'heishui_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【黑水河功成】获赠【黑水辟水佩】、【雪莲丹】×5 与【九转还魂丹】×3！河神复位，师徒渡河。', 'success', 6000);
+    return true;
+  }
+
+  // =========================================================================
+  // 第十四回：车迟国（虎力/鹿力/羊力三仙）
+  // 阶段链：heishui_cleared → chedi_arrival → chedi_audience → chedi_rain
+  //        → chedi_discern → chedi_final_trial → chedi_reward_pending → chedi_cleared
+  // =========================================================================
+
+  ensureChediChapterStarted() {
+    if (this.currentMapId !== 'chediguo') return false;
+    if (this.storyPhase !== 'heishui_cleared') return false;
+    this.storyPhase = 'chedi_arrival';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 终局战：三仙同场（虎力偏物、鹿力偏控、羊力偏法）
+  triggerChediFinalBattle() {
+    if (this.storyPhase !== 'chedi_final_trial') return;
+    if (this.playerData.storyEvents?.chedi_final_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const tiger = {
+      id: 'boss_chedi_tiger', name: '虎力大仙', appearance: 'tiger', modelId: 'tiger',
+      level: 62, hp: 48000, maxHp: 48000, mp: 9000, maxMp: 9000,
+      atk: 450, def: 225, matk: 340, mdef: 210, spd: 51,
+      skills: ['舍生取义', '雷霆万钧']
+    };
+    const deer = {
+      id: 'boss_chedi_deer', name: '鹿力大仙', appearance: 'fox', modelId: 'fox',
+      level: 61, hp: 42000, maxHp: 42000, mp: 11000, maxMp: 11000,
+      atk: 380, def: 195, matk: 430, mdef: 235, spd: 48,
+      skills: ['定身咒', '乱魂咒', '三昧真火']
+    };
+    const sheep = {
+      id: 'boss_chedi_sheep', name: '羊力大仙', appearance: 'wolf', modelId: 'wolf',
+      level: 61, hp: 44000, maxHp: 44000, mp: 10000, maxMp: 10000,
+      atk: 400, def: 210, matk: 410, mdef: 220, spd: 50,
+      skills: ['飞沙走石', '金刚护体', '封印咒']
+    };
+
+    this.start2DBattle([tiger, deer, sheep], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.chedi_final_won = true;
+      this.storyPhase = 'chedi_reward_pending';
+      const reward = this.playerData.claimStoryReward('chedi_final',
+        { exp: 120000, silver: 28000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🐯 战利暂由国王代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('chedi_victory');
+    });
+  }
+
+  // 章节奖励：幂等，满包保留入口
+  claimChediReward() {
+    if (this.playerData.storyRewards?.chedi_ch14_clear === true) {
+      if (this.storyPhase === 'chedi_reward_pending') {
+        this.storyPhase = 'chedi_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'chedi_reward_pending') return false;
+
+    const result = this.playerData.claimStoryReward('chedi_ch14_clear', {
+      items: [
+        { itemId: 'eq_nk_chedi', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 80000,
+      silver: 18000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'chedi_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('📜 谢礼暂由国王保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'chedi_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【车迟国功成】获赠【车迟伏仙佩】、【雪莲丹】×5 与【九转还魂丹】×3！西行关文通行资格已定。', 'success', 6000);
+    return true;
+  }
+
+  // =========================================================================
+  // 第十五回：八百里通天河（灵感大王）
+  // 阶段链：chedi_cleared → tongtian_arrival → tongtian_pledge
+  //        → tongtian_offer_ready → tongtian_ice_battle
+  //        → tongtian_reward_pending → tongtian_cleared
+  // =========================================================================
+
+  ensureTongtianChapterStarted() {
+    if (this.currentMapId !== 'tongtianhe') return false;
+    if (this.storyPhase !== 'chedi_cleared') return false;
+    this.storyPhase = 'tongtian_arrival';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 冰封河面之战：灵感大王 + 两名寒冰水卒
+  // 机制：姿态型「寒冰覆甲」——凝冰时物理防御提升，法术破冰有效
+  triggerTongtianRescueBattle() {
+    // 仅救援阶段可开战；已胜后不得重复
+    if (this.storyPhase !== 'tongtian_rescue') return;
+    if (this.playerData.storyEvents?.tongtian_boss_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const boss = {
+      id: 'boss_linggan', name: '灵感大王', appearance: 'shuiyao', modelId: 'shuiyao',
+      level: 64, hp: 52000, maxHp: 52000, mp: 12000, maxMp: 12000,
+      atk: 460, def: 230, matk: 450, mdef: 225, spd: 53,
+      skills: ['三昧真火', '飞沙走石', '定身咒'],
+      mechanicId: 'heishui_current_armor',
+      mechanicConfig: {
+        startStance: 'scaled',
+        switchEvery: 2,
+        scaledDefBonus: 0.45,
+        flowingMdefBonus: 0.45
+      }
+    };
+    const minions = [1, 2].map(i => ({
+      id: 'mob_tongtian_ice_' + i, name: '寒冰水卒', appearance: 'shrimp', modelId: 'shrimp',
+      level: 60, hp: 14000, maxHp: 14000, mp: 3000, maxMp: 3000,
+      atk: 400, def: 200, spd: 46, skills: ["连击"]
+    }));
+
+    this.start2DBattle([boss, ...minions], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.tongtian_boss_won = true;
+      this.storyPhase = 'tongtian_await_guanyin';
+      const reward = this.playerData.claimStoryReward('tongtian_boss',
+        { exp: 140000, silver: 32000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🐟 战利暂由陈家庄代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('tongtian_victory');
+    });
+  }
+
+  // 章节奖励：幂等，满包保留入口
+  claimTongtianReward() {
+    if (this.playerData.storyRewards?.tongtian_ch15_clear === true) {
+      if (this.storyPhase === 'tongtian_reward') {
+        this.storyPhase = 'tongtian_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'tongtian_reward') return false;
+
+    const result = this.playerData.claimStoryReward('tongtian_ch15_clear', {
+      items: [
+        { itemId: 'eq_nk_tongtian', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 100000,
+      silver: 22000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'tongtian_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('📜 谢礼暂由陈家庄保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'tongtian_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【通天河功成】获赠【通天镇水佩】、【雪莲丹】×5 与【九转还魂丹】×3！河路复通，东去有路。', 'success', 6000);
+    return true;
+  }
+  // =========================================================================
+  // 第十六回：八百里火焰山（铁扇公主 / 牛魔王）
+  // 阶段链：tongtian_cleared → huoyan_arrived → huoyan_borrow_fan → huoyan_test_fan
+  //        → huoyan_seek_true_fan → huoyan_confront_bull → huoyan_renew_request
+  //        → huoyan_quench_fire → huoyan_cleared
+  // 不新增第三类 Boss 机制；牛魔王战用普通单 Boss 配置。
+  // =========================================================================
+
+  ensureHuoyanChapterStarted() {
+    if (this.currentMapId !== 'huoyanshan') return false;
+    if (this.storyPhase !== 'tongtian_cleared') return false;
+    this.storyPhase = 'huoyan_arrived';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 摩云台对质牛魔王（普通单 Boss，无 hh_* 专属状态）
+  triggerHuoyanBullBattle() {
+    if (this.storyPhase !== 'huoyan_confront_bull') return;
+    if (this.playerData.storyEvents?.huoyan_bull_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const bull = {
+      id: 'boss_niumowang', name: '牛魔王', appearance: 'bull_demon', modelId: 'bull_demon',
+      level: 68, hp: 56000, maxHp: 56000, mp: 14000, maxMp: 14000,
+      atk: 480, def: 240, matk: 460, mdef: 235, spd: 55,
+      skills: ['舍生取义', '雷霆万钧', '三昧真火']
+    };
+
+    this.start2DBattle([bull], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.huoyan_bull_won = true;
+      this.storyPhase = 'huoyan_renew_request';
+      const reward = this.playerData.claimStoryReward('huoyan_bull',
+        { exp: 150000, silver: 35000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🐂 战利暂由土地代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('huoyan_renew_request');
+    });
+  }
+
+  // 章节奖励：幂等，满包保留入口（灭火事实不回滚）
+  claimHuoyanReward() {
+    if (this.playerData.storyRewards?.huoyan_chapter_reward === true) {
+      if (this.storyPhase === 'huoyan_quench_fire') {
+        this.storyPhase = 'huoyan_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'huoyan_quench_fire') return false;
+
+    const result = this.playerData.claimStoryReward('huoyan_chapter_reward', {
+      items: [
+        { itemId: 'eq_nk_huoyan', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 120000,
+      silver: 26000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'huoyan_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('📜 谢礼暂由百姓保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'huoyan_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【火焰山功成】获赠【断火芭蕉佩】、【雪莲丹】×5 与【九转还魂丹】×3！西行继续。', 'success', 6000);
+    return true;
+  }
+  // =========================================================================
+  // 第十七回：盘丝岭盘丝洞（七女妖 / 黄花观百眼魔君）
+  // 阶段链：huoyan_cleared → pansi_arrived → pansi_webbound → pansi_huanghua
+  //        → pansi_poisoned → pansi_seeking_rooster → pansi_breaking_light
+  //        → pansi_restoring → pansi_cleared
+  // 叙事红线（双重责任）：八戒越界必须担责；蜘蛛精绑缚伤人也不因越界获得正当性。
+  // 不新增第三类 Boss 机制；破光靠昴日星官两次啼鸣，不是打掉血条。
+  // =========================================================================
+
+  ensurePansiChapterStarted() {
+    if (this.currentMapId !== 'pansidong') return false;
+    if (this.storyPhase !== 'huoyan_cleared') return false;
+    this.storyPhase = 'pansi_arrived';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 丝洞解缚战：蜘蛛精代表 + 两名蛛丝傀儡
+  triggerPansiSpiderBattle() {
+    if (this.storyPhase !== 'pansi_webbound') return;
+    if (this.playerData.storyEvents?.pansi_unbound) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const spider = {
+      id: 'boss_pansi_spider', name: '盘丝七女妖', appearance: 'fox', modelId: 'fox',
+      level: 66, hp: 40000, maxHp: 40000, mp: 10000, maxMp: 10000,
+      atk: 420, def: 205, matk: 400, mdef: 210, spd: 50,
+      skills: ['封印咒', '定身咒', '飞沙走石']
+    };
+    const puppets = [1, 2].map(i => ({
+      id: 'mob_pansi_puppet_' + i, name: '蛛丝傀儡', appearance: 'wolf', modelId: 'wolf',
+      level: 63, hp: 13000, maxHp: 13000, mp: 2500, maxMp: 2500,
+      atk: 390, def: 195, spd: 45, skills: ["连击"]
+    }));
+
+    this.start2DBattle([spider, ...puppets], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.pansi_unbound = true;
+      this.storyPhase = 'pansi_huanghua';
+      const reward = this.playerData.claimStoryReward('pansi_unbound',
+        { exp: 130000, silver: 30000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('🕸️ 战利暂由师父代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('pansi_after_unbound');
+    });
+  }
+
+  // 毒茶事件：只生效一次；悟空与八戒倒下，沙僧护送撤至安全处
+  triggerPansiPoisonTea() {
+    if (this.storyPhase !== 'pansi_huanghua') return;
+    if (this.playerData.storyEvents?.pansi_poisoned) return;
+    this.playerData.storyEvents = this.playerData.storyEvents || {};
+    this.playerData.storyEvents.pansi_poisoned = true;
+    this.storyPhase = 'pansi_poisoned';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    window.Sound.playBeep();
+    this.scheduleStoryDialogue('pansi_poison_tea');
+  }
+
+  // 昴日啼鸣：两声按序完成，只提交一次；破光结果持久化
+  triggerPansiRoosterCry(cryIndex) {
+    if (this.storyPhase !== 'pansi_seeking_rooster' && this.storyPhase !== 'pansi_breaking_light') return;
+    this.playerData.storyEvents = this.playerData.storyEvents || {};
+    if (cryIndex === 1) {
+      if (this.playerData.storyEvents.pansi_light_broken) return;
+      this.playerData.storyEvents.pansi_light_broken = true;
+      this.storyPhase = 'pansi_breaking_light';
+      this.refreshMapNpcs();
+      this.saveAutoProgress();
+      window.showGameMessage('🐓【第一声啼鸣】金光散开，遮蔽消退！', 'success', 4500);
+    } else if (cryIndex === 2) {
+      if (this.playerData.storyEvents.pansi_form_revealed) return;
+      if (!this.playerData.storyEvents.pansi_light_broken) return;
+      this.playerData.storyEvents.pansi_form_revealed = true;
+      this.saveAutoProgress();
+      window.showGameMessage('🐓【第二声啼鸣】百眼失去伪装，现出蜈蚣本相！', 'success', 4500);
+      this.scheduleStoryDialogue('pansi_form_revealed');
+    }
+  }
+
+  // 百眼魔君最终战（普通单 Boss，无专属状态）
+  triggerPansiBaiyanBattle() {
+    if (this.storyPhase !== 'pansi_breaking_light') return;
+    if (this.playerData.storyEvents?.pansi_boss_won) return;
+    // 破光是开战前提：两声啼鸣未完成不得开战
+    if (!this.playerData.storyEvents?.pansi_light_broken) return;
+    if (!this.playerData.storyEvents?.pansi_form_revealed) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const baiyan = {
+      id: 'boss_baiyan', name: '百眼魔君·蜈蚣本相', appearance: 'yecha', modelId: 'yecha',
+      level: 68, hp: 54000, maxHp: 54000, mp: 13000, maxMp: 13000,
+      atk: 470, def: 235, matk: 450, mdef: 230, spd: 52,
+      skills: ['万毒攻心', '三昧真火', '定身咒']
+    };
+
+    this.start2DBattle([baiyan], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.pansi_boss_won = true;
+      this.storyPhase = 'pansi_restoring';
+      const reward = this.playerData.claimStoryReward('pansi_boss',
+        { exp: 160000, silver: 38000 }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('☠️ 战利暂由昴日星官代管，稍后可再来领取。', 'warning', 5000);
+      }
+      this.refreshMapNpcs();
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      window.Sound.playLevelUp();
+      this.scheduleStoryDialogue('pansi_victory');
+    });
+  }
+
+  // 善后完成：救治、清点、处置丝洞、清除危险
+  completePansiAftercare() {
+    if (this.storyPhase !== 'pansi_restoring') return false;
+    if (this.playerData.storyEvents?.pansi_aftercare_done) return true;
+    this.playerData.storyEvents = this.playerData.storyEvents || {};
+    this.playerData.storyEvents.pansi_aftercare_done = true;
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 章节奖励：幂等，满包保留入口（西行出口只在终态放行）
+  claimPansiReward() {
+    if (this.playerData.storyRewards?.pansi_chapter_reward === true) {
+      if (this.storyPhase === 'pansi_restoring') {
+        this.storyPhase = 'pansi_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+      }
+      return false;
+    }
+    if (this.storyPhase !== 'pansi_restoring') return false;
+
+    const result = this.playerData.claimStoryReward('pansi_chapter_reward', {
+      items: [
+        { itemId: 'eq_nk_pansi', count: 1 },
+        { itemId: 'xuelian_dan', count: 5 },
+        { itemId: 'jiuzhuan_dan', count: 3 }
+      ],
+      exp: 140000,
+      silver: 30000
+    }, this.inventory);
+
+    if (!result.success) {
+      if (result.reason === 'already_claimed') {
+        this.storyPhase = 'pansi_cleared';
+        this.refreshMapNpcs();
+        this.saveAutoProgress();
+        return false;
+      }
+      window.showGameMessage('📜 谢礼暂由师父保管，整理行囊后再来领取。', 'warning', 5000);
+      return false;
+    }
+
+    this.storyPhase = 'pansi_cleared';
+    this.refreshMapNpcs();
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.Sound.playLevelUp();
+    window.showGameMessage('🎉【盘丝洞功成】获赠【盘丝辟毒佩】、【雪莲丹】×5 与【九转还魂丹】×3！西行继续。', 'success', 6000);
+    return true;
+  }
   // === 支线任务：【苍茫三岭伏魔传】逻辑实现 ===
-  initSanlingSideQuest() {
-    if (!this.playerData) return null;
+  initSanlingSideQuest() {    if (!this.playerData) return null;
     this.playerData.sideQuests = this.playerData.sideQuests || {};
     if (!this.playerData.sideQuests.sq_sanling_demon) {
       this.playerData.sideQuests.sq_sanling_demon = {
@@ -7253,7 +8447,10 @@ class GameApp2D {
         sq.foxesDefeated = sq.foxesDefeated || {};
         sq.foxesDefeated[npcId] = true;
         sq.foxKills = (sq.foxKills || 0) + 1;
-        if (this.inventory) {
+        // 内丹是支线计数道具，满包时不静默吞掉，提示玩家清理后再战
+        if (this.inventory && !this.inventory.canAddItems([{ itemId: 'qingqiu_hudan', count: 1 }])) {
+          window.showGameMessage('🦊 妖狐已伏诛，但行囊已满，内丹暂由道长代收；整理行囊后再来领取。', 'warning', 5000);
+        } else if (this.inventory) {
           this.inventory.addItem('qingqiu_hudan', 1);
         }
         if (sq.foxKills >= 3 && sq.step === 'hunt_foxes') {
@@ -7313,7 +8510,10 @@ class GameApp2D {
         sq.wolvesDefeated = sq.wolvesDefeated || {};
         sq.wolvesDefeated[npcId] = true;
         sq.wolfKills = (sq.wolfKills || 0) + 1;
-        if (this.inventory) {
+        // 行商锦囊同样属于支线计数道具，满包不得静默丢弃
+        if (this.inventory && !this.inventory.canAddItems([{ itemId: 'shangren_jinnang', count: 1 }])) {
+          window.showGameMessage('🐺 血狼已伏诛，但行囊已满，遗物暂存道长处；整理行囊后再来取。', 'warning', 5000);
+        } else if (this.inventory) {
           this.inventory.addItem('shangren_jinnang', 1);
         }
         if (sq.wolfKills >= 3 && sq.step === 'hunt_wolves') {
@@ -7510,7 +8710,11 @@ class GameApp2D {
       }
       if (this.battleCountdown <= 0) {
         this.battleCountdown = 30;
-        this.executeCombatRound();
+        // 只有仍处于"等待玩家指令"的战斗才自动出招；
+        // 若刚好在逃跑/结算瞬间，避免二次进入回合导致回调重复触发。
+        if (this.currentBattle && this.currentBattle.status === 'player_input' && !this.isAnimatingCombat) {
+          this.executeCombatRound();
+        }
       }
     }, 1000);
   }
@@ -10549,11 +11753,14 @@ class GameApp2D {
 
   endBattle(status = 'victory') {
     if (!this.currentBattle || this.isAnimatingCombat) return false;
+    // 同一场战斗只允许结算一次：倒计时与逃跑同帧竞争时不再重复触发回调与提示
+    if (this._battleEnding) return false;
     if (status === 'victory' && this.currentBattle.enemies.some(e => e.hp > 0)) return false;
     if (status === 'defeat' && this.currentBattle.allies.some(a => a.isPlayer && a.hp > 0)) return false;
     if (status === 'escaped' && this.currentBattle.status !== 'escaped') return false;
     const layer = document.getElementById('battle-screen-layer');
     if (!this.currentBattle && (!layer || layer.style.display === 'none')) return;
+    this._battleEnding = true;
 
     const battle = this.currentBattle;
     this.stopBattleLoop();
@@ -10639,12 +11846,17 @@ class GameApp2D {
     }
     this.updatePlayerHud();
     this.saveAutoProgress();
+    // 结算完成，解除一次性哨兵；下一场战斗重新开始
+    this._battleEnding = false;
     return true;
   }
 
   // 执行战斗交锋回合与动作打击演算
   async executeCombatRound() {
     if (!this.currentBattle || this.isAnimatingCombat || this.currentBattle.status === 'executing') return;
+    // 已在结算或已分出胜负的战斗不再进入回合，避免回调重复
+    if (this._battleEnding) return;
+    if (['victory', 'defeat', 'escaped'].includes(this.currentBattle.status)) return;
 
     // 敌方若已全部阵亡，立即判定胜利结案
     const aliveEnemiesBefore = (typeof this.currentBattle.getAliveEnemies === 'function')
@@ -11623,8 +12835,7 @@ class GameApp2D {
                     </div>
                     ${info.penalty !== 'none' ? `
                       <div style="color:#ff6b81;font-size:10px;margin-top:4px;">
-                        ⚠️ 淬火失手惩罚：若失败将掉落 ${info.penalty === 'down_1' ? '1' : '2'} 星！
-                      </div>
+                        ⚠️ 淬火失手惩罚：若失败将掉落 ${info.penalty === 'down_1' ? '1' : '2'} 星！                      </div>
                       <div style="margin-top:6px;padding:6px 10px;background:rgba(20,12,6,0.7);border:1px solid ${useProtectStone && dingxingCount > 0 ? '#ffd700' : '#4a331c'};border-radius:6px;display:flex;align-items:center;justify-content:space-between;">
                         <label style="display:flex;align-items:center;gap:6px;cursor:${dingxingCount > 0 ? 'pointer' : 'not-allowed'};color:${dingxingCount > 0 ? '#fff' : '#888'};font-size:11px;">
                           <input type="checkbox" id="forge-protect-toggle" ${useProtectStone && dingxingCount > 0 ? 'checked' : ''} ${dingxingCount < 1 ? 'disabled' : ''} onchange="window.App2D.openForgeModal('${selectedSlotKey}', this.checked)">
@@ -11669,8 +12880,7 @@ class GameApp2D {
     const protectCheckbox = document.getElementById('forge-protect-toggle');
     const useProtect = (explicitUseProtect !== null) ? !!explicitUseProtect : (protectCheckbox ? protectCheckbox.checked : false);
 
-    const res = window.ForgeSystem.enhance(equip, this.inventory, this.playerData, useProtect);
-    this.updatePlayerHud();
+    const res = window.ForgeSystem.enhance(equip, this.inventory, this.playerData, useProtect);    this.updatePlayerHud();
     window.showGameMessage(res.msg, res.success ? 'success' : 'warning');
 
     const remainingProtect = this.inventory ? this.inventory.getItemCount('dingxing_shi') : 0;
@@ -12209,6 +13419,36 @@ class GameApp2D {
       stepProgress = sp === 'changan_arrived' ? '1/1 已抵达' : '0/1 前往中';
       stepProgressRatio = sp === 'changan_arrived' ? 1 : 0.5;
       stepHint = '经由官道传送至长安城';
+    } else if (sp === 'changan_meet_xuanzang') {
+      ordealNumber = '【第二难·长安受戒】';
+      ordealName = '化生古刹 · 拜见玄奘';
+      ordealDesc = '初入长安，先往化生寺参拜金蝉转世的玄奘法师，共商西行取经大计，结下师徒同行之缘。';
+      chapter = '第二回 · 皇都盛世';
+      stepName = '前往化生寺拜见玄奘';
+      stepTarget = '前往化生寺拜见玄奘法师';
+      stepProgress = '0/1 前往中';
+      stepProgressRatio = 0;
+      stepHint = '化生寺钟声悠远，法师正于此静候';
+    } else if (sp === 'changan_meet_taizong') {
+      ordealNumber = '【第二难·长安受戒】';
+      ordealName = '金銮宝殿 · 觐见太宗';
+      ordealDesc = '既拜玄奘，再登长安金銮宝殿觐见唐太宗李世民，领受通关文牒，受命西行取回真经。';
+      chapter = '第二回 · 皇都盛世';
+      stepName = '金銮殿觐见唐太宗';
+      stepTarget = '登金銮宝殿觐见太宗皇帝，领取通关文牒';
+      stepProgress = '已见玄奘，待觐见太宗';
+      stepProgressRatio = 0.5;
+      stepHint = '金銮殿上太宗御座以待，文牒即将授予';
+    } else if (sp === 'changan_farewell') {
+      ordealNumber = '【第二难·长安受戒】';
+      ordealName = '长安城门 · 辞别启程';
+      ordealDesc = '文牒在手，再至长安城门口与刘伯钦依依惜别，就此告别繁华国都，踏上漫漫西行取经之路。';
+      chapter = '第二回 · 皇都盛世';
+      stepName = '城门口辞别刘伯钦';
+      stepTarget = '前往长安城门口与刘伯钦送行辞别，随后西行启程';
+      stepProgress = '待启程';
+      stepProgressRatio = 0.8;
+      stepHint = '西行第一站：五行山';
     } else if (sp.startsWith('chentang_') || sp.startsWith('donghai_') || sp.startsWith('longgong_')) {
       ordealNumber = '【第三难·陈塘除恶】';
       ordealName = '总兵李靖 · 平定混混';
@@ -12334,6 +13574,181 @@ class GameApp2D {
       stepProgressRatio = sp === 'pingding_cleared' ? 1 : 0.6;
       stepHint = '平顶山林密洞深，小心猫妖围攻';
       isDone = sp === 'pingding_cleared';
+    } else if (sp.startsWith('huoyun_')) {
+      const bossWon = !!this.playerData?.storyEvents?.huoyun_boss_won;
+      const rewardPending = bossWon && !this.playerData?.storyRewards?.huoyun_completion;
+      ordealNumber = '【第十三难·火云三昧】';
+      ordealName = '号山枯松涧 · 圣婴大王';
+      ordealDesc = '号山火云洞妖王形貌如孩童，自称圣婴大王，在火焰山修得三昧真火，强征火租、烧焦山田三年。需辨其假意求救，破五行车阵，伏三昧真火。';
+      chapter = '第十二回 · 火云烈焰';
+      stepName = rewardPending ? '领取火云洞战利' :
+        sp === 'huoyun_boss_ready' ? '破五行车阵，决战三昧真火' :
+          sp === 'huoyun_redboy_ready' ? '识破假意求救' : '前往号山枯松涧';
+      stepTarget = rewardPending ? '整理行囊，向悟空领取火云洞战利品' :
+        sp === 'huoyun_boss_ready' ? '击破红孩儿真身，阻其再纵火烧山' :
+          sp === 'huoyun_redboy_ready' ? '查验脚印与火痕，揭穿伪装后迎战' : '与号山土地神交谈，问明火云洞虚实';
+      stepProgress = rewardPending ? '妖王已伏，战利待领' :
+        sp === 'huoyun_cleared' ? '功德圆满' :
+          sp === 'huoyun_boss_ready' ? '伪装已破，真身待伏' :
+            sp === 'huoyun_redboy_ready' ? '已至枯松涧' : '待访土地';
+      stepProgressRatio = rewardPending ? 0.9 : sp === 'huoyun_cleared' ? 1 :
+        sp === 'huoyun_boss_ready' ? 0.7 : sp === 'huoyun_redboy_ready' ? 0.4 : 0.15;
+      stepHint = sp === 'huoyun_cleared' ? '火云洞已平，西行大道重开' : '三昧真火非同凡火，水浇不灭，先破车阵';
+      isDone = sp === 'huoyun_cleared';
+    } else if (sp.startsWith('heishui_')) {
+      const rewardPending = sp === 'heishui_reward_pending';
+      ordealNumber = '【第十四难·黑水沉波】';
+      ordealName = '衡阳峪黑水河 · 鼍洁夺府';
+      ordealDesc = '泾河龙王第九子鼍洁占衡阳峪黑水河神府，赶走原河神，化作船夫摄走唐僧与八戒。需寻访失府河神、探明水府、请西海龙太子摩昂擒妖。';
+      chapter = '第十三回 · 黑水擒龙';
+      stepName = rewardPending ? '领取黑水河谢礼' :
+        sp === 'heishui_boss_ready' ? '破其水势，为摩昂创造擒拿之机' :
+          sp === 'heishui_moang_arrived' ? '听摩昂战前交代' :
+            sp === 'heishui_aid_needed' ? '商议请援西海' :
+              sp === 'heishui_scout_ready' ? '探查水府，击退守将' :
+                sp === 'heishui_captives_taken' ? '寻访失府河神，问明河情' : '询问摆渡之法';
+      stepTarget = rewardPending ? '整理行囊，向黑水河神领取谢礼' :
+        sp === 'heishui_boss_ready' ? '牵制鼍洁、破其水势，由摩昂擒拿' :
+          sp === 'heishui_moang_arrived' ? '与摩昂会合，确认救人及收服次序' :
+            sp === 'heishui_aid_needed' ? '核实鼍洁来历，商议请西海援手' :
+              sp === 'heishui_scout_ready' ? '随沙僧探查水府，击退守门水卒' :
+                sp === 'heishui_captives_taken' ? '找到失府河神，问明夺府经过与水府入口' : '与渡口船夫交涉，安排过河';
+      stepProgress = rewardPending ? '妖已擒，谢礼待领' :
+        sp === 'heishui_cleared' ? '功德圆满' :
+          sp === 'heishui_boss_ready' ? '摩昂已备，可战鼍洁' :
+            sp === 'heishui_moang_arrived' ? '援军已至' :
+              sp === 'heishui_aid_needed' ? '探战已胜，待请援' :
+                sp === 'heishui_scout_ready' ? '入口已明' :
+                  sp === 'heishui_captives_taken' ? '师父八戒失陷' : '初入黑水河';
+      stepProgressRatio = rewardPending ? 0.9 : sp === 'heishui_cleared' ? 1 :
+        sp === 'heishui_boss_ready' ? 0.8 : sp === 'heishui_moang_arrived' ? 0.65 :
+          sp === 'heishui_aid_needed' ? 0.5 : sp === 'heishui_scout_ready' ? 0.35 :
+            sp === 'heishui_captives_taken' ? 0.2 : 0.05;
+      stepHint = sp === 'heishui_cleared' ? '黑水河事毕，师徒渡河东去' : '悟空不善水战，水中强攻不利，宜请援手';
+      isDone = sp === 'heishui_cleared';
+    } else if (sp.startsWith('chedi_')) {
+      const rewardPending = sp === 'chedi_reward_pending';
+      ordealNumber = '【第十五难·车迟护僧】';
+      ordealName = '车迟国三清观 · 三仙欺佛';
+      ordealDesc = '车迟国敬道灭僧，虎力、鹿力、羊力三大仙役使全国僧众。需解救受役沙门、与国王立约，凭祈雨、辨物两场斗法揭穿邪术，再于第三场决战破除三仙。';
+      chapter = '第十四回 · 车迟斗法';
+      stepName = rewardPending ? '领取谢礼与西行关文' :
+        sp === 'chedi_final_trial' ? '破除邪术，三仙同场决战' :
+          sp === 'chedi_discern' ? '坐禅定心，隔板辨物' :
+            sp === 'chedi_rain' ? '验证求雨本领' :
+              sp === 'chedi_audience' ? '面见国王，约定停役与斗法条件' : '查明僧人受役情况';
+      stepTarget = rewardPending ? '向国王领取谢礼与西行关文' :
+        sp === 'chedi_final_trial' ? '破除三仙邪术，保护在场众人' :
+          sp === 'chedi_discern' ? '识破鹿力借干扰与暗示改判' :
+            sp === 'chedi_rain' ? '依序验风云雷雨，赢下第一场' :
+              sp === 'chedi_audience' ? '要求公开见证、僧人不得继续受罚' : '接受受役僧人申诉';
+      stepProgress = rewardPending ? '三仙伏诛，谢礼待领' :
+        sp === 'chedi_cleared' ? '功德圆满' :
+          sp === 'chedi_final_trial' ? '两场已胜，决战在即' :
+            sp === 'chedi_discern' ? '祈雨已胜' :
+              sp === 'chedi_rain' ? '立约已成' :
+                sp === 'chedi_audience' ? '申诉已接' : '初入车迟国';
+      stepProgressRatio = rewardPending ? 0.9 : sp === 'chedi_cleared' ? 1 :
+        sp === 'chedi_final_trial' ? 0.8 : sp === 'chedi_discern' ? 0.6 :
+          sp === 'chedi_rain' ? 0.4 : sp === 'chedi_audience' ? 0.2 : 0.05;
+      stepHint = sp === 'chedi_cleared' ? '车迟国事毕，关文通行资格已定' : '风不至则云不聚，云不聚则雷不响';
+      isDone = sp === 'chedi_cleared';
+    } else if (sp.startsWith('tongtian_')) {
+      const rewardStage = sp === 'tongtian_reward';
+      ordealNumber = '【第十六难·通天祭童】';
+      ordealName = '八百里通天河 · 灵感大王';
+      ordealDesc = '通天河灵感大王年索童男童女为祭，陈家庄世代不敢违抗。需先向乡老立约"祭童之事今日为止"、安置孩子，再与悟空八戒变作替身诱妖，循暗流侧口潜入水府救人，最终引出观音收妖。';
+      chapter = '第十五回 · 通天归真';
+      stepName = rewardStage ? '向陈家长者辞行，领取谢礼' :
+        sp === 'tongtian_await_guanyin' ? '去河畔见观音，收妖除患' :
+          sp === 'tongtian_rescue' ? '探查水府入口，救出师父与八戒' :
+            sp === 'tongtian_altar' ? '以替身赴约，引妖现身' :
+              sp === 'tongtian_vowed' ? '安置孩子，随悟空八戒赴祭坛' : '查明通天河祭童之困';
+      stepTarget = rewardStage ? '确认从今不再献祭，领取谢礼后渡河' :
+        sp === 'tongtian_await_guanyin' ? '见证观音鱼篮收妖，安抚家长与孩子' :
+          sp === 'tongtian_rescue' ? '循暗流侧口进入水府，击退灵感大王' :
+            sp === 'tongtian_altar' ? '引妖怪现身，护住撤离的村民' :
+              sp === 'tongtian_vowed' ? '让孩子留在家长身边，由师父沙僧留守照应' : '找到陈家长者，问明祭童原委';
+      stepProgress = rewardStage ? '妖已收，谢礼待领' :
+        sp === 'tongtian_cleared' ? '功德圆满' :
+          sp === 'tongtian_await_guanyin' ? '师父已救，待观音收妖' :
+            sp === 'tongtian_rescue' ? '立约已成，探查水府' :
+              sp === 'tongtian_altar' ? '替身已备' :
+                sp === 'tongtian_vowed' ? '已知祭童原委' : '初至通天河';
+      stepProgressRatio = rewardStage ? 0.9 : sp === 'tongtian_cleared' ? 1 :
+        sp === 'tongtian_await_guanyin' ? 0.8 : sp === 'tongtian_rescue' ? 0.6 :
+          sp === 'tongtian_altar' ? 0.45 : sp === 'tongtian_vowed' ? 0.25 : 0.05;
+      stepHint = sp === 'tongtian_cleared' ? '通天河事毕，河路复通东去' : '先救下眼前的孩子，再谈除妖';
+      isDone = sp === 'tongtian_cleared';
+    } else if (sp.startsWith('huoyan_')) {
+      const extinguished = !!(window.App2D && window.App2D.playerData &&
+        window.App2D.playerData.storyEvents && window.App2D.playerData.storyEvents.huoyan_fire_extinguished);
+      ordealNumber = '【第十七难·火焰借扇】';
+      ordealName = '八百里火焰山 · 铁扇公主与牛魔王';
+      ordealDesc = '火焰山火源源于五百年前大圣蹬倒八卦炉所落火砖。铁扇公主因红孩儿旧怨拒借芭蕉扇，悟空强取得假扇、再变化骗扇又为牛魔王所骗。须停止取巧、当众认责，重新议借真扇，连扇四十九下断绝火根。';
+      chapter = '第十六回 · 火焰借扇';
+      stepName = extinguished ? '向百姓领取谢礼' :
+        sp === 'huoyan_quench_fire' ? '前往火根台断绝火根' :
+          sp === 'huoyan_renew_request' ? '重新议借真扇' :
+            sp === 'huoyan_confront_bull' ? '摩云台对质牛魔王' :
+              sp === 'huoyan_seek_true_fan' ? '再赴芭蕉洞求取真扇' :
+                sp === 'huoyan_test_fan' ? '在试扇火口验明真伪' :
+                  sp === 'huoyan_borrow_fan' ? '前往芭蕉洞借扇' : '查明火焰山灾情';
+      stepTarget = extinguished ? '向灾民代表领取谢礼，继续西行' :
+        sp === 'huoyan_quench_fire' ? '连扇四十九下断绝火根，随后归还宝扇' :
+          sp === 'huoyan_renew_request' ? '不再变化欺骗，向铁扇公主说明火源来历并担责' :
+            sp === 'huoyan_confront_bull' ? '阻止牛魔王携扇离开' :
+              sp === 'huoyan_seek_true_fan' ? '强取已不能解决问题，再赴芭蕉洞' :
+                sp === 'huoyan_test_fan' ? '照土地所示，辨明手中扇是真是假' :
+                  sp === 'huoyan_borrow_fan' ? '前往翠云山芭蕉洞，向铁扇公主借扇' : '找到灾民代表，问明受灾情形';
+      stepProgress = extinguished ? '火根已绝，谢礼待领' :
+        sp === 'huoyan_cleared' ? '功德圆满' :
+          sp === 'huoyan_quench_fire' ? '真扇已借' :
+            sp === 'huoyan_renew_request' ? '牛魔王已退' :
+              sp === 'huoyan_confront_bull' ? '真扇被夺' :
+                sp === 'huoyan_seek_true_fan' ? '已辨假扇' :
+                  sp === 'huoyan_test_fan' ? '待验证的扇已得' :
+                    sp === 'huoyan_borrow_fan' ? '已知灾情' : '初至火焰山';
+      stepProgressRatio = extinguished ? 0.9 : sp === 'huoyan_cleared' ? 1 :
+        sp === 'huoyan_quench_fire' ? 0.8 : sp === 'huoyan_renew_request' ? 0.7 :
+          sp === 'huoyan_confront_bull' ? 0.55 : sp === 'huoyan_seek_true_fan' ? 0.45 :
+            sp === 'huoyan_test_fan' ? 0.3 : sp === 'huoyan_borrow_fan' ? 0.15 : 0.05;
+      stepHint = sp === 'huoyan_cleared' ? '火焰山事毕，继续西行' : '真扇火势当减，假扇越扇越大';
+      isDone = sp === 'huoyan_cleared';
+    } else if (sp.startsWith('pansi_')) {
+      ordealNumber = '【第十八难·盘丝七难】';
+      ordealName = '盘丝岭盘丝洞 · 七女妖与黄花观';
+      ordealDesc = '盘丝岭七女妖于濯垢泉边设丝缚人，与黄花观百眼魔君互为同盟。八戒越界被缚，唐僧制止时同遭扣押。须先安全解缚，再往黄花观求援——却遭毒茶暗算。须寻得昴日星官，以两声啼鸣破金光、显原形，方能制服百眼、取得解药。';
+      chapter = '第十七回 · 盘丝破妄';
+      stepName = sp === 'pansi_cleared' ? '前往西行出口' :
+        sp === 'pansi_restoring' ? '向唐僧交代救治与善后' :
+          sp === 'pansi_breaking_light' ? '随昴日星官破除金光' :
+            sp === 'pansi_seeking_rooster' ? '请昴日星官下山相助' :
+              sp === 'pansi_poisoned' ? '向指路老妇询问破光之法' :
+                sp === 'pansi_huanghua' ? '往黄花观求解毒之法' :
+                  sp === 'pansi_webbound' ? '解除丝洞主缚，救出师父与八戒' : '与唐僧确认泉边边界';
+      stepTarget = sp === 'pansi_cleared' ? '盘丝事了，继续西去' :
+        sp === 'pansi_restoring' ? '取得解毒药、照料伤者、清点获救者、处置丝洞' :
+          sp === 'pansi_breaking_light' ? '一鸣破光，二鸣显形；护住救援通路' :
+            sp === 'pansi_seeking_rooster' ? '如实说明金光、毒伤与被困者' :
+              sp === 'pansi_poisoned' ? '普通药物只能暂缓，须先找到克制金光之人' :
+                sp === 'pansi_huanghua' ? '说明伤情，核实药物；求援不等于信任' :
+                  sp === 'pansi_webbound' ? '先观察主缚与承重丝，再救人；不可直接焚烧' : '泉边有人，不得窥探；先问路，不擅入';
+      stepProgress = sp === 'pansi_cleared' ? '功德圆满' :
+        sp === 'pansi_restoring' ? '百眼已制服' :
+          sp === 'pansi_breaking_light' ? '援手已至' :
+            sp === 'pansi_seeking_rooster' ? '已得指引' :
+              sp === 'pansi_poisoned' ? '毒茶事发' :
+                sp === 'pansi_huanghua' ? '解缚已成' :
+                  sp === 'pansi_webbound' ? '师父八戒受困' : '初至盘丝岭';
+      stepProgressRatio = sp === 'pansi_cleared' ? 1 :
+        sp === 'pansi_restoring' ? 0.9 : sp === 'pansi_breaking_light' ? 0.75 :
+          sp === 'pansi_seeking_rooster' ? 0.6 : sp === 'pansi_poisoned' ? 0.45 :
+            sp === 'pansi_huanghua' ? 0.3 : sp === 'pansi_webbound' ? 0.15 : 0.05;
+      stepHint = sp === 'pansi_cleared' ? '盘丝事了，继续西去' :
+        (sp === 'pansi_poisoned' || sp === 'pansi_seeking_rooster' || sp === 'pansi_breaking_light')
+          ? '不是打掉血条才破金光，须先有克制金光之人' : '泉边有人，便应止步；未得应允，不可近前';
+      isDone = sp === 'pansi_cleared';
     }
 
     return {
@@ -12663,8 +14078,16 @@ class GameApp2D {
   }
 
   hasExplorationModal() {
-    return Array.from(document.querySelectorAll('.modal-overlay, .roster-modal-overlay, .game-confirm-overlay, .profile-v3-overlay, .shanhai-pet-picker-overlay'))
-      .some(el => el.getClientRects?.().length > 0);
+    if (this.isTransitioning) return true;
+    const selectors = [
+      '.modal-overlay', '.roster-modal-overlay', '.game-confirm-overlay',
+      '.profile-v3-overlay', '.shanhai-pet-picker-overlay',
+      '.level-up-modal-overlay', '.chapter-opening-overlay'
+    ].join(', ');
+    if (Array.from(document.querySelectorAll(selectors)).some(el => el.getClientRects?.().length > 0)) return true;
+    const transition = document.getElementById('scene-transition-overlay');
+    if (transition && transition.classList.contains('active')) return true;
+    return false;
   }
 
   renderShanhaiRewards(quality) {

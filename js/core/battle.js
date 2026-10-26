@@ -104,8 +104,11 @@ class BattleEngine {
     this.enemies.forEach((e, idx) => {
       e.enemyIndex = idx;
       e.buffs = e.buffs || [];
-      e.maxHp = e.maxHp || e.hp;
-      e.maxMp = e.maxMp || e.mp || 100;
+      // maxHp 为 0 或缺失时必须给出正数上限，否则伤害恒为 0、复活成 1 血但上限 0、血条 NaN
+      e.maxHp = (Number.isFinite(e.maxHp) && e.maxHp > 0) ? e.maxHp : (Number.isFinite(e.hp) && e.hp > 0 ? e.hp : 100);
+      e.hp = Number.isFinite(e.hp) ? e.hp : e.maxHp;
+      e.maxMp = (Number.isFinite(e.maxMp) && e.maxMp > 0) ? e.maxMp : (Number.isFinite(e.mp) && e.mp > 0 ? e.mp : 100);
+      e.mp = Number.isFinite(e.mp) ? e.mp : e.maxMp;
       e.templateId = e.templateId || window.ShanhaiSystem.resolveSpecies(e, window.App2D?.currentMapId);
       const species = window.GAME_DATA.PETS[e.templateId];
       e.quality = species?.quality || e.quality || 'ordinary';
@@ -116,6 +119,17 @@ class BattleEngine {
     // 临时指令集
     this.actions = {}; // key: ally.id -> action
     this.turnQueue = []; // 全场速度队列
+
+    // 五行车阵：初始化带该机制的 Boss，首轮预告必须在玩家提交指令前写入
+    for (const enemy of this.enemies) {
+      if (enemy && enemy.mechanicId === 'five_element_cart') {
+        this.initCartMechanic(enemy);
+      }
+      // 黑水换甲：鼍洁开场固定凝鳞姿态，无蓄力无预告
+      if (enemy && enemy.mechanicId === 'heishui_current_armor') {
+        this.initArmorMechanic(enemy);
+      }
+    }
 
     // 计算初始速度序数
     this.calcTurnOrders();
@@ -229,8 +243,18 @@ class BattleEngine {
   // 重构己方战斗阵列
   rebuildAllies() {
     const classId = this.player.classId || this.player.class || 'jingang';
-    const innateRes = window.SkillMasteryEngine ? window.SkillMasteryEngine.getInnateResistances(classId) : {};
-    const playerRes = Object.assign({}, innateRes, this.player.resistances || {});
+    // 天生抗性与装备/门派抗性必须累加，直接 Object.assign 会让 5% 门派加值覆盖 20% 天生抗性
+    const merged = {};
+    const addRes = (src) => {
+      if (!src || typeof src !== 'object') return;
+      for (const [k, v] of Object.entries(src)) {
+        if (!Number.isFinite(v)) continue;
+        merged[k] = (merged[k] || 0) + v;
+      }
+    };
+    if (window.SkillMasteryEngine) addRes(window.SkillMasteryEngine.getInnateResistances(classId));
+    addRes(this.player.resistances || {});
+    const playerRes = merged;
 
     this.allies = [
       {
@@ -357,7 +381,10 @@ class BattleEngine {
    * 6. 随机浮动：±10% (0.90 ~ 1.10)
    */
   static calculateAttackDamage(attacker, target, options = {}) {
-    const atkVal = attacker.atk || (attacker.entity && attacker.entity.atk) || 50;
+    // 虚弱（黄眉老祖）：按 buff 上的 weakenRatio 削减攻击方实际攻击力
+    const weakenRatio = Math.max(0, ...((attacker.buffs || []).map(b => Number(b.weakenRatio) || 0)));
+    const rawAtk = attacker.atk || (attacker.entity && attacker.entity.atk) || 50;
+    const atkVal = Math.max(1, Math.floor(rawAtk * (1 - Math.min(0.8, weakenRatio))));
     const baseDef = target.def !== undefined ? target.def : ((target.entity && target.entity.def) || 20);
     const protection = Math.max(0, ...(target.buffs || []).map(b => b.defBonusRate || 0));
     const defVal = baseDef * (1 + protection);
@@ -371,9 +398,10 @@ class BattleEngine {
     const passives = (attacker.entity && attacker.entity.passives) || (attacker.passives) || [];
     const targetPassives = (target.entity && target.entity.passives) || (target.passives) || [];
 
-    // 计算最终闪避率
+    // 计算最终闪避率：高级闪避被动 + 隐身等 buff 提供的临时闪避
     const hasHighDodge = targetPassives.some(p => p.id === 'high_dodge' || p.name === '高级闪避');
-    const finalDodgeRate = Math.min(0.75, dodgeRate + (hasHighDodge ? 0.15 : 0));
+    const buffDodge = Math.max(0, ...((target.buffs || []).map(b => Number(b.dodgeBonus) || 0)));
+    const finalDodgeRate = Math.min(0.75, dodgeRate + (hasHighDodge ? 0.15 : 0) + buffDodge);
 
     // 序章剧情战役（天蓬战、大圣战）保证演出打击感与剧情爽感，默认不被普通闪避打断
     const isPrologueBattle = (target.id === 'tianpeng_boss' || attacker.id === 'tianpeng_boss' || target.id === 'wukong_havoc_boss' || attacker.id === 'wukong_havoc_boss');
@@ -570,7 +598,7 @@ class BattleEngine {
         aliveUnits.push({
           unit: a,
           side: 'ally',
-          spd: a.spd,
+          spd: BattleEngine.getEffectiveSpd(a),
           id: a.id,
           name: a.name
         });
@@ -583,7 +611,7 @@ class BattleEngine {
         aliveUnits.push({
           unit: e,
           side: 'enemy',
-          spd: e.spd,
+          spd: BattleEngine.getEffectiveSpd(e),
           id: 'enemy_' + e.enemyIndex,
           name: e.name
         });
@@ -709,15 +737,8 @@ class BattleEngine {
     };
   }
 
-  getAliveEnemies() {
-    return this.enemies.filter(e => e.hp > 0);
-  }
-
-  getAliveAllies() {
-    return this.allies.filter(a => a.hp > 0);
-  }
-
   applyDamage(target, damage) {
+    if (!target || !Number.isFinite(damage)) return;
     target.hp = Math.max(0, target.hp - damage);
     if (damage > 0) target.buffs = (target.buffs || []).filter(b => b.id !== 'dingshen' && !b.breakOnDamage);
   }
@@ -767,9 +788,20 @@ class BattleEngine {
     return { def, points: Math.max(0, Math.min(5000, pet.talentPoints || 0)) };
   }
 
+  // 计算单位的实际出手速度：基础速度减去 buff 上的临时减速，
+  // 这样黄风怪断速、迟滞等减益到期后可自然还原，不再永久污染 spd。
+  static getEffectiveSpd(unit) {
+    if (!unit) return 0;
+    const base = Number.isFinite(unit.spd) ? unit.spd : 0;
+    const penalty = (unit.buffs || []).reduce((sum, b) => {
+      const v = Number(b && b.spdPenalty);
+      return sum + (Number.isFinite(v) && v > 0 ? v : 0);
+    }, 0);
+    return Math.max(0, base - penalty);
+  }
+
   // 解析受击方的挂链反击/反震率与变身反震天赋 (此前仅为面板死数据)
-  static getCounterTraits(unit) {
-    let counterAttackRate = 0, counterShockRate = 0, reflectRatio = 0;
+  static getCounterTraits(unit) {    let counterAttackRate = 0, counterShockRate = 0, reflectRatio = 0;
     for (const s of [unit, unit && unit.entity]) {
       if (!s) continue;
       if (Number.isFinite(s.counterAttackRate)) counterAttackRate = Math.max(counterAttackRate, s.counterAttackRate);
@@ -861,13 +893,25 @@ class BattleEngine {
     }
 
     // 黄风怪断速：命中后强制降低目标速度
+    // 必须用临时减益记录并到期还原，直接覆写 target.spd 会让受害者永久低速
     if (dealt > 0 && avatar.def.type === 'speed_slow') {
-      const rate = avatar.def.getSlowRate(avatar.points);
+      const rate = avatar.def.getSlowRate ? avatar.def.getSlowRate(avatar.points) : 0.30;
       if (Math.random() < rate) {
-        const slowest = Math.min(...[...this.getAliveAllies(), ...this.getAliveEnemies()].map(u => u.spd || 0));
-        target.spd = Math.max(0, Math.min(target.spd || 0, slowest));
+        const others = [...this.getAliveAllies(), ...this.getAliveEnemies()]
+          .filter(u => u !== target)
+          .map(u => BattleEngine.getEffectiveSpd(u));
+        const slowest = others.length ? Math.min(...others) : 0;
+        const penalty = Math.max(0, BattleEngine.getEffectiveSpd(target) - slowest);
+        target.buffs = target.buffs || [];
+        const existing = target.buffs.find(b => b.id === 'slow');
+        if (existing) {
+          existing.spdPenalty = Math.max(existing.spdPenalty || 0, penalty);
+          existing.duration = Math.max(existing.duration || 0, 2);
+        } else if (penalty > 0) {
+          target.buffs.push({ id: 'slow', name: '迟滞', duration: 2, spdPenalty: penalty, appliedRound: this.round });
+        }
         target.avatarSlowed = true;
-        notes.push(`【🌪三昧神风】速度降至 ${target.spd}`);
+        notes.push(`【🌪三昧神风】速度降低 ${penalty}（2 回合）`);
         this.calcTurnOrders();
       }
     }
@@ -937,10 +981,19 @@ class BattleEngine {
     return events;
   }
 
-  // 变身天赋的属性增益 (气血/物攻/速度)，结束后原值复原
+  // 变身天赋的属性增益 (气血/物攻/速度/法力)，结束后原值复原
   applyAvatarBuffs(ally, talent, points) {
     if (!talent || !ally) return;
-    ally.avatarBase = ally.avatarBase || { maxHp: ally.maxHp, atk: ally.atk, spd: ally.spd };
+    // 快照需覆盖所有可能被改写的字段，否则 maxMp / 抗性 / 反震率会永久膨胀并写回存档
+    ally.avatarBase = ally.avatarBase || {
+      maxHp: ally.maxHp,
+      atk: ally.atk,
+      spd: ally.spd,
+      maxMp: ally.maxMp,
+      mp: ally.mp,
+      resistances: Object.assign({}, ally.resistances || {}),
+      reflectRatio: ally.reflectRatio || 0
+    };
     const base = ally.avatarBase;
     let maxHp = base.maxHp, atk = base.atk, spd = base.spd;
     if (talent.type === 'hp_boost') {
@@ -983,7 +1036,9 @@ class BattleEngine {
     for (const ally of this.allies) {
       if (ally.type !== 'pet' || !ally.entity) continue;
       if (!ally.entity.avatarTransformed && !ally.avatarTalentId) continue;
-      const res = window.PetSystem.tickAvatarRound(ally.entity);
+      const res = (window.PetSystem && typeof window.PetSystem.tickAvatarRound === 'function')
+        ? window.PetSystem.tickAvatarRound(ally.entity)
+        : { expired: false };
       if (res.expired) {
         const base = ally.avatarBase;
         if (base) {
@@ -991,11 +1046,15 @@ class BattleEngine {
           ally.hp = Math.min(ally.hp, ally.maxHp);
           ally.atk = base.atk;
           ally.spd = base.spd;
+          // 法力上限/当前法力/抗性/反震率一并还原，否则黄风怪每次变身都会永久膨胀
+          if (base.maxMp !== undefined) ally.maxMp = base.maxMp;
+          if (base.mp !== undefined) ally.mp = Math.min(ally.mp || 0, ally.maxMp);
+          if (base.resistances) ally.resistances = Object.assign({}, base.resistances);
         }
         ally.avatarBase = null;
         ally.avatarTalentId = null;
         ally.avatarTalentType = null;
-        ally.reflectRatio = null;
+        ally.reflectRatio = (base && base.reflectRatio) || null;
         events.push({ allyId: ally.id, name: ally.name, text: res.text || '' });
       }
     }
@@ -1029,17 +1088,382 @@ class BattleEngine {
   async settleRoundBuffs(cb) {
     for (const unit of [...this.allies, ...this.enemies]) {
       for (const buff of [...unit.buffs]) {
+        // 单位已阵亡时立即停止后续结算，避免对尸体反复放毒花
+        if (unit.hp <= 0) break;
         if (buff.id === 'wandu' && buff.appliedRound < this.round && unit.hp > 0) {
-          buff.poisonDmg = Math.max(1, Math.floor(buff.poisonDmg * (buff.decayRatio || 0.75)));
+          const baseTick = Number(buff.poisonDmg);
+          const decay = Number(buff.decayRatio);
+          // NaN 防护：非法存档或旧数据会让中毒伤害变 NaN，进而把气血写成 NaN 造成"无损判胜"
+          buff.poisonDmg = Math.max(1, Math.floor((Number.isFinite(baseTick) ? baseTick : 1) *
+            (Number.isFinite(decay) ? decay : 0.75)));
           this.applyDamage(unit, buff.poisonDmg);
           this.log(`【毒伤】${unit.name} 损失 ${buff.poisonDmg} 点气血。`);
           if (cb) await cb({ type: 'poison_tick', ...(this.allies.includes(unit) ? { target: unit.id } : { targetIndex: unit.enemyIndex }),
             damage: buff.poisonDmg, text: `毒伤 -${buff.poisonDmg}` });
         }
-        if (buff.duration !== undefined && (buff.appliedRound < this.round || buff.id === 'wandu' || buff.name === '防御')) buff.duration--;
+        if (buff.id === 'bleed' && buff.appliedRound < this.round && unit.hp > 0) {
+          const tick = Math.max(1, Math.floor(Number(buff.damagePerTurn) || 1));
+          this.applyDamage(unit, tick);
+          this.log(`【流血】${unit.name} 损失 ${tick} 点气血。`);
+          if (cb) await cb({ type: 'poison_tick', ...(this.allies.includes(unit) ? { target: unit.id } : { targetIndex: unit.enemyIndex }),
+            damage: tick, text: `流血 -${tick}` });
+        }
+        // 只在"施加回合之后"递减，保证后手施加的控制至少完整生效一回合。
+        // 防御是"本回合内有效"的姿态：新代码用 expiresSameRound 显式标记，
+        // 同时保留按名称兜底，兼容旧存档与既有断言里的裸 { name: '防御' } 写法。
+        // 五行车阵的 duration 由 advanceCartCycle 单独推进，这里必须跳过，
+        // 否则同一回合会被递减两次（恢复期从 2 回合缩成 1 回合）。
+        // 黑水换甲与五行车阵同属常驻机制状态，其生命周期不由通用 duration 管理，
+        // 必须跳过递减，否则会被误删（换甲本就不带 duration，防御性再排除一次）。
+        const isCartState = buff.id === 'hh_cart_state';
+        const isArmorState = buff.id === 'hh_armor_state';
+        const isStanceBuff = buff.expiresSameRound === true || buff.name === '防御';
+        if (!isCartState && !isArmorState && buff.duration !== undefined && (isStanceBuff ||
+          (buff.appliedRound !== undefined && buff.appliedRound < this.round))) buff.duration--;
       }
-      unit.buffs = unit.buffs.filter(b => b.duration === undefined || b.duration > 0);
+      // 中毒/流血致死也要走复活与死亡判定，与主动攻击链保持一致
+      if (unit.hp <= 0) this.tryRebirth(unit);
+      // 五行车阵是常驻机制状态，生命周期由 advanceCartCycle 全权管理，
+      // 不能被通用到期过滤删除（否则机制只活一轮就消失）。
+      unit.buffs = unit.buffs.filter(b => b.duration === undefined || b.duration > 0 ||
+        (b && b.id === 'hh_cart_state') || (b && b.id === 'hh_armor_state'));
     }
+    // 回合末推进五行车阵相位（放在常规 buff 结算之后）
+    for (const enemy of this.enemies) {
+      if (enemy && enemy.mechanicId === 'five_element_cart' && enemy.hp > 0) {
+        this.advanceCartCycle(enemy);
+      }
+    }
+  }
+
+  // ===================== 五行车阵（红孩儿 Boss 机制）=====================
+
+  // 返回该敌人当前的车阵状态 buff，没有则 null
+  getCartState(enemy) {
+    if (!enemy || !Array.isArray(enemy.buffs)) return null;
+    return enemy.buffs.find(b => b && b.id === 'hh_cart_state') || null;
+  }
+
+  // 五行阵眼轮换顺序：金→木→水→火→土
+  _cartNextElement(prev) {
+    const order = ['metal', 'wood', 'water', 'fire', 'earth'];
+    if (!prev) return order[0];
+    const idx = order.indexOf(prev);
+    return order[(idx + 1) % order.length];
+  }
+
+  // 写入首轮蓄力：phase charge，预告在玩家提交指令前展示
+  initCartMechanic(enemy) {
+    if (!enemy) return;
+    if (!Array.isArray(enemy.buffs)) enemy.buffs = [];
+    // 保证最多一条车阵状态
+    enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_cart_state');
+    const R = this.round; // 当前（蓄力）回合
+    const threshold = Math.max(1, Math.floor((enemy.maxHp || enemy.hp || 0) * 0.05));
+    const element = this._cartNextElement(null);
+    enemy.buffs.push({
+      id: 'hh_cart_state',
+      name: '车阵蓄火',
+      phase: 'charge',
+      // 蓄力(R)→爆发(R+1) 之间经过一次回合末，duration 记为距到期的回合末次数
+      duration: 1,
+      appliedRound: R,
+      activeFromRound: R,
+      cycleStartRound: R,
+      cycleId: (enemy.id || 'hh') + ':' + R,
+      eyeElement: element,
+      breakProgress: 0,
+      breakThreshold: threshold,
+      resolved: false
+    });
+    this.log(`【五行车阵】${enemy.name} 推出五辆火车，阵眼之火已然蓄起——下回合三昧真火将席卷全场！`);
+  }
+
+  // 相位推进：charge→burst→recovery→recovery→charge
+  advanceCartCycle(enemy) {
+    const st = this.getCartState(enemy);
+    if (!st) return;
+    if (st.phase === 'broken') {
+      // 阵眼已破：维持到本轮恢复期结束再重开蓄力。
+      // 若 duration 只给 1，破阵反而会让下一轮蓄力提前到来（玩家越努力越挨打）。
+      st.duration--;
+      if (st.duration <= 0) {
+        const R = this.round + 1; // 下一回合开始新一轮蓄力
+        const nextEl = this._cartNextElement(st.eyeElement);
+        const threshold = Math.max(1, Math.floor((enemy.maxHp || enemy.hp || 0) * 0.05));
+        st.name = '车阵蓄火';
+        st.phase = 'charge';
+        st.duration = 1;
+        st.appliedRound = R;
+        st.activeFromRound = R;
+        st.cycleStartRound = R;
+        st.cycleId = (enemy.id || 'hh') + ':' + R;
+        st.eyeElement = nextEl;
+        st.breakProgress = 0;
+        st.breakThreshold = threshold;
+        st.resolved = false;
+        this.log(`【五行车阵】${enemy.name} 重整火车，阵眼转为新的五行，再度蓄火！`);
+      }
+      return;
+    }
+    if (st.phase === 'charge') {
+      st.duration--;
+      if (st.duration <= 0) {
+        // 进入爆发：R+1 行动时执行群体三昧真火
+        const R = this.round + 1;
+        st.name = '五车俱燃';
+        st.phase = 'burst';
+        st.duration = 1;
+        st.activeFromRound = R;
+        // 爆发尚未执行
+        st.resolved = false;
+      }
+      return;
+    }
+    if (st.phase === 'burst') {
+      st.duration--;
+      if (st.duration <= 0) {
+        // 进入恢复：固定 2 回合只普攻
+        const R = this.round + 1;
+        st.name = '回气';
+        st.phase = 'recovery';
+        st.duration = 2;
+        st.activeFromRound = R;
+        st.resolved = true;
+      }
+      return;
+    }
+    if (st.phase === 'recovery') {
+      st.duration--;
+      if (st.duration <= 0) {
+        // 恢复结束，建立下一轮蓄力
+        const R = this.round + 1;
+        const nextEl = this._cartNextElement(st.eyeElement);
+        const threshold = Math.max(1, Math.floor((enemy.maxHp || enemy.hp || 0) * 0.05));
+        st.name = '车阵蓄火';
+        st.phase = 'charge';
+        st.duration = 1;
+        st.appliedRound = R;
+        st.activeFromRound = R;
+        st.cycleStartRound = R;
+        st.cycleId = (enemy.id || 'hh') + ':' + R;
+        st.eyeElement = nextEl;
+        st.breakProgress = 0;
+        st.breakThreshold = threshold;
+        st.resolved = false;
+        this.log(`【五行车阵】${enemy.name} 回气已毕，阵眼之火再度蓄起！`);
+      }
+      return;
+    }
+  }
+
+  // 破阵累计：仅玩家主动攻击/伤害技能、蓄力期、目标为 Boss、实际扣血 > 0 才计入
+  recordCartBreakDamage(attacker, target, dealt) {
+    const st = this.getCartState(target);
+    if (!st) return;
+    // 必须处于蓄力期且窗口已开放
+    if (st.phase !== 'charge' || st.activeFromRound > this.round) return;
+    // 来源必须是玩家主动一方（DOT/反伤/反击由调用点不传入此函数来排除）
+    if (!attacker || !this.allies.includes(attacker)) return;
+    const real = Number(dealt);
+    if (!Number.isFinite(real) || real <= 0) return;
+    st.breakProgress += real;
+    if (st.breakProgress >= st.breakThreshold && st.phase === 'charge' && !st.resolved) {
+      // 破阵：转 broken，取消本轮爆发，清守息，反馈只触发一次
+      st.phase = 'broken';
+      st.name = '阵眼已破';
+      st.resolved = true;
+      // 破阵后进入与恢复等长的喘息，但不提前启动下一轮蓄力
+      st.duration = 2;
+      st.activeFromRound = this.round;
+      // 清除本轮对应的守息 buff
+      for (const ally of this.allies) {
+        if (!Array.isArray(ally.buffs)) continue;
+        ally.buffs = ally.buffs.filter(b => !(b && b.id === 'hh_cart_guard' && b.cycleId === st.cycleId));
+      }
+      this.log(`【破阵】${target.name} 的五行阵眼被击碎，三昧真火溃散，本轮爆发被彻底化解！`);
+    }
+  }
+
+  // 授予/刷新守息：不叠加层数，R 得 duration 2、R+1 得 duration 1
+  applyCartGuard(ally) {
+    if (!ally) return;
+    const bossWithCart = this.enemies.find(e =>
+      e && e.mechanicId === 'five_element_cart' && e.hp > 0 && this.getCartState(e));
+    if (!bossWithCart) return;
+    const st = this.getCartState(bossWithCart);
+    // 仅在蓄力或爆发且本轮未结算时才给守息
+    if (!st || (st.phase !== 'charge' && st.phase !== 'burst') || st.resolved) return;
+    if (!Array.isArray(ally.buffs)) ally.buffs = [];
+    // 蓄力期获得可覆盖到爆发（2），爆发期获得仅当回合（1）
+    const dur = st.phase === 'charge' ? 2 : 1;
+    const exist = ally.buffs.find(b => b && b.id === 'hh_cart_guard');
+    if (exist) {
+      // 刷新而非叠加
+      exist.sourceId = bossWithCart.id;
+      exist.cycleId = st.cycleId;
+      exist.appliedRound = this.round;
+      exist.duration = dur;
+      exist.burstDamageFactor = 0.65;
+      exist.consumed = false;
+    } else {
+      ally.buffs.push({
+        id: 'hh_cart_guard',
+        name: '守息避火',
+        sourceId: bossWithCart.id,
+        cycleId: st.cycleId,
+        appliedRound: this.round,
+        duration: dur,
+        burstDamageFactor: 0.65,
+        consumed: false
+      });
+    }
+    this.log(`【守息避火】${ally.name} 屏息凝神，以御三昧真火之势。`);
+  }
+
+  // 执行车阵爆发：对每个存活友方逐个结算一次三昧真火，套用守息与既有减伤链
+  async resolveCartBurst(enemy, cb) {
+    const st = this.getCartState(enemy);
+    if (!st) return;
+    // 已破阵或已结算则不爆发
+    if (st.phase !== 'burst' || st.resolved) {
+      st.resolved = true;
+      return;
+    }
+    st.resolved = true;
+    // 车阵爆发 = 既有 G 系法术基准威力 × 1.5
+    const baseMagic = (enemy.magic || enemy.atk || enemy.attack || 0);
+    const burstBase = Math.max(1, Math.floor(baseMagic * 1.5));
+    this.log(`【五车俱燃】${enemy.name} 五辆火车同时喷焰，三昧真火席卷全场！`);
+    if (cb) await cb({ type: 'cast', targetIndex: enemy.enemyIndex, text: '三昧真火·五车俱燃！', skillId: 'hh_cart_burst', skillName: '三昧真火' });
+    const hits = [];
+    const aliveAllies = this.getAliveAllies();
+    for (const ally of aliveAllies) {
+      if (ally.hp <= 0) continue;
+      // 基准伤害加入轻微浮动，走既有减伤链
+      let dmg = burstBase;
+      // 守息减伤与普通防御取"更强"而非相乘
+      let factor = 1;
+      const guard = Array.isArray(ally.buffs)
+        ? ally.buffs.find(b => b && b.id === 'hh_cart_guard' && b.sourceId === enemy.id && b.cycleId === st.cycleId && !b.consumed)
+        : null;
+      if (guard) {
+        factor = Math.min(factor, guard.burstDamageFactor);
+        guard.consumed = true;
+      }
+      const defend = Array.isArray(ally.buffs)
+        ? ally.buffs.find(b => b && (b.id === 'defend' || b.name === '防御') && Number.isFinite(b.defRate))
+        : null;
+      if (defend) {
+        // 普通防御 50% 减伤对应 factor 0.5，取更强（更小的 factor）
+        factor = Math.min(factor, defend.defRate);
+      }
+      dmg = Math.max(1, Math.floor(dmg * factor));
+      this.applyDamage(ally, dmg);
+      this.log(`【三昧真火】${ally.name} 被烈焰灼烧，损失 ${dmg} 点气血。`);
+      hits.push({ target: ally.id, damage: dmg, text: `-${dmg}` });
+      if (ally.hp <= 0) this.tryRebirth(ally);
+    }
+    if (cb) await cb({ type: 'hits', hits });
+  }
+
+  // 战斗结束/破阵后清理车阵残留状态
+  cleanupCartMechanic(enemy) {
+    if (enemy && Array.isArray(enemy.buffs)) {
+      enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_cart_state');
+    }
+    for (const ally of this.allies) {
+      if (Array.isArray(ally.buffs)) {
+        ally.buffs = ally.buffs.filter(b => !b || b.id !== 'hh_cart_guard');
+      }
+    }
+  }
+
+  // ===================== 黑水换甲（鼍洁 Boss 机制）=====================
+
+  // 返回该敌人当前的换甲状态 buff，没有则 null
+  getArmorState(enemy) {
+    if (!enemy || !Array.isArray(enemy.buffs)) return null;
+    return enemy.buffs.find(b => b && b.id === 'hh_armor_state') || null;
+  }
+
+  // 姿态中文名：凝鳞 / 散流
+  _armorStanceName(stance) {
+    return stance === 'flowing' ? '散流' : '凝鳞';
+  }
+
+  // 初始化换甲：开场固定 scaled（凝鳞），不做任何蓄力/预告
+  initArmorMechanic(enemy) {
+    if (!enemy) return;
+    if (!Array.isArray(enemy.buffs)) enemy.buffs = [];
+    // 保证最多一条换甲状态
+    enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_armor_state');
+    const cfg = enemy.mechanicConfig || {};
+    const startStance = cfg.startStance === 'flowing' ? 'flowing' : 'scaled';
+    enemy.buffs.push({
+      id: 'hh_armor_state',
+      name: this._armorStanceName(startStance),
+      stance: startStance,
+      actionCount: 0,
+      appliedRound: this.round
+    });
+    this.log(`【黑水换甲】${enemy.name} 甲鳞紧合，化作${this._armorStanceName(startStance)}之态。`);
+  }
+
+  // 伤害修正入口：按当前姿态对单次伤害做减伤，从基础 bonus 实时计算，不改动属性
+  // 返回 { damage, stance, note }
+  static applyArmorMitigation(defender, rawDamage, isSpell) {
+    const raw = Number(rawDamage);
+    const fallback = { damage: Number.isFinite(raw) ? raw : 0, stance: null, note: '' };
+    if (!defender || !Array.isArray(defender.buffs)) return fallback;
+    const st = defender.buffs.find(b => b && b.id === 'hh_armor_state');
+    if (!st) return fallback;
+    const cfg = defender.mechanicConfig || {};
+    const scaledDefBonus = Number(cfg.scaledDefBonus) || 0;
+    const flowingMdefBonus = Number(cfg.flowingMdefBonus) || 0;
+    // 凝鳞抗物理：仅物理伤害减伤
+    if (st.stance === 'scaled' && isSpell === false) {
+      const damage = Math.max(1, Math.floor(fallback.damage / (1 + scaledDefBonus)));
+      return { damage, stance: 'scaled', note: '凝鳞抵住了部分兵刃伤害' };
+    }
+    // 散流抗法术：仅法术伤害减伤
+    if (st.stance === 'flowing' && isSpell === true) {
+      const damage = Math.max(1, Math.floor(fallback.damage / (1 + flowingMdefBonus)));
+      return { damage, stance: 'flowing', note: '散流水幕冲散了部分法力' };
+    }
+    return { damage: fallback.damage, stance: st.stance, note: '' };
+  }
+
+  // 计数入口：该敌人真正执行完一次有效行动后调用
+  // 达到 switchEvery 则切换姿态并清零计数（被控制而 return 的单位不会走到这里）
+  recordArmorAction(enemy) {
+    const st = this.getArmorState(enemy);
+    if (!st) return;
+    const cfg = enemy.mechanicConfig || {};
+    const switchEvery = Math.max(1, Number(cfg.switchEvery) || 2);
+    st.actionCount = (Number(st.actionCount) || 0) + 1;
+    if (st.actionCount >= switchEvery) {
+      st.stance = st.stance === 'scaled' ? 'flowing' : 'scaled';
+      st.actionCount = 0;
+      st.name = this._armorStanceName(st.stance);
+      st.appliedRound = this.round;
+      this.log(`【黑水换甲】${enemy.name} 甲鳞翻转，转为${st.name}之态！`);
+    }
+  }
+
+  // 战斗结束/清理换甲残留状态
+  cleanupArmorMechanic(enemy) {
+    if (enemy && Array.isArray(enemy.buffs)) {
+      enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_armor_state');
+    }
+  }
+
+  // ===================== 五行车阵（红孩儿 Boss 机制）=====================
+
+  // 返回该敌人当前的车阵状态 buff，没有则 null
+  getCartState(enemy) {
+    if (!enemy || !Array.isArray(enemy.buffs)) return null;
+    return enemy.buffs.find(b => b && b.id === 'hh_cart_state') || null;
   }
 
   // 检查战斗结束
@@ -1067,6 +1491,9 @@ class BattleEngine {
   async executeRound(onStepCallback) {
     this.status = 'executing';
     for (const unit of [...this.allies, ...this.enemies]) {
+      // appliedRound 的唯一初始化点：把"上一回合遗留但未标时"的 buff 视为上一回合施加，
+      // 使其在回合末正常递减一次。新施加的 buff 必须在 push 时显式写入 appliedRound，
+      // 否则会被这里当成旧 buff 立刻减一回合（历史缺陷：后手控制时长 ±1 回合）。
       unit.buffs.forEach(b => { if (b.appliedRound === undefined) b.appliedRound = this.round - 1; });
     }
 
@@ -1164,9 +1591,6 @@ class BattleEngine {
           await this.handleEnemyTurn(enemy, act, onStepCallback);
         }
       }
-      for (const unit of [...this.allies, ...this.enemies]) {
-        unit.buffs.forEach(b => { if (b.appliedRound === undefined) b.appliedRound = this.round; });
-      }
       if (this.status === 'escaped') { this.syncStateBack(); return this.status; }
     }
 
@@ -1215,31 +1639,62 @@ class BattleEngine {
 
     // 防御
     if (action.type === 'defend') {
-      ally.buffs.push({ name: '防御', duration: 1, defRate: 0.5 });
+      ally.buffs.push({ id: 'defend', name: '防御', duration: 1, defRate: 0.5, appliedRound: this.round, expiresSameRound: true });
       this.log(`【${ally.name}】摆开防御架势，本回合受到伤害减半！`);
+      // 五行车阵：防御同时获得守息避火（蓄力/爆发期且本轮未结算）
+      this.applyCartGuard(ally);
       if (cb) await cb({ type: 'defend', target: ally.id, text: '凝神防御！' });
       return;
     }
 
-    // 使用药品
+    // 使用药品：必须先校验持有量并真实扣除，否则战斗可无限吃药、永远打不死
     if (action.type === 'item') {
       const item = window.GAME_DATA.ITEMS[action.itemId];
       const targetAlly = this.allies.find(a => a.id === action.targetAllyId) || ally;
-      if (item && item.effect) {
-        if (item.effect.hp) {
-          const heal = Math.min(item.effect.hp, targetAlly.maxHp - targetAlly.hp);
+      const inventory = window.App2D?.inventory;
+      if (!item || !item.effect) {
+        this.log(`【用药失败】未识别的药品。`);
+        if (cb) await cb({ type: 'message', text: '未识别的药品' });
+        return;
+      }
+      if (inventory && typeof inventory.getItemCount === 'function' &&
+        inventory.getItemCount(action.itemId) < 1) {
+        this.log(`【用药失败】${ally.name} 的【${item.name}】已用尽。`);
+        if (cb) await cb({ type: 'message', text: `【${item.name}】已用尽` });
+        return;
+      }
+
+      let healed = 0;
+      let restored = 0;
+      if (item.effect.hp) {
+        const heal = Math.max(0, Math.min(item.effect.hp, targetAlly.maxHp - targetAlly.hp));
+        if (heal > 0) {
           targetAlly.hp += heal;
+          healed = heal;
           this.log(`【使用药品】${ally.name} 对【${targetAlly.name}】使用了【${item.name}】，恢复了 ${heal} 点气血！`);
           BattleEngine.playSound('playMagic');
           if (cb) await cb({ type: 'heal', target: targetAlly.id, amount: heal, text: `+${heal} HP` });
         }
-        if (item.effect.mp) {
-          const restore = Math.min(item.effect.mp, targetAlly.maxMp - targetAlly.mp);
+      }
+      if (item.effect.mp) {
+        const restore = Math.max(0, Math.min(item.effect.mp, targetAlly.maxMp - targetAlly.mp));
+        if (restore > 0) {
           targetAlly.mp += restore;
+          restored = restore;
           this.log(`【使用药品】${ally.name} 对【${targetAlly.name}】使用了【${item.name}】，恢复了 ${restore} 点精力！`);
           BattleEngine.playSound('playMagic');
           if (cb) await cb({ type: 'mana', target: targetAlly.id, amount: restore, text: `+${restore} MP` });
         }
+      }
+
+      // 只有在真正产生疗效后才扣除药品；无疗效时不浪费玩家的药。
+      if (healed > 0 || restored > 0) {
+        if (inventory && typeof inventory.removeItem === 'function') {
+          inventory.removeItem(action.itemId, 1);
+        }
+      } else {
+        this.log(`【用药无效】${targetAlly.name} 当前气血与精力充盈，无需服用【${item.name}】。`);
+        if (cb) await cb({ type: 'message', text: `${targetAlly.name} 状态充盈，未消耗药品` });
       }
       return;
     }
@@ -1260,7 +1715,14 @@ class BattleEngine {
       const app = window.App2D;
       if (!Array.isArray(app?.pets)) return;
       const itemId = q === 'sanxian' ? 'silver_gourd' : q === 'jinxian' ? 'gold_gourd' : null;
-      const itemName = itemId ? window.GAME_DATA.ITEMS[itemId].name : '';
+      // 物品表与代码不同步时，直接读 .name 会抛异常并让整条招降指令空放
+      const itemDef = itemId ? window.GAME_DATA.ITEMS[itemId] : null;
+      const itemName = itemDef ? itemDef.name : '招降法宝';
+      if (itemId && !itemDef) {
+        this.log(`【招降失败】法宝数据缺失（${itemId}），请联系维护者修正物品表。`);
+        if (cb) await cb({ type: 'capture_fail', text: '法宝数据缺失' });
+        return;
+      }
       if (itemId && !app.inventory?.removeItem(itemId, 1)) {
         this.log(`【法宝不足】需携带【${itemName}】才能招降。`);
         if (cb) await cb({ type: 'capture_fail', text: `缺少${itemName}！` });
@@ -1293,6 +1755,12 @@ class BattleEngine {
       if (!targetEnemy || targetEnemy.hp <= 0) {
         targetEnemy = aliveEnemies[0];
       }
+      // 目标可能在本回合前序单位结算中全部阵亡，此时本次指令必须放弃而不是写入 undefined
+      if (!targetEnemy) {
+        this.log(`【指令失效】${ally.name} 先前的目标已阵亡，本次攻击落空。`);
+        if (cb) await cb({ type: 'message', text: '目标已阵亡，本次指令失效' });
+        return;
+      }
 
       // 调用全新核心法则结算公式
       const attackRes = BattleEngine.calculateAttackDamage(ally, targetEnemy);
@@ -1311,7 +1779,12 @@ class BattleEngine {
       }
 
       // 扣除目标生命值 (支持连击总伤与多段衰减)
-      this.applyDamage(targetEnemy, attackRes.totalDamage);
+      // 黑水换甲：按目标当前姿态做物理/法术修正（不改写基础属性）
+      const armorHit = BattleEngine.applyArmorMitigation(targetEnemy, attackRes.totalDamage, false);
+      this.applyDamage(targetEnemy, armorHit.damage);
+      if (armorHit.note) this.log(`　└ ${armorHit.note}`);
+      // 五行车阵：玩家主动攻击计入破阵进度
+      this.recordCartBreakDamage(ally, targetEnemy, attackRes.totalDamage);
 
       let logMsg = `【${ally.name}】挥舞神兵，轰击【${targetEnemy.name}】！`;
       if (attackRes.isFatal) {
@@ -1588,7 +2061,7 @@ class BattleEngine {
       }
       targets.forEach(t => {
         t.buffs = t.buffs || [];
-        t.buffs.push({ name: '金刚护体', duration: calc.duration, defBonusRate: calc.resRate, mdefBonusRate: calc.resRate });
+        t.buffs.push({ name: '金刚护体', duration: calc.duration, defBonusRate: calc.resRate, mdefBonusRate: calc.resRate, appliedRound: this.round });
       });
       const names = targets.map(t => t.name).join('、');
       this.log(`【金刚护体 Lv.${skill.level}】罗汉金身普照【${names}】！物防与法抗激增 ${(calc.resRate * 100).toFixed(0)}%！`);
@@ -1672,7 +2145,7 @@ class BattleEngine {
         if (Math.random() < Math.max(0, Math.min(1, calc.hitRate + ctrlMod - (e.resistances?.res_wandu || 0)))) {
           const pDmg = Math.floor(calc.firstRoundDmg * wanduMult);
           e.buffs = e.buffs || [];
-          e.buffs.push({ id: 'wandu', name: '中毒', duration: calc.duration, poisonDmg: pDmg, decayRatio: calc.decayRatio });
+          e.buffs.push({ id: 'wandu', name: '中毒', duration: calc.duration, poisonDmg: pDmg, decayRatio: calc.decayRatio, appliedRound: this.round });
           this.applyDamage(e, pDmg);
           hits.push({ type: 'damage', targetIndex: e.enemyIndex, damage: pDmg, text: `毒伤 -${pDmg}` });
         } else {
@@ -1751,7 +2224,7 @@ class BattleEngine {
         const ctrlMod = FiveElements.getControlHitModifier(elemA, elemB);
         if (Math.random() < Math.max(0, Math.min(1, calc.hitRate + ctrlMod + hitBoost - (e.resistances?.res_luanhun || 0)))) {
           e.buffs = e.buffs || [];
-          e.buffs.push({ id: 'luanhun', name: '混乱', duration: calc.duration });
+          e.buffs.push({ id: 'luanhun', name: '混乱', duration: calc.duration, appliedRound: this.round });
           this.log(`【乱魂咒 Lv.${skill.level}】灵犀乱魄，【${e.name}】陷入混乱神智不清！`);
           hits.push({ type: 'luanhun', targetIndex: e.enemyIndex, text: '混乱' });
         } else {
@@ -1788,7 +2261,7 @@ class BattleEngine {
         const ctrlMod = FiveElements.getControlHitModifier(elemA, elemB);
         if (Math.random() < Math.max(0, Math.min(1, calc.hitRate + ctrlMod + hitBoost - (e.resistances?.res_fengyin || 0)))) {
           e.buffs = e.buffs || [];
-          e.buffs.push({ id: 'fengyin', name: '封印', duration: calc.duration, blocksAllActions: true });
+          e.buffs.push({ id: 'fengyin', name: '封印', duration: calc.duration, blocksAllActions: true, appliedRound: this.round });
           this.log(`【封印大成 Lv.${skill.level}】八卦神符化作万道金锁，彻底封禁【${e.name}】！`);
           hits.push({ type: 'sealed', targetIndex: e.enemyIndex, text: '封印' });
         } else {
@@ -1821,7 +2294,7 @@ class BattleEngine {
         const ctrlMod = FiveElements.getControlHitModifier(elemA, elemB);
         if (Math.random() < Math.max(0, Math.min(1, calc.hitRate + ctrlMod - (e.resistances?.res_dingshen || 0)))) {
           e.buffs = e.buffs || [];
-          e.buffs.push({ id: 'dingshen', name: '定身', duration: calc.duration, breakOnDamage: true });
+          e.buffs.push({ id: 'dingshen', name: '定身', duration: calc.duration, breakOnDamage: true, appliedRound: this.round });
           this.log(`【定身神咒 Lv.${skill.level}】金索缚定【${e.name}】，禁止攻击法术，受击即解！`);
           hits.push({ type: 'dingshen', targetIndex: e.enemyIndex, text: '定身' });
         } else {
@@ -1847,7 +2320,7 @@ class BattleEngine {
       ally.mp = Math.max(0, ally.mp - calc.costMp);
 
       ally.buffs = ally.buffs || [];
-      ally.buffs.push({ id: 'yinshen', name: '隐身潜行', duration: calc.duration, hideAttributes: true, dodgeBonus: calc.dodgeBonus });
+      ally.buffs.push({ id: 'yinshen', name: '隐身潜行', duration: calc.duration, hideAttributes: true, dodgeBonus: calc.dodgeBonus, appliedRound: this.round });
       this.log(`【隐身咒 Lv.${skill.level}】${ally.name} 遁入虚空隐匿血条时序！`);
       if (window.Sound) window.Sound.playMagic();
       if (cb) await cb({ type: 'invis', target: ally.id, text: '隐匿身形！' });
@@ -1905,7 +2378,7 @@ class BattleEngine {
       enemy.mp -= calc.costMp;
       const targets = this.getAliveEnemies().sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, calc.targetCount);
       targets.forEach(t => t.buffs.push({ name: '金刚护体', duration: calc.duration,
-        defBonusRate: calc.resRate, mdefBonusRate: calc.resRate }));
+        defBonusRate: calc.resRate, mdefBonusRate: calc.resRate, appliedRound: this.round }));
       this.log(`【${enemy.name}】施展金刚护体，护住 ${targets.map(t => t.name).join('、')}。`);
       if (cb) await cb({ type: 'buff', attacker: 'enemy_' + enemy.enemyIndex, skillName,
         hits: targets.map(t => ({ type: 'buff', targetIndex: t.enemyIndex, text: '金刚护体' })) });
@@ -1926,7 +2399,7 @@ class BattleEngine {
         const targetElem = BattleEngine.getEntityElement(t);
         const ctrlMod = FiveElements.getControlHitModifier(casterElem, targetElem);
         const success = Math.random() < Math.max(0, Math.min(1, calc.hitRate + ctrlMod - (t.resistances?.[resistance] || 0)));
-        if (success) t.buffs.push({ id, name: label, duration: calc.duration, breakOnDamage: id === 'dingshen' });
+        if (success) t.buffs.push({ id, name: label, duration: calc.duration, breakOnDamage: id === 'dingshen', appliedRound: this.round });
         return { type: success ? type : 'resist', target: t.id, text: success ? label : label + '未中' };
       });
       this.log(`【${enemy.name}】施展【${skillName}】。`);
@@ -2084,6 +2557,21 @@ class BattleEngine {
     }
 
     if (await this.handleControlState(enemy, action, cb)) return;
+    // 五行车阵：按相位接管红孩儿的行动
+    const cartState = this.getCartState(enemy);
+    if (cartState && cartState.activeFromRound <= this.round) {
+      // 爆发回合：行动时执行一次群体三昧真火，不再普攻
+      if (cartState.phase === 'burst' && !cartState.resolved) {
+        await this.resolveCartBurst(enemy, cb);
+        return;
+      }
+      // 蓄力回合：只做蓄火演出，不造成任何伤害
+      if (cartState.phase === 'charge') {
+        this.log(`【五行车阵】${enemy.name} 催动阵眼之火，烈焰升腾——本回合蓄势待发！`);
+        if (cb) await cb({ type: 'message', text: '红孩儿正在蓄火，下回合三昧真火将席卷全场！' });
+        return;
+      }
+    }
     const aliveAllies = this.getAliveAllies();
     if (aliveAllies.length === 0) return;
 
@@ -2152,6 +2640,9 @@ class BattleEngine {
         }
       }
     }
+
+    // 黑水换甲：敌方（鼍洁）完成一次有效行动后计数，用于姿态切换
+    this.recordArmorAction(enemy);
 
     const didRevive = this.tryRebirth(targetAlly);
 

@@ -50,19 +50,38 @@ class SaveManager {
     return null;
   }
 
+  // 隐私模式 / 禁用存储 / iframe sandbox 下 localStorage 访问本身会抛 SecurityError，
+  // 任何一处未兜底都会让 App2D 构造中断导致白屏，因此统一走这个探测入口。
+  static get storage() {
+    if (this._storageChecked) return this._storage || null;
+    this._storageChecked = true;
+    try {
+      if (typeof localStorage === 'undefined' || !localStorage) {
+        this._storage = null;
+        return null;
+      }
+      const probe = '__hanfeng_xy_probe__';
+      localStorage.setItem(probe, '1');
+      localStorage.removeItem(probe);
+      this._storage = localStorage;
+    } catch (e) {
+      console.warn('本地存储不可用，进度将仅在本次会话内保留：', e?.name || e);
+      this._storage = null;
+    }
+    return this._storage;
+  }
+
   // 保存数据到指定槽位
   static saveGame(slotIndex = 1, stateData) {
     try {
-      if (typeof localStorage === 'undefined') {
-        return { success: false, reason: 'storage_unavailable', msg: '本地存储不可用。' };
-      }
-      const payload = {
+      const ls = this.storage;
+      if (!ls) return { success: false, reason: 'storage_unavailable', msg: '当前浏览器环境不支持本地存储，进度暂无法保存。' };      const payload = {
         version: '1.0.0',
         timestamp: Date.now(),
         saveTime: new Date().toLocaleString(),
         data: stateData
       };
-      localStorage.setItem(this.SAVE_KEY_PREFIX + slotIndex, JSON.stringify(payload));
+      ls.setItem(this.SAVE_KEY_PREFIX + slotIndex, JSON.stringify(payload));
       return { success: true, msg: '游戏进度已成功保存在本地！' };
     } catch (e) {
       console.error('存档失败:', e);
@@ -73,9 +92,9 @@ class SaveManager {
   // 加载指定槽位数据
   static loadGame(slotIndex = 1) {
     try {
-      if (typeof localStorage === 'undefined') return null;
-      const raw = localStorage.getItem(this.SAVE_KEY_PREFIX + slotIndex);
-      if (!raw) return null;
+      const ls = this.storage;
+      if (!ls) return null;
+      const raw = ls.getItem(this.SAVE_KEY_PREFIX + slotIndex);      if (!raw) return null;
       let parsed;
       try {
         parsed = JSON.parse(raw);
@@ -97,28 +116,24 @@ class SaveManager {
   // 检查是否有指定槽位存档
   static hasSave(slotIndex = 1) {
     try {
-      if (typeof localStorage === 'undefined') return false;
-      return !!localStorage.getItem(this.SAVE_KEY_PREFIX + slotIndex);
-    } catch (_) {
-      return false;
+      const ls = this.storage;
+      return !!(ls && ls.getItem(this.SAVE_KEY_PREFIX + slotIndex));
+    } catch (e) {      return false;
     }
   }
 
   // 保存 2D 汉风西游完整历练状态 (自动存档专用)
   static saveGameFullState(stateData) {
     try {
-      if (typeof localStorage === 'undefined') {
-        return { success: false, reason: 'storage_unavailable', msg: '存储受限或环境不支持。' };
-      }
-      const payload = {
+      const ls = this.storage;
+      if (!ls) return { success: false, reason: 'storage_unavailable', msg: '当前浏览器环境不支持本地存储，进度暂无法保存。' };      const payload = {
         version: '2.0.0',
         timestamp: Date.now(),
         saveTime: new Date().toLocaleString(),
         data: stateData
       };
-      localStorage.setItem(this.SAVE_KEY_PREFIX + 'auto_progress', JSON.stringify(payload));
-      this.corruptedBackup = null;
-      return { success: true, msg: '历练进度已自动保存在本地！' };
+      ls.setItem(this.SAVE_KEY_PREFIX + 'auto_progress', JSON.stringify(payload));
+      this.corruptedBackup = null;      return { success: true, msg: '历练进度已自动保存在本地！' };
     } catch (e) {
       console.error('自动保存异常:', e);
       return { success: false, reason: e.name || 'storage_error', msg: '存储受限或异常。' };
@@ -128,8 +143,9 @@ class SaveManager {
   // 加载 2D 完整历练进度
   static loadGameFullState() {
     try {
-      if (typeof localStorage === 'undefined') return null;
-      const raw = localStorage.getItem(this.SAVE_KEY_PREFIX + 'auto_progress');
+      const ls = this.storage;
+      if (!ls) return null;
+      const raw = ls.getItem(this.SAVE_KEY_PREFIX + 'auto_progress');
       if (!raw) return null;
       let parsed;
       try {
@@ -144,8 +160,9 @@ class SaveManager {
         return null;
       }
       const stateData = (parsed.data && typeof parsed.data === 'object') ? parsed.data : null;
-      if (!stateData || !stateData.mapId || !stateData.playerData) {
-        this.preserveCorruptedSave('auto_progress', raw, 'missing_core_fields');
+      // 兼容 playerData (现行) 与 player (早期/外部导出) 两种玩家字段命名；
+      // 缺核心字段只判不可用、不销毁原始内容——可能是旧版格式，未来迁移仍可救回。
+      if (!stateData || !stateData.mapId || !(stateData.playerData || stateData.player)) {
         return null;
       }
       return stateData;
@@ -158,20 +175,18 @@ class SaveManager {
   // 检查是否存在 2D 自动历练存档
   static hasAutoSave() {
     try {
-      if (typeof localStorage === 'undefined') return false;
-      return !!localStorage.getItem(this.SAVE_KEY_PREFIX + 'auto_progress');
-    } catch (_) {
-      return false;
+      const ls = this.storage;
+      return !!(ls && ls.getItem(this.SAVE_KEY_PREFIX + 'auto_progress'));
+    } catch (e) {      return false;
     }
   }
 
   // 清空历练存档（重新启程）
   static clearProgress() {
     try {
-      if (typeof localStorage === 'undefined') return { success: false, msg: '存储不可用。' };
-      localStorage.removeItem(this.SAVE_KEY_PREFIX + 'auto_progress');
-      this.corruptedBackup = null;
-      return { success: true, msg: '历练存档已清空，正在为您重新开启西行长卷！' };
+      const ls = this.storage;
+      if (ls) ls.removeItem(this.SAVE_KEY_PREFIX + 'auto_progress');
+      this.corruptedBackup = null;      return { success: true, msg: '历练存档已清空，正在为您重新开启西行长卷！' };
     } catch (e) {
       return { success: false, msg: '清空失败。' };
     }
@@ -180,30 +195,31 @@ class SaveManager {
   // 清除指定槽位存档
   static deleteSave(slotIndex = 1) {
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(this.SAVE_KEY_PREFIX + slotIndex);
-      }
-    } catch (_) {}
+      const ls = this.storage;
+      if (ls) ls.removeItem(this.SAVE_KEY_PREFIX + slotIndex);
+    } catch (e) {
+      console.warn('删除存档失败:', e);
+    }
   }
 
-  // 导出存档为 JSON 字符串
-  static exportSaveJson(slotIndex = 1) {
+  // 导出存档为 JSON 字符串（默认导出真正被 2D 读取的自动历练档；兼容槽位号与 auto 别名）
+  static exportSaveJson(slotIndex = 'auto_progress') {
     try {
-      if (typeof localStorage === 'undefined') return '';
-      const key = slotIndex === 'auto' || slotIndex === 'auto_progress'
-        ? this.SAVE_KEY_PREFIX + 'auto_progress'
-        : this.SAVE_KEY_PREFIX + slotIndex;
-      const raw = localStorage.getItem(key);
-      return raw || '';
-    } catch (_) {
-      return '';
+      const ls = this.storage;
+      if (!ls) return '';
+      const key = (slotIndex === 'auto' || slotIndex === 'auto_progress' || slotIndex === undefined)
+        ? 'auto_progress'
+        : slotIndex;
+      return ls.getItem(this.SAVE_KEY_PREFIX + key) || '';
+    } catch (e) {      return '';
     }
   }
 
   // 导入 JSON 字符串恢复存档（包含严格结构校验，失败不伤及现有存档）
-  static importSaveJson(slotIndex = 1, jsonStr) {
+  static importSaveJson(slotIndex = 'auto_progress', jsonStr) {
     try {
-      if (typeof localStorage === 'undefined') {
+      const ls = this.storage;
+      if (!ls) {
         return { success: false, msg: '本地存储不可用，无法导入存档。' };
       }
       if (typeof jsonStr !== 'string' || !jsonStr.trim()) {
@@ -249,12 +265,11 @@ class SaveManager {
         ? this.SAVE_KEY_PREFIX + 'auto_progress'
         : this.SAVE_KEY_PREFIX + slotIndex;
 
-      localStorage.setItem(key, JSON.stringify(payload));
+      ls.setItem(key, JSON.stringify(payload));
       this.corruptedBackup = null;
       return { success: true, msg: '外部历练存档导入成功！正在为您重新载入游戏……' };
     } catch (e) {
-      return { success: false, msg: `导入失败: ${e.message || '存储异常'}` };
-    }
+      return { success: false, msg: `导入失败: ${e.message || '存储异常'}` };    }
   }
 }
 

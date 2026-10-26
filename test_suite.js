@@ -2386,23 +2386,31 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     assert(maleXianrenSkills.some(s => s.name === '隐身咒'), '男仙人具备通用技能【隐身咒】');
 
     // 9. 三大职业天生自带初始抗性体系 (Innate Class Resistances) 断言
+    // 键名以战斗侧消费方为准：物理抗性读 res_phy（battle.js calculateAttackDamage），
+    // 玄击抗性读 res_xuanji（skills.js calculateMpDrainAttack）。
+    // 历史配置误写 res_physical 导致金刚 20% 物理抗性从未生效，故此处同时校验旧键已归一。
     const jgRes = engine.getInnateResistances('jingang');
-    assert(jgRes.res_physical === 0.20, '金刚职业天生自带 20% 物理抗性');
+    assert(jgRes.res_phy === 0.20, '金刚职业天生自带 20% 物理抗性');
+    assert(jgRes.res_physical === undefined, '金刚天生抗性不再残留未被消费的 res_physical 键');
     assert(jgRes.res_shesheng === 0.10, '金刚职业天生自带 10% 舍生抗性');
     assert(jgRes.res_xuanji === 0.05, '金刚职业天生自带 5% 玄击抗性 (全游戏唯一天生抗玄击来源)');
 
     const ymRes = engine.getInnateResistances('yaomo');
-    assert(ymRes.res_physical === 0.10, '妖魔职业天生自带 10% 物理抗性');
+    assert(ymRes.res_phy === 0.10, '妖魔职业天生自带 10% 物理抗性');
     assert(ymRes.res_leiting === 0.10, '妖魔职业天生自带 10% 雷霆抗性');
     assert(ymRes.res_feisha === 0.10, '妖魔职业天生自带 10% 飞沙抗性');
     assert(ymRes.res_sanmei === 0.10, '妖魔职业天生自带 10% 三昧真火抗性');
     assert(ymRes.res_wandu === 0.10, '妖魔职业天生自带 10% 万毒攻心抗性');
 
+    // 门派数据里的 classId 是 xianren，历史配置写成 shenxian，两种写法都必须解析得到神仙抗性
     const sxRes = engine.getInnateResistances('shenxian');
-    assert(sxRes.res_physical === 0.10, '神仙职业天生自带 10% 物理抗性');
+    assert(sxRes.res_phy === 0.10, '神仙职业天生自带 10% 物理抗性');
     assert(sxRes.res_fengyin === 0.10, '神仙职业天生自带 10% 封印抗性');
     assert(sxRes.res_luanhun === 0.10, '神仙职业天生自带 10% 乱魂抗性');
     assert(sxRes.res_dingshen === 0.10, '神仙职业天生自带 10% 定身抗性');
+    const xrRes = engine.getInnateResistances('xianren');
+    assert(xrRes.res_phy === 0.10 && xrRes.res_fengyin === 0.10,
+      'classId 为 xianren 时同样取到神仙天生抗性 (别名兼容)');
 
     // 10. 佛光普照与如来神掌【玄击】公式、伤害基数与抗玄击减免断言
     // 假设敌方为妖魔 (无抗玄击)，当前生命 2000，当前法力 1000
@@ -4888,14 +4896,14 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     const neutralDefender = { id: 'neutral_mob', name: '凡人守卫', atk: 100, def: 50, hp: 2000, maxHp: 2000, level: 20, element: null, resistances: {} };
 
     // 禁用随机浮动与暴击，仅测试五行倍率 (暴击随机会令固定种子下断言漂移)
-    const dmgCounter = window.BattleEngine.calculateAttackDamage(goldAttacker, woodDefender, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 1.20 });
-    const dmgNeutral = window.BattleEngine.calculateAttackDamage(goldAttacker, neutralDefender, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 1.0 });
+    const dmgCounter = window.BattleEngine.calculateAttackDamage(goldAttacker, woodDefender, { dmgFluctuate: 1.0, forceCrit: false, forceCombo: false, forceElemMult: 1.20 });
+    const dmgNeutral = window.BattleEngine.calculateAttackDamage(goldAttacker, neutralDefender, { dmgFluctuate: 1.0, forceCrit: false, forceCombo: false, forceElemMult: 1.0 });
     assert(dmgCounter.totalDamage > dmgNeutral.totalDamage, `金克木伤害 (${dmgCounter.totalDamage}) 显著高于中立伤害 (${dmgNeutral.totalDamage})`);
     assert(dmgCounter.attackerElement === 'gold' && dmgCounter.targetElement === 'wood', '伤害结算精确标注攻守双方五行属性');
 
     // 攻击方木属性 vs 防守方金属性 (木被金克 -> 削伤 15%~25%)
-    const dmgCountered = window.BattleEngine.calculateAttackDamage(woodDefender, goldAttacker, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 0.80 });
-    const dmgWoodToNeutral = window.BattleEngine.calculateAttackDamage(woodDefender, neutralDefender, { dmgFluctuate: 1.0, forceCrit: false, forceElemMult: 1.0 });
+    const dmgCountered = window.BattleEngine.calculateAttackDamage(woodDefender, goldAttacker, { dmgFluctuate: 1.0, forceCrit: false, forceCombo: false, forceElemMult: 0.80 });
+    const dmgWoodToNeutral = window.BattleEngine.calculateAttackDamage(woodDefender, neutralDefender, { dmgFluctuate: 1.0, forceCrit: false, forceCombo: false, forceElemMult: 1.0 });
     assert(dmgCountered.totalDamage < dmgWoodToNeutral.totalDamage, `木攻金被克伤害 (${dmgCountered.totalDamage}) 显著低于中立伤害 (${dmgWoodToNeutral.totalDamage})`);
   }
 
@@ -4967,7 +4975,17 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
       getCounterTraits: Engine.getCounterTraits,
       tryRebirth: Engine.prototype.tryRebirth,
       log() {}, calcTurnOrders() {},
-      applyDamage(t, d) { t.hp = Math.max(0, t.hp - d); } };
+      applyDamage(t, d) { t.hp = Math.max(0, t.hp - d); },
+      // 五行车阵：夹具不参与该机制，返回 null 即可（Boss 才挂 mechanicId）
+      getCartState: Engine.prototype.getCartState,
+      resolveCartBurst: Engine.prototype.resolveCartBurst,
+      advanceCartCycle: Engine.prototype.advanceCartCycle,
+      recordCartBreakDamage: Engine.prototype.recordCartBreakDamage,
+      applyCartGuard: Engine.prototype.applyCartGuard,
+      // 黑水换甲：夹具同样不参与该机制，补上入口以保持可用
+      getArmorState: Engine.prototype.getArmorState,
+      recordArmorAction: Engine.prototype.recordArmorAction,
+      cleanupArmorMechanic: Engine.prototype.cleanupArmorMechanic };
     const hpBefore = foe.hp;
     await Engine.prototype.handleEnemyTurn.call(stub, foe, { type: 'attack', targetId: 'player' }, null);
     assert(foe.hp < hpBefore, `受击方反震/反击真实对攻击者造成伤害 (${hpBefore} -> ${foe.hp})`);
@@ -5078,6 +5096,13 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
   await require('./test_p3_gameplay.js')(assert);
   await require('./test_p4_flavor.js')(assert);
   await require('./test_p5_feedback.js')(assert);
+  await require('./test_fixes_regression.js')(assert);
+  await require('./test_cart_mechanic.js')(assert);
+  await require('./test_heishui_chapter.js')(assert);
+  await require('./test_chedi_chapter.js')(assert);
+  await require('./test_tongtian_chapter.js')(assert);
+  await require('./test_huoyan_chapter.js')(assert);
+  await require('./test_pansi_chapter.js')(assert);
 
   console.log('\n======================================================');
   console.log(`🎉 全部自动化测试执行完毕！通过率: ${passedTests}/${totalTests} (${totalTests ? (passedTests / totalTests * 100).toFixed(1) : 0}%)`);
