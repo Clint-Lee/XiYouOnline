@@ -1,0 +1,77 @@
+
+=== getOrdealAndQuestInfo 的 pingding_ 分支 ===
+    } else if (sp.startsWith('pingding_')) {
+      ordealNumber = '【第十二难·莲花伏魔】';
+      ordealName = '平顶山莲花洞 · 金银双角';
+      ordealDesc = '太上老君金银童子下界为妖，携带紫金红葫芦、羊脂玉净瓶等五件至宝据守莲花洞。需收降猫妖狐众，智降老魔！';
+      chapter = '第十二回 · 莲花双魔';
+      stepName = '降伏金角银角大王';
+      stepTarget = '智斗老魔，夺取五件道祖至宝，平息平顶山大劫';
+      stepProgress = sp === 'pingding_cleared' ? '大获全胜' : '探险中';
+      stepProgressRatio = sp === 'pingding_cleared' ? 1 : 0.6;
+      stepHint = '平顶山林密洞深，小心猫妖围攻';
+      isDone = sp === 'pingding_cleared';
+    }
+
+    return {
+      ordealNumber,
+      ordealName,
+      ordealDesc,
+      ultimateGoal,
+      chapter,
+      stepName,
+      stepTarget,
+      stepProgress,
+      stepProgressRatio,
+      stepHint,
+      isDone
+    };
+  }
+
+  // 快捷交互：八十一难主线历练模态弹窗 (由右上角按钮或快捷键Q呼出)
+  openOrdealQuestModal() {
+
+=== shouldShowQuestExclamation ===
+      'huoyun_arrived': 'npc_haoshan_tudi',
+      'huoyun_redboy_ready': 'npc_redboy_disguise',
+      'huoyun_boss_ready': 'npc_redboy_boss',
+      'huoyun_cleared': null
+    };
+
+    const shouldShowQuestExclamation = (n) => {
+      // 1. 无关闲聊、或点开只是一两句空话的 NPC，绝不悬挂感叹号
+      const chattyIdleNpcs = [
+        'npc_changan_girl', 'npc_changan_scholar', 'npc_changan_hawker',
+        'npc_changan_child', 'npc_changan_guard', 'npc_village_elder',
+        'npc_qingfeng', 'npc_mingyue', 'npc_huaguo_monkey', 'npc_change',
+        'npc_fisherman'
+      ];
+      if (chattyIdleNpcs.includes(n.id)) return false;
+
+      // 2. 地面采摘物不显示感叹号
+      if (n.id.startsWith('prop_mushroom_')) return false;
+
+      // 3. 支线任务 NPC：如果有专属支线标识或刘家村土地公，显示翠绿碧玉支线感叹号 ('side')
+      if (n.isSideQuest || n.id === 'npc_liujia_tudi') {
+        const hasInteracted = this.interactedNpcSet && this.interactedNpcSet.has(n.id);
+        return hasInteracted ? false : 'side';
+      }
+      if (n.id === 'npc_yehu_hermit') {
+        const sq = this.playerData?.sideQuests?.sq_sanling_demon;
+        return (!sq || sq.step !== 'done') ? 'side' : false;
+      }
+      if (n.id && (n.id.startsWith('npc_sanling_fox_') || n.id.startsWith('npc_sanling_wolf_') || n.id === 'npc_heifeng_shura_boss')) {
+        return 'side';
+      }
+
+      // 4. 主线感叹号严格唯一匹配：只有当前阶段指定的唯一 NPC 显示金色感叹号 ('available')！
+      const currentMainTarget = MAIN_QUEST_TARGETS[this.storyPhase];
+      if (currentMainTarget && n.id === currentMainTarget) {
+        return 'available';
+      }
+
+      return false;
+    };
+
+    // 实例化 NPC (拒绝 Emoji，外观配置清晰，已点击/非任务 NPC 头顶绝不乱悬浮感叹号；依据剧情进度过滤未到出场时机的人物)
+    const visibleNpcList = (mapData.npcs || []).filter(n => this.isNpcVisibleInStoryPhase(n.id, this.storyPhase, mapId));

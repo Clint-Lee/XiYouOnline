@@ -1,0 +1,11 @@
+// ===== 部分 3：chapter_14 配置对象字面量（追加至 CHAPTER_CONFIGS 末尾） =====
+
+'chapter_14': {
+  id: 'chapter_14',
+  chapterNum: '第十四回',
+  title: '第十四回 · 车迟斗法',
+  subtitle: '车迟三仙夸术败 护僧一诀显真宗',
+  seal: '车迟显正',
+  triggerMap: 'chediguo',
+  triggerPhase: 'chedi_arrival'
+}

@@ -1,0 +1,215 @@
+### FILE: js/data/storyQuests.js
+<<<<<<< OLD
+  },
+
+  // =========================================================================
+  // 支线任务：【苍茫三岭伏魔传】剧情与交互
+  // =========================================================================
+=======
+  },
+
+  // =========================================================================
+  // 支线任务：【火云洞·圣婴大王】剧情与交互
+  // =========================================================================
+  huoyun_tudi_warning: {
+    steps: [
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '客官留步！老土地在号山当方，近来连香火都要省着烧——只因这火云洞里出了个妖王。'
+      },
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '那妖王形貌是个孩童，自称圣婴大王。可莫要被这身量哄了，他在火焰山修行三百年，炼成一身三昧真火，寻常水火近身不得。'
+      },
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '他强征"火租"，交不出的便放火烧田。洞前那片焦土，三年不长一根草，底下埋的都是乡邻的血汗。'
+      },
+      {
+        speaker: '号山土地神',
+        speakerTitle: '【受压当方土地】',
+        speakerIcon: '🍠',
+        text: '客官若在枯松涧见着孩童求救，先别急着搭手——低头看看脚印，再看看火痕。火烧过的地方，骗不了人。',
+        options: [
+          {
+            text: '【记下警示，前往枯松涧探看】',
+            action: function() {
+              window.StoryState.storyPhase = 'huoyun_redboy_ready';
+              if (typeof refreshMapNpcs === 'function') refreshMapNpcs();
+              showGameMessage('🔥 号山枯松涧方向火气蒸腾，前路已开。', 'warning', 4000);
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  huoyun_redboy_trick: {
+    steps: [
+      {
+        speaker: '枯松涧孩童',
+        speakerTitle: '【枯松涧孩童】',
+        speakerIcon: '🧒',
+        text: '救命啊——过路的神仙救命！我被一阵妖风卷到这树上，上不得下不得，爹娘都寻不见了……呜呜……'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '（抽了抽鼻子）师父面前我不好说……这娃儿身上，不是人味，是火烧过的骨头味。老孙火眼金睛，先不动声色。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '将军且看那地上——只有一行向上的脚印，直通树梢，却无半分挣扎拖拽的痕迹。焦土更是自洞口向外烧，哪里是被妖风卷来的？'
+      },
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【圣婴大王】',
+        speakerIcon: '🔥',
+        text: '（拍手大笑，从树上一跃而下，童衣化作火甲）好眼力！哭了半个时辰，嗓子都哑了，你们倒看得这般仔细。'
+      },
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【圣婴大王】',
+        speakerIcon: '🔥',
+        text: '既识破了，便按规矩来——先报名号，再动手。本大王圣婴是也，这号山一草一木、焦土一寸，皆是本王的三年火租烧出来的！'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '小小年纪，规矩倒比天庭还多。烧的是别人家的田，你只管自己的火——这账，今日该清一清了。',
+        options: [
+          {
+            text: '【识破伪装，迎战圣婴大王！】',
+            action: function() {
+              window.Dialogue.close();
+              window.App2D.triggerHuoyunScoutBattle();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  huoyun_boss_encounter: {
+    steps: [
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【圣婴大王·三昧真身】',
+        speakerIcon: '🔥',
+        text: '（周身火焰暴涨，推出五辆小车按五行排开）金木水火土，五车一动，三昧真火便要出世了！这火，烧过山，也烧过人。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '仔细！这不是凡火，水浇不灭，越浇越旺。要破它，先破这五车之阵，断了火根再说！'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '末将愿为前阵，撞碎车阵！将军只管寻那真身破绽。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '挡不住也要挡——山下那片田，不能再烧第二遍。走！',
+        options: [
+          {
+            text: '【破车阵，决战三昧真火！】',
+            action: function() {
+              window.Dialogue.close();
+              window.App2D.triggerRedboyBattle();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  huoyun_aftermath: {
+    steps: [
+      {
+        speaker: '红孩儿',
+        speakerTitle: '【力竭】',
+        speakerIcon: '🔥',
+        text: '（火甲尽碎，瘫坐于焦土）我的火……三百年的火……怎么就灭了……'
+      },
+      {
+        speaker: '观音菩萨',
+        speakerTitle: '【南海大慈大悲】',
+        speakerIcon: '🪷',
+        text: '（天罡刀化作莲台，金箍儿轻落其身）孩子，你不是生来为恶，是无人教你这火该怎么用。随我去南海，做个善财童子罢。'
+      },
+      {
+        speaker: '威灵大将',
+        speakerTitle: '【护法天将】',
+        speakerIcon: '🛡️',
+        text: '菩萨慈悲。只是山下乡邻三年火租、焦田无数，这笔账……还望有个交代。'
+      },
+      {
+        speaker: '观音菩萨',
+        speakerTitle: '【南海大慈大悲】',
+        speakerIcon: '🪷',
+        text: '将军放心。他既入我门下，赔偿山下田亩之事，便由善财童子日后亲手一一偿还——火能毁田，也能暖土，这道理，我会教他。',
+        options: [
+          {
+            text: '【目送菩萨收童子，火云洞事了】',
+            action: function() {
+              window.StoryState.storyPhase = 'huoyun_cleared';
+              if (typeof refreshMapNpcs === 'function') refreshMapNpcs();
+              if (typeof saveAutoProgress === 'function') saveAutoProgress();
+              showGameMessage('🎉【火云洞功成】圣婴大王归依南海，号山焦土得偿有期。', 'success', 6000);
+            }
+          }
+        ]
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '善财童子……这名儿，比圣婴大王讲理多了。不过账还是要还的，一亩都不能少。'
+      }
+    ]
+  },
+
+  huoyun_reward_ready: {
+    steps: [
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '火云洞的战利品，老孙先替将军收着了——这就点给你。'
+      },
+      {
+        speaker: '孙悟空',
+        speakerTitle: '【齐天大圣】',
+        speakerIcon: '🐵',
+        text: '拿好了，别嫌烫手。',
+        options: [
+          {
+            text: '【领取火云洞战利品】',
+            action: function() {
+              window.App2D.claimHuoyunReward();
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  // =========================================================================
+  // 支线任务：【苍茫三岭伏魔传】剧情与交互
+  // =========================================================================
+>>>>>>> NEW

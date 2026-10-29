@@ -1,0 +1,94 @@
+============== 五行车阵（红孩儿 Boss 机制）=====================
+
+  // 返回该敌人当前的车阵状态 buff，没有则 null
+  getCartState(enemy) {
+    if (!enemy || !Array.isArray(enemy.buffs)) return null;
+    return enemy.buffs.find(b => b && b.id === 'hh_cart_state') || null;
+  }
+=======
+  // ===================== 黑水换甲（鼍洁 Boss 机制）=====================
+
+  // 返回该敌人当前的换甲状态 buff，没有则 null
+  getArmorState(enemy) {
+    if (!enemy || !Array.isArray(enemy.buffs)) return null;
+    return enemy.buffs.find(b => b && b.id === 'hh_armor_state') || null;
+  }
+
+  // 姿态中文名：凝鳞 / 散流
+  _armorStanceName(stance) {
+    return stance === 'flowing' ? '散流' : '凝鳞';
+  }
+
+  // 初始化换甲：开场固定 scaled（凝鳞），不做任何蓄力/预告
+  initArmorMechanic(enemy) {
+    if (!enemy) return;
+    if (!Array.isArray(enemy.buffs)) enemy.buffs = [];
+    // 保证最多一条换甲状态
+    enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_armor_state');
+    const cfg = enemy.mechanicConfig || {};
+    const startStance = cfg.startStance === 'flowing' ? 'flowing' : 'scaled';
+    enemy.buffs.push({
+      id: 'hh_armor_state',
+      name: this._armorStanceName(startStance),
+      stance: startStance,
+      actionCount: 0,
+      appliedRound: this.round
+    });
+    this.log(`【黑水换甲】${enemy.name} 甲鳞紧合，化作${this._armorStanceName(startStance)}之态。`);
+  }
+
+  // 伤害修正入口：按当前姿态对单次伤害做减伤，从基础 bonus 实时计算，不改动属性
+  // 返回 { damage, stance, note }
+  static applyArmorMitigation(defender, rawDamage, isSpell) {
+    const raw = Number(rawDamage);
+    const fallback = { damage: Number.isFinite(raw) ? raw : 0, stance: null, note: '' };
+    if (!defender || !Array.isArray(defender.buffs)) return fallback;
+    const st = defender.buffs.find(b => b && b.id === 'hh_armor_state');
+    if (!st) return fallback;
+    const cfg = defender.mechanicConfig || {};
+    const scaledDefBonus = Number(cfg.scaledDefBonus) || 0;
+    const flowingMdefBonus = Number(cfg.flowingMdefBonus) || 0;
+    // 凝鳞抗物理：仅物理伤害减伤
+    if (st.stance === 'scaled' && isSpell === false) {
+      const damage = Math.max(1, Math.floor(fallback.damage / (1 + scaledDefBonus)));
+      return { damage, stance: 'scaled', note: '凝鳞抵住了部分兵刃伤害' };
+    }
+    // 散流抗法术：仅法术伤害减伤
+    if (st.stance === 'flowing' && isSpell === true) {
+      const damage = Math.max(1, Math.floor(fallback.damage / (1 + flowingMdefBonus)));
+      return { damage, stance: 'flowing', note: '散流水幕冲散了部分法力' };
+    }
+    return { damage: fallback.damage, stance: st.stance, note: '' };
+  }
+
+  // 计数入口：该敌人真正执行完一次有效行动后调用
+  // 达到 switchEvery 则切换姿态并清零计数（被控制而 return 的单位不会走到这里）
+  recordArmorAction(enemy) {
+    const st = this.getArmorState(enemy);
+    if (!st) return;
+    const cfg = enemy.mechanicConfig || {};
+    const switchEvery = Math.max(1, Number(cfg.switchEvery) || 2);
+    st.actionCount = (Number(st.actionCount) || 0) + 1;
+    if (st.actionCount >= switchEvery) {
+      st.stance = st.stance === 'scaled' ? 'flowing' : 'scaled';
+      st.actionCount = 0;
+      st.name = this._armorStanceName(st.stance);
+      st.appliedRound = this.round;
+      this.log(`【黑水换甲】${enemy.name} 甲鳞翻转，转为${st.name}之态！`);
+    }
+  }
+
+  // 战斗结束/清理换甲残留状态
+  cleanupArmorMechanic(enemy) {
+    if (enemy && Array.isArray(enemy.buffs)) {
+      enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_armor_state');
+    }
+  }
+
+  // ===================== 五行车阵（红孩儿 Boss 机制）=====================
+
+  // 返回该敌人当前的车阵状态 buff，没有则 null
+  getCartState(enemy) {
+    if (!enemy || !Array.isArray(enemy.buffs)) return null;
+    return enemy.buffs.find(b => b && b.id === 'hh_cart_state') || null;
+  }

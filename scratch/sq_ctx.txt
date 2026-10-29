@@ -1,0 +1,72 @@
+
+=== CHAPTER_CONFIGS 尾部（chapter_12）（行 3403 起）===
+ 3403|     'chapter_12': {
+ 3404|       id: 'chapter_12',
+ 3405|       chapterNum: '第十二回',
+ 3406|       title: '第十二回 · 火云烈焰',
+ 3407|       subtitle: '圣婴假哭诱西客，三昧真火燎号山',
+ 3408|       seal: '圣婴伏火',
+ 3409|       triggerMap: 'huoyundong',
+ 3410|       triggerPhase: 'huoyun_arrived'
+ 3411|     },
+ 3412|     'chapter_13': {
+ 3413|       id: 'chapter_13',
+ 3414|       chapterNum: '第十三回',
+ 3415|       title: '第十三回 · 黑水擒龙',
+ 3416|       subtitle: '黑水横流摄圣僧，龙子奉令擒妖鼍',
+ 3417|       seal: '黑水伏鼍',
+ 3418|       triggerMap: 'heishuihe',
+ 3419|       triggerPhase: 'heishui_arrived'
+ 3420|     }
+ 3421|   };
+ 3422| }
+
+=== 支线任务注释锚点（行 2451 起）===
+ 2451|   // 支线任务：【苍茫三岭伏魔传】剧情与交互
+ 2452|   // =========================================================================
+ 2453|   hermit_talk: {
+ 2454|     steps: [
+ 2455|       {
+ 2456|         speaker: '玄风道长',
+
+=== 对白对象样例 pingdingshan_laojun_aftermath（行 2196 起）===
+ 2196|   pingdingshan_laojun_aftermath: {
+ 2197|     steps: [
+ 2198|       {
+ 2199|         speaker: '太上老君',
+ 2200|         speakerTitle: '【道德天尊·太清道祖】',
+ 2201|         speakerIcon: '✨',
+ 2202|         text: '大圣住手！莫伤童儿性命！'
+ 2203|       },
+ 2204|       {
+ 2205|         speaker: '孙悟空',
+ 2206|         speakerTitle: '【火眼辨真】',
+ 2207|         speakerIcon: '🐒',
+
+=== 火云洞对白样例 huoyun_tudi_warning（行 2244 起）===
+ 2244|   huoyun_tudi_warning: {
+ 2245|     steps: [
+ 2246|       {
+ 2247|         speaker: '号山土地神',
+ 2248|         speakerTitle: '【受压当方土地】',
+ 2249|         speakerIcon: '🍠',
+ 2250|         text: '客官留步！老土地在号山当方，近来连香火都要省着烧——只因这火云洞里出了个妖王。'
+ 2251|       },
+ 2252|       {
+ 2253|         speaker: '号山土地神',
+ 2254|         speakerTitle: '【受压当方土地】',
+ 2255|         speakerIcon: '🍠',
+ 2256|         text: '那妖王形貌是个孩童，自称圣婴大王。可莫要被这身量哄了，他在火焰山修行三百年，炼成一身三昧真火，寻常水火近身不得。'
+ 2257|       },
+ 2258|       {
+ 2259|         speaker: '号山土地神',
+ 2260|         speakerTitle: '【受压当方土地】',
+ 2261|         speakerIcon: '🍠',
+ 2262|         text: '他强征"火租"，交不出的便放火烧田。洞前那片焦土，三年不长一根草，底下埋的都是乡邻的血汗。'
+ 2263|       },
+ 2264|       {
+ 2265|         speaker: '号山土地神',
+ 2266|         speakerTitle: '【受压当方土地】',
+ 2267|         speakerIcon: '🍠',
+ 2268|         text: '客官若在枯松涧见着孩童求救，先别急着搭手——低头看看脚印，再看看火痕。火烧过的地方，骗不了人。',
+ 2269|         options: [
