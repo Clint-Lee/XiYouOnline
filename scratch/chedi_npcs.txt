@@ -1,0 +1,42 @@
+// ===== 部分 2：4 个新增 NPC（完整 JS 数组元素，含在 chediguo npcs 内） =====
+
+// 受役僧人——申诉起点（stone_monkey 外观回退/和尚形象）
+{
+  id: 'npc_chedi_monk',
+  x: 576,
+  y: 704,
+  appearance: 'stone_monkey',
+  icon: '🧘',
+  name: '受役僧人',
+  dialogueKey: 'chedi_monk_appeal'
+},
+// 虎力大仙——第一场祈雨
+{
+  id: 'npc_chedi_tiger',
+  x: 832,
+  y: 384,
+  appearance: 'tiger',
+  icon: '🐯',
+  name: '虎力大仙',
+  dialogueKey: 'chedi_rain_trial'
+},
+// 鹿力大仙——第二场辨物
+{
+  id: 'npc_chedi_deer',
+  x: 288,
+  y: 288,
+  appearance: 'fox',
+  icon: '🦌',
+  name: '鹿力大仙',
+  dialogueKey: 'chedi_discern_trial'
+},
+// 羊力大仙——第三场决战前
+{
+  id: 'npc_chedi_sheep',
+  x: 928,
+  y: 512,
+  appearance: 'wolf',
+  icon: '🐑',
+  name: '羊力大仙',
+  dialogueKey: 'chedi_final_challenge'
+}

@@ -1,0 +1,503 @@
+I'll inspect the existing code structure first to match the exact format, style, and conventions.The workspace is empty — the project files referenced in the task (`js/data/maps2d.js`, `js/engine/character.js`, `STORY_DIALOGUES`, `CHAPTER_CONFIGS`) aren't present. I can't verify the exact OLD code for diff patches, and the task's actual output format request is three self-contained JS code blocks (not OLD/NEW diffs).
+
+Since the "已定方案" fully specifies all keys, speakers, coordinates, phase names, and method signatures, I can produce the three code blocks directly. Here they are.
+
+```js
+// ===== 部分 1：8 个对白键（完整 JS 对象字面量，可直接插入 STORY_DIALOGUES） =====
+
+// —— 节点 1：僧人申诉 ——
+chedi_monk_appeal: {
+  steps: [
+    {
+      // 受役僧人：严肃，不拿虚弱/求饶做包袱
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '长老留步。车迟国敬道灭僧已二十余年，举国寺院尽拆，僧众编为苦役，日搬砖石、夜守丹炉。我等非不能走，是走不得——国门有符，出城即擒。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '三大仙自称呼风唤雨、点石成金，国王奉若神明，佛法则为禁谈。同门中有不堪驱役而亡者，骨未寒而名已销。我今日斗胆拦路，只为求一句公道。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '苦役至死、禁绝一宗，此非敬道，乃假神道以逞私。师父慈悲，此事不可绕行。'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '好个“呼风唤雨”的大仙！老孙倒要会一会。你且宽心，这申诉老孙接下了——要停役、要见证、要当面问个明白。',
+      options: [
+        {
+          text: '【接下申诉，面见国王！】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_audience';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🏛️ 前往王城面见国王，约定停役与斗法条件。', 'info', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 2：王廷立约 ——
+chedi_royal_terms: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '东土高僧远来。朕非无端灭僧——二十年前大旱三载，赤地千里，唯三位仙长祈雨得应，万民方活。自此朕信道而疏佛，亦是不得已。'
+    },
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '陛下所言极是。那些秃头只会念经讨饭，于国何益？倒是这几个远来的，不知天高地厚。'
+    },
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '既敢登殿，想必有些本事。不如斗法三场——胜者立为国教，败者……自去领罚便是。'
+    },
+    {
+      speaker: '羊力大仙',
+      speakerTitle: '【灰毛羊力大仙】',
+      speakerIcon: '🐑',
+      text: '祈雨、辨物、斗术，三场定胜负。陛下以为如何？'
+    },
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '斗便斗！只是老孙有两条——斗法须当众公开见证，输赢由天下人看；再者，自今日起，受役僧人一律停罚，不得再加苦楚。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '陛下既重天意，便请以天意为证。三场既定，请先验第一场——祈雨。',
+      options: [
+        {
+          text: '【登台立约，开始第一场】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_rain';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🌧️ 第一场斗法：祈雨验术！', 'info', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 3：第一场·祈雨验术（线索选项，失败可原地重试） ——
+chedi_rain_trial: {
+  steps: [
+    {
+      // step 0：虎力上台
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '看本仙祈雨！令牌一响，风、云、雷、雨四事齐备，缺一不成。你这猴头可看仔细了——先后次第，一步也错不得。'
+    },
+    {
+      // step 1：悟空接过令牌，给出明确线索
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '令牌老孙替你使了。诸位看真——风不至则云不聚，云不聚则雷不响，雷不响则雨不落。要落雨，须先验风云，后验雷雨，次第不可乱。',
+      options: [
+        {
+          text: '【第一步：先令风起、云合】',
+          nextStep: 2
+        },
+        {
+          text: '【直接喝令落雨】',
+          // 错答：风云未合，不扣资源、不降阶段，返回观察
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      // step 2：风云既验
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '狂风骤起，黑云压城——风云已合。接下来当验何事？',
+      options: [
+        {
+          text: '【第二步：再令雷鸣、雨降】',
+          nextStep: 3
+        },
+        {
+          text: '【此时便可收法】',
+          // 错答：雷雨未验，返回观察
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      // step 3：雷雨既验，四步齐全
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '霹雳一声，大雨如注！风、云、雷、雨四事次第分明，滴水不差。虎力之“独术”，原是人人可为之事。'
+    },
+    {
+      // step 4：八戒幽默位（唯一），随后唐僧收束 → 过阶段
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '（旁有八戒嘟囔：这三位“清修”的大仙，供桌上鸡鸭鱼肉堆得比老猪的食槽还满，也好意思称清高？）这雨既是老孙唤来的，虎力独占国师的凭据，便到此为止了。'
+    },
+    {
+      // step 5：错答提示（公用返回步），不扣资源、不降阶段
+      speaker: '唐僧',
+      speakerTitle: '【御弟圣僧】',
+      speakerIcon: '🧘',
+      text: '风云未合，徒唤无雨。悟空，次第乱不得——且退回重验，先风云而后雷雨。',
+      options: [
+        {
+          text: '【静心重验，从风云看起】',
+          nextStep: 1
+        }
+      ]
+    },
+    {
+      // step 6：唐僧收束并过阶段（由 step4 顺延进入）
+      speaker: '唐僧',
+      speakerTitle: '【御弟圣僧】',
+      speakerIcon: '🧘',
+      text: '雨泽已布，万民共见。第一场既明，当赴第二场坐禅辨物。',
+      options: [
+        {
+          text: '【移步第二场：坐禅辨物】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_discern';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('🪷 第二场斗法：坐禅辨物！', 'success', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 4：第二场·坐禅辨物（线索选项，失败可原地重试） ——
+chedi_discern_trial: {
+  steps: [
+    {
+      // step 0：鹿力挑衅
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '祈雨侥幸，辨物未必。隔板之后置一物，凭你神通也看不穿。猴头，若辨不出，便乖乖认输——怎么，心乱了？手都在抖罢？'
+    },
+    {
+      // step 1：悟空先稳心神，点破袖风伎俩
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '激将无用，老孙心如止水。且慢——鹿力袖子里风声不断，分明是以袖风暗递消息、搅乱人心。此非道术，乃伎俩。先定住心神，再听物件线索。',
+      options: [
+        {
+          text: '【不理挑衅，静心辨物】',
+          nextStep: 2
+        },
+        {
+          text: '【被激动怒，隔空对骂】',
+          // 错答：心神被扰，返回观察（不随机换题）
+          nextStep: 5
+        }
+      ]
+    },
+    {
+      // step 2：物件线索
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '心定则听真。板后之物——触之坚且凉，非木非石，叩之有清响，形圆而中空。据此线索，当辨为何物？',
+      options: [
+        {
+          text: '【辨为：金钟（金属所铸）】',
+          // 正确：坚、凉、清响、中空 → 金属之钟
+          nextStep: 3
+        },
+        {
+          text: '【辨为：木案（木器）】',
+          // 错答：遗漏“非木”“清响”，返回观察
+          nextStep: 4
+        }
+      ]
+    },
+    {
+      // step 3：辨对，揭穿干扰，国王质疑
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '板后果是一口金钟，分毫不差！鹿力，方才你袖中风声作何解释？堂堂道术，竟要暗递消息、扰人心神……朕，开始不得不疑你三人了。'
+    },
+    {
+      // step 4：错答——遗漏线索，返回观察（不换题）
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '错了。线索明言“非木非石、叩之清响、形圆中空”——木器不凉、不清响，何来圆空？漏了关键，再辨一次。',
+      options: [
+        {
+          text: '【重听线索，细辨材质】',
+          nextStep: 2
+        }
+      ]
+    },
+    {
+      // step 5：被激将后的返回步（心神被扰），返回观察
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '心一乱，便入了鹿力圈套。先稳住心神，莫理其袖风挑衅，再回来辨物。',
+      options: [
+        {
+          text: '【收摄心神，重新静听】',
+          nextStep: 1
+        }
+      ]
+    },
+    {
+      // step 6：幽默位（唯一）——三仙互相拆台，悟空收束 → 过阶段
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '（鹿力急改口：本仙本就说是“金钟”，是你们听岔了！虎力忙圆场：对对，分明是钟……羊力插嘴：方才你不是说铜鼎么？三仙你一言我一语，先自拆了台。）一句话——术不敌真，强辩只会越描越黑。',
+      options: [
+        {
+          text: '【三仙恼羞，竟要动武！】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_final_trial';
+            window.App2D.refreshMapNpcs();
+            window.showGameMessage('⚔️ 三仙拒不认输，动起武来！', 'warning', 4500);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 5：第三场·决战前 ——
+chedi_final_challenge: {
+  steps: [
+    {
+      speaker: '虎力大仙',
+      speakerTitle: '【黄毛虎力大仙】',
+      speakerIcon: '🐯',
+      text: '两场作数不得！本仙有大法：砍头可再生，断首复合如初，谅你学不来！'
+    },
+    {
+      speaker: '鹿力大仙',
+      speakerTitle: '【白毛鹿力大仙】',
+      speakerIcon: '🦌',
+      text: '本仙能剖腹剜心、挖去脏腑再安然如故！这等神通，秃驴可敢比试？'
+    },
+    {
+      speaker: '羊力大仙',
+      speakerTitle: '【灰毛羊力大仙】',
+      speakerIcon: '🐑',
+      text: '还有滚油锅内沐浴而无伤！三术俱全，看你如何应对……（话虽豪壮，其声已虚，邪气隐隐外泄。）'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '夸术而已。所谓再生、复合、无伤，皆是邪法护身的障眼之术——护身一破，原形自露。大圣，不必随其比那砍剖油烹，正面破其邪法即可。',
+      options: [
+        {
+          text: '【破除邪术，三仙同场决战！】',
+          action: () => {
+            window.Dialogue.close();
+            window.App2D.triggerChediFinalBattle();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 6：战后 ——
+chedi_victory: {
+  steps: [
+    {
+      speaker: '孙悟空',
+      speakerTitle: '【齐天大圣】',
+      speakerIcon: '🐒',
+      text: '护身邪法一破，看你三个还往哪里藏！现出原形来罢。'
+    },
+    {
+      speaker: '三仙原形',
+      speakerTitle: '【原形毕露】',
+      speakerIcon: '🐾',
+      text: '（虎力化作黄毛虎，鹿力化作白毛鹿，羊力化作灰毛羊——邪气消散，妖术尽失，再无半分“仙长”模样。）'
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '朕……错了，且错得不浅。此非一句“误会”能抹。朕今日当众定下：即刻停止一切役僧之罚，开释在押僧众；拆毁的寺院照旧制重修归还；凡曾迫害僧人者，一律问责，严禁事后报复。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '陛下既有此诏，贫僧便直言所求：重修寺院之外，愿为枉死同门立碑记名，许僧众自由往来、不再编役。公道不在一时之赦，在往后再不复此祸。',
+      options: [
+        {
+          text: '【国王准诺，前往领取谢礼】',
+          action: () => {
+            window.App2D.storyPhase = 'chedi_reward_pending';
+            window.App2D.refreshMapNpcs();
+            window.App2D.saveAutoProgress();
+            window.showGameMessage('📜 三仙伏诛，可向国王领取谢礼与西行关文。', 'success', 5000);
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 7：领奖 ——
+chedi_reward: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '长老一行廓清妖氛，朕感愧交并。前诏诸事——停役、释僧、重修归还寺院、禁绝报复，朕已下旨施行，立碑记名之请亦一并准了。'
+    },
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '薄礼已备，西行关文亦用印在此，聊表谢忱。请长老收纳，一路向西无阻。',
+      options: [
+        {
+          text: '【领取谢礼与西行关文】',
+          action: () => {
+            window.App2D.claimChediReward();
+          }
+        }
+      ]
+    }
+  ]
+},
+
+// —— 节点 8：终态尾声（可重复查看，不推进阶段、不发奖） ——
+chedi_after_clear: {
+  steps: [
+    {
+      speaker: '车迟国王',
+      speakerTitle: '【车迟国主】',
+      speakerIcon: '👑',
+      text: '长老放心西去。车迟国自今释道并容，僧道各安其业，再不以神道假名行迫害之事。关文已通，四方驿路皆可凭验。'
+    },
+    {
+      speaker: '受役僧人',
+      speakerTitle: '【被役沙门】',
+      speakerIcon: '🧘',
+      roleId: 'xuanzang',
+      text: '寺院重修已动工，同门陆续获释归来。多年苦役，今日方见天光。长老之恩，车迟僧众永志不忘。'
+    },
+    {
+      speaker: '威灵大将',
+      speakerTitle: '【护法天将】',
+      speakerIcon: '🛡️',
+      text: '正道既复，护法无憾。师父，前路尚远，就此启程罢。',
+      options: [
+        {
+          text: '【告别车迟，继续西行】',
+          action: () => {
+            window.App2D.saveAutoProgress();
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+```js
+// ===== 部分 2：4 个新增 NPC（完整 JS 数组元素，含在 chediguo npcs 内） =====
+
+// 受役僧人——申诉起点（stone_monkey 外观回退/和尚形象）
+{
+  id: 'npc_chedi_monk',
+  x: 576,
+  y: 704,
+  appearance: 'stone_monkey',
+  icon: '🧘',
+  name: '受役僧人',
+  dialogueKey: 'chedi_monk_appeal'
+},
+// 虎力大仙——第一场祈雨
+{
+  id: 'npc_chedi_tiger',
+  x: 832,
+  y: 384,
+  appearance: 'tiger',
+  icon: '🐯',
+  name: '虎力大仙',
+  dialogueKey: 'chedi_rain_trial'
+},
+// 鹿力大仙——第二场辨物
+{
+  id: 'npc_chedi_deer',
+  x: 288,
+  y: 288,
+  appearance: 'fox',
+  icon: '🦌',
+  name: '鹿力大仙',
+  dialogueKey: 'chedi_discern_trial'
+},
+// 羊力大仙——第三场决战前
+{
+  id: 'npc_chedi_sheep',
+  x: 928,
+  y: 512,
+  appearance: 'wolf',
+  icon: '🐑',
+  name: '羊力大仙',
+  dialogueKey: 'chedi_final_challenge'
+}
+```
+
+```js
+// ===== 部分 3：chapter_14 配置对象字面量（追加至 CHAPTER_CONFIGS 末尾） =====
+
+'chapter_14': {
+  id: 'chapter_14',
+  chapterNum: '第十四回',
+  title: '第十四回 · 车迟斗法',
+  subtitle: '车迟三仙夸术败 护僧一诀显真宗',
+  seal: '车迟显正',
+  triggerMap: 'chediguo',
+  triggerPhase: 'chedi_arrival'
+}
+```
+
+---
+
+说明两点，供你落地时核对：
+
+1. **工作区为空**，我无法读取 `maps2d.js` / `character.js` 原文，因此按任务「输出格式」给出三段自包含代码块；NPC 元素与 chapter 对象的字段名（`id/x/y/appearance/icon/name/dialogueKey`、`CHAPTER_CONFIGS` 结构）是按惯例推断。**插入前请核对现有 NPC 元素与章节配置的实际字段名**，若有出入（如用 `type` 而非 `appearance`、无 `name` 字段等）告诉我，我即刻对齐。
+2. 线索均可从对白推出：祈雨靠"风→云→雷→雨"次第链；辨物靠"坚、凉、非木非石、清响、圆而中空"→金属金钟，木案被"非木/清响"排除。
+
+要我把这三段按 OLD/NEW 补丁格式重新落到具体文件，请先把 `maps2d.js` 和定义 `STORY_DIALOGUES`、`CHAPTER_CONFIGS` 的文件放入工作区。

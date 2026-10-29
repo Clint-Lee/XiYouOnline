@@ -1,0 +1,274 @@
+import fs from 'node:fs';
+const p = 'js/data/storyQuests.js';
+let s = fs.readFileSync(p, 'utf8');
+const crlf = s.includes('\r\n');
+if (crlf) s = s.replace(/\r\n/g, '\n');
+
+if (s.includes('tongtian_appeal:')) { console.log('已存在'); process.exit(0); }
+
+const L = [];
+const push = (line) => L.push(line);
+
+push('  // =========================================================================');
+push('  // 第十五回：八百里通天河（灵感大王 / 陈家庄祭童）');
+push('  // 阶段链：chedi_cleared → tongtian_arrival → tongtian_vowed → tongtian_altar');
+push('  //        → tongtian_rescue → tongtian_await_guanyin → tongtian_reward → tongtian_cleared');
+push('  // 叙事红线：先表态"祭童之事今日为止"、安置孩子，再动手；本章零幽默。');
+push('  // =========================================================================');
+push('');
+push('  tongtian_appeal: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '陈家长者', speakerTitle: '【陈家庄乡老】', speakerIcon: '👴',");
+push("        text: '几位长老留步。老朽不敢瞒——通天河住着灵感大王，年年此时要童男童女。陈家村在此三百年，谁敢不依？河一封，渔船尽覆，去年王家的娃子去了，就没回来。'");
+push('      },');
+push('      {');
+push("        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',");
+push("        text: '好个大王！拿娃娃下酒，也配称仙？老人家，今年该轮到谁家的孩子？'");
+push('      },');
+push('      {');
+push("        speaker: '陈家长者', speakerTitle: '【老泪纵横】', speakerIcon: '👴',");
+push("        text: '陈关保，一秤金。一个七岁，一个九岁。他爹娘不是肯撒手，是河一封，全村明年就没了活路……老朽这把年纪，只盼有人能替全村把这约破掉。'");
+push('        options: [');
+push('          { text: \'【祭童的事今日为止。孩子留下，我们去见那妖怪。】\', action: () => {');
+push('            const app = window.App2D;');
+push('            if (!app) return;');
+push("            if (app.storyPhase !== 'tongtian_arrival') return;");
+push("            app.storyPhase = 'tongtian_vowed';");
+push('            app.refreshMapNpcs();');
+push('            app.saveAutoProgress();');
+push("            window.showGameMessage('🛡️ 已向陈家庄立约：祭童之事今日为止。', 'info', 4500);");
+push('          } },');
+push("          { text: '往年也有孩子被送去吗？', nextStep: 1 }");
+push('        ]');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_child_words: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '被选中的孩童', speakerTitle: '【陈关保与一秤金】', speakerIcon: '🧒',");
+push("        text: '我是不是去了，别人就不用去了？娘别哭，我不乱跑……就是夜里想娘，看不见路。'");
+push('      },');
+push('      {');
+push("        speaker: '威灵大将', speakerTitle: '【护法天将】', speakerIcon: '🛡️',");
+push("        text: '从今往后，谁都不用去。你留在娘身边，师父和沙叔守着你们；那妖怪要见的人，今日换我们。'");
+push('      },');
+push('      {');
+push("        speaker: '唐三藏', speakerTitle: '【西行圣僧】', speakerIcon: '🧘',");
+push("        text: '孩子进屋去，把门闩上。有老衲在此，妖风近不得这扇门。',");
+push('        action: () => { if (window.App2D) window.App2D.saveAutoProgress(); }');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_vow: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',");
+push("        text: '师父、沙师弟留下看孩子，俺和八戒变成那两个娃娃的模样，去会会这鳏夫。'");
+push('      },');
+push('      {');
+push("        speaker: '唐三藏', speakerTitle: '【殷殷叮嘱】', speakerIcon: '🧘',");
+push("        text: '孩子已安顿在屋内，门窗有沙僧守着。你们此去，莫要逞强，也莫要忘了答应过他们什么。'");
+push('      },');
+push('      {');
+push("        speaker: '威灵大将', speakerTitle: '【护法天将】', speakerIcon: '🛡️',");
+push("        text: '我随大圣同行。孩子在，约定就在——今日不为除妖，为的是让此地往后不必再献一个娃娃。',");
+push('        action: () => {');
+push('          const app = window.App2D;');
+push('          if (!app) return;');
+push("          if (app.storyPhase !== 'tongtian_vowed') return;");
+push("          app.storyPhase = 'tongtian_altar';");
+push('          app.refreshMapNpcs();');
+push('          app.saveAutoProgress();');
+push("          window.showGameMessage('🎭 替身已备，前往河畔祭坛。', 'info', 4500);");
+push('        }');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_altar_rite: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '灵感大王', speakerTitle: '【通天河主】', speakerIcon: '🐟',");
+push("        text: '祭童可曾带到？……哼，好重的毫毛味。哪里来的毛脸和尚，敢管本大王的河。'");
+push('      },');
+push('      {');
+push("        speaker: '孙悟空', speakerTitle: '【被识破】', speakerIcon: '🐒',");
+push("        text: '呔！你那点寒气，瞒得过人，瞒不过老孙的火眼金睛！'");
+push('      },');
+push('      {');
+push("        speaker: '灵感大王', speakerTitle: '【河面骤冻】', speakerIcon: '🐟',");
+push("        text: '既然不来献祭，那本大王便自己来取——陈家庄，一个也别想留着。'");
+push('      },');
+push('      {');
+push("        speaker: '猪八戒', speakerTitle: '【返身护师】', speakerIcon: '🐗',");
+push("        text: '坏了，它不往孩子那边去，它往师父那边去！猴哥，先顾师父！'");
+push('      },');
+push('      {');
+push("        speaker: '威灵大将', speakerTitle: '【断后护民】', speakerIcon: '🛡️',");
+push("        text: '我带村民退向内陆，你们追它入水。今日它动不了孩子，往后也别想再动。'");
+push('        action: () => {');
+push('          const app = window.App2D;');
+push('          if (!app) return;');
+push("          if (app.storyPhase !== 'tongtian_altar') return;");
+push("          app.storyPhase = 'tongtian_rescue';");
+push('          app.refreshMapNpcs();');
+push('          app.saveAutoProgress();');
+push("          window.showGameMessage('❄️ 师父与八戒被掳入水府！探查水府入口。', 'warning', 5000);");
+push('        }');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_watergate: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '沙僧', speakerTitle: '【细察水府】', speakerIcon: '🌊',");
+push("        text: '大师兄，水府有两处口子。北边主门冰层厚得反常，寒气一股股往外吐；南边暗流口子虽小，可气泡是从不断上浮的。'");
+push('        options: [');
+push('          { text: \'【循暗流侧口潜入水府】\', action: () => {');
+push('            const app = window.App2D;');
+push('            if (!app) return;');
+push("            if (app.storyPhase !== 'tongtian_rescue') return;");
+push('            if (window.Dialogue) window.Dialogue.close();');
+push('            app.triggerTongtianRescueBattle();');
+push('          } },');
+push("          { text: '【砸开北边主门】', nextStep: 2 },");
+push("          { text: '为何主门是陷阱？', nextStep: 1 }");
+push('        ]');
+push('      },');
+push('      {');
+push("        speaker: '孙悟空', speakerTitle: '【火眼金睛】', speakerIcon: '🐒',");
+push("        text: '那冰是它故意留的门。暗流口子虽窄，水路却是活的；砸开了主门，寒气灌进来，人没进去先冻僵了。'");
+push('      },');
+push('      {');
+push("        speaker: '孙悟空', speakerTitle: '【吃亏长智】', speakerIcon: '🐒',");
+push("        text: '别硬闯。老孙刚才试过了，那门上的冰是活的——跟着沙师弟说的暗流走，气泡不断，才是真路。'");
+push('        options: [');
+push('          { text: \'【循暗流侧口潜入水府】\', action: () => {');
+push('            const app = window.App2D;');
+push('            if (!app) return;');
+push("            if (app.storyPhase !== 'tongtian_rescue') return;");
+push('            if (window.Dialogue) window.Dialogue.close();');
+push('            app.triggerTongtianRescueBattle();');
+push('          } }');
+push('        ]');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_victory: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '孙悟空', speakerTitle: '【破开水府】', speakerIcon: '🐒',");
+push("        text: '师父！八戒！俺老孙来也——那鳏夫见势不妙，往深水里窜了。'");
+push('      },');
+push('      {');
+push("        speaker: '猪八戒', speakerTitle: '【湿淋淋地抱怨】', speakerIcon: '🐗',");
+push("        text: '可别提了，那水里比御马监的泔水还凉。老猪这一身毛，回去得晾三天。'");
+push('      },');
+push('      {');
+push("        speaker: '唐三藏', speakerTitle: '【合掌致谢】', speakerIcon: '🧘',");
+push("        text: '阿弥陀佛。将军与二位高徒辛苦了。只是那妖并未伏法，河患犹在，陈家庄上下还悬着心。'");
+push('      },');
+push('      {');
+push("        speaker: '威灵大将', speakerTitle: '【去请观音】', speakerIcon: '🛡️',");
+push("        text: '此怪能冻八百里河面，恐非凡间水族。我去河畔候着——请菩萨来，才是正理。',");
+push('        action: () => {');
+push('          const app = window.App2D;');
+push('          if (!app) return;');
+push("          if (app.storyPhase !== 'tongtian_await_guanyin') return;");
+push("          app.storyPhase = 'tongtian_await_guanyin';");
+push('          app.refreshMapNpcs();');
+push('          app.saveAutoProgress();');
+push("          window.showGameMessage('🪷 妖已退回深水，然尚未伏法。去河畔见观音。', 'info', 4500);");
+push('        }');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_guanyin_arrival: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '观世音菩萨', speakerTitle: '【南海大慈大悲】', speakerIcon: '🪷',");
+push("        text: '威灵大将，久候了。此怪非他——是南海莲池中一尾金鱼，日日在莲台下听经得道，今晨潮涨，挣脱锁链，顺水至此。'");
+push('      },');
+push('      {');
+push("        speaker: '灵感大王', speakerTitle: '【现出原形】', speakerIcon: '🐟',");
+push("        text: '菩萨饶命！小的只在池中听了几句经，并未想过害人……是这河水太冷，小的才想找个暖处。'");
+push('      },');
+push('      {');
+push("        speaker: '观世音菩萨', speakerTitle: '【鱼篮收妖】', speakerIcon: '🪷',");
+push("        text: '听经不是作恶的凭据，河冷也不是食人的理据。今日老衲带你回池，重新修行；这陈家庄的约，从今作废。',");
+push('        action: () => { if (window.App2D) window.App2D.saveAutoProgress(); }');
+push('      },');
+push('      {');
+push("        speaker: '陈家长者', speakerTitle: '【率众拜谢】', speakerIcon: '👴',");
+push("        text: '菩萨慈悲！三百年的规矩，今日断了。老朽替陈家庄上下，谢菩萨、谢几位长老。'");
+push('      },');
+push('      {');
+push("        speaker: '威灵大将', speakerTitle: '【郑重收束】', speakerIcon: '🛡️',");
+push("        text: '往后若还有人拿神佛名目索要孩童，陈家庄可以拒绝，也可以来寻我们。菩萨，弟子请辞。',");
+push('        action: () => {');
+push('          const app = window.App2D;');
+push('          if (!app) return;');
+push("          if (app.storyPhase !== 'tongtian_await_guanyin') return;");
+push("          app.storyPhase = 'tongtian_reward';");
+push('          app.refreshMapNpcs();');
+push('          app.saveAutoProgress();');
+push("          window.showGameMessage('📜 祭童已止，河患已除。向陈家长者辞行。', 'success', 5000);");
+push('        }');
+push('      }');
+push('    ]');
+push('  },');
+push('');
+push('  tongtian_reward: {');
+push('    steps: [');
+push('      {');
+push("        speaker: '陈家长者', speakerTitle: '【陈家庄谢仪】', speakerIcon: '👴',");
+push("        text: '这点谢仪，是全村凑的。河路通了，孩子的命也保住了——几位长老若得便，渡河之后还请回来坐坐。'");
+push('        options: [');
+push('          { text: \'【领取谢礼，渡河东去】\', action: () => {');
+push('            const app = window.App2D;');
+push('            if (!app) return;');
+push('            app.claimTongtianReward();');
+push('          } }');
+push('        ]');
+push('      }');
+push('    ]');
+push('  },');
+
+const from = `  // =========================================================================
+  // 支线任务：【苍茫三岭伏魔传】剧情与交互
+  // =========================================================================`;
+const c = s.split(from).length - 1;
+if (c !== 1) { console.error(`锚点 ${c} 处`); process.exit(1); }
+s = s.replace(from, L.join('\n') + '\n\n' + from);
+
+const chAnchor = `      triggerMap: 'chediguo',
+      triggerPhase: 'chedi_arrival'
+    }
+  };`;
+const chBlock = `      triggerMap: 'chediguo',
+      triggerPhase: 'chedi_arrival'
+    },
+    'chapter_15': {
+      id: 'chapter_15',
+      chapterNum: '第十五回',
+      title: '第十五回 · 通天归真',
+      subtitle: '通天河冻祭童约，鱼篮收尽逆水金鳞',
+      seal: '通天止祭',
+      triggerMap: 'tongtianhe',
+      triggerPhase: 'tongtian_arrival'
+    }
+  };`;
+const c2 = s.split(chAnchor).length - 1;
+if (c2 === 1) { s = s.replace(chAnchor, chBlock); console.log('✓ chapter_15'); }
+else console.error(`✗ chapter_15 锚点 ${c2} 处`);
+
+if (crlf) s = s.replace(/\n/g, '\r\n');
+fs.writeFileSync(p, s, 'utf8');
+console.log('✓ 已插入通天河 7 个对白节点');

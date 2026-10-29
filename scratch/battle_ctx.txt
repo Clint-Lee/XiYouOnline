@@ -1,0 +1,430 @@
+
+=== 构造函数尾部 ===
+  119|     // 临时指令集
+  120|     this.actions = {}; // key: ally.id -> action
+  121|     this.turnQueue = []; // 全场速度队列
+  122| 
+  123|     // 五行车阵：初始化带该机制的 Boss，首轮预告必须在玩家提交指令前写入
+  124|     for (const enemy of this.enemies) {
+  125|       if (enemy && enemy.mechanicId === 'five_element_cart') {
+  126|         this.initCartMechanic(enemy);
+  127|       }
+  128|     }
+  129| 
+  130|     // 计算初始速度序数
+  131|     this.calcTurnOrders();
+  132|   }
+  133| 
+  134|   // 安全访问接口
+  135|   get playerBuffs() {
+  136|     const player = this.allies.find(a => a.isPlayer);
+  137|     return player ? (player.buffs || []) : [];
+  138|   }
+  139| 
+  140|   get enemyBuffs() {
+  141|     return this.enemies.map(e => e.buffs || []);
+  142|   }
+  143| 
+  144|   setPlayerAction(action) {
+  145|     const player = this.allies.find(a => a.isPlayer);
+  146|     if (player) {
+  147|       this.setAllyAction(player.id, action);
+  148|     }
+  149|   }
+  150| 
+  151|   log(msg) {
+  152|     this.logs.push(msg);
+  153|   }
+  154| 
+  155|   // 重构己方战斗阵列
+  156|   rebuildAllies() {
+  157|     const classId = this.player.classId || this.player.class || 'jingang';
+  158|     // 天生抗性与装备/门派抗性必须累加，直接 Object.assign 会让 5% 门派加值覆盖 20% 天生抗性
+  159|     const merged = {};
+
+=== defend 分支 （含后续 3 行）===
+ 1432|     if (action.type === 'defend') {
+ 1433|       ally.buffs.push({ id: 'defend', name: '防御', duration: 1, defRate: 0.5, appliedRound: this.round, expiresSameRound: true });
+ 1434|       this.log(`【${ally.name}】摆开防御架势，本回合受到伤害减半！`);
+ 1435|       // 五行车阵：防御同时获得守息避火（蓄力/爆发期且本轮未结算）
+ 1436|       this.applyCartGuard(ally);
+ 1437|       if (cb) await cb({ type: 'defend', target: ally.id, text: '凝神防御！' });
+ 1438|       return;
+ 1439|     }
+ 1440| 
+ 1441|     // 使用药品：必须先校验持有量并真实扣除，否则战斗可无限吃药、永远打不死
+ 1442|     if (action.type === 'item') {
+ 1443|       const item = window.GAME_DATA.ITEMS[action.itemId];
+ 1444|       const targetAlly = this.allies.find(a => a.id === action.targetAllyId) || ally;
+ 1445|       const inventory = window.App2D?.inventory;
+ 1446|       if (!item || !item.effect) {
+ 1447|         this.log(`【用药失败】未识别的药品。`);
+ 1448|         if (cb) await cb({ type: 'message', text: '未识别的药品' });
+ 1449|         return;
+ 1450|       }
+ 1451|       if (inventory && typeof inventory.getItemCount === 'function' &&
+ 1452|         inventory.getItemCount(action.itemId) < 1) {
+ 1453|         this.log(`【用药失败】${ally.name} 的【${item.name}】已用尽。`);
+ 1454|         if (cb) await cb({ type: 'message', text: `【${item.name}】已用尽` });
+ 1455|         return;
+ 1456|       }
+ 1457| 
+ 1458|       let healed = 0;
+ 1459|       let restored = 0;
+ 1460|       if (item.effect.hp) {
+ 1461|         const heal = Math.max(0, Math.min(item.effect.hp, targetAlly.maxHp - targetAlly.hp));
+ 1462|         if (heal > 0) {
+ 1463|           targetAlly.hp += heal;
+ 1464|           healed = heal;
+ 1465|           this.log(`【使用药品】${ally.name} 对【${targetAlly.name}】使用了【${item.name}】，恢复了 ${heal} 点气血！`);
+ 1466|           BattleEngine.playSound('playMagic');
+ 1467|           if (cb) await cb({ type: 'heal', target: targetAlly.id, amount: heal, text: `+${heal} HP` });
+ 1468|         }
+ 1469|       }
+ 1470|       if (item.effect.mp) {
+ 1471|         const restore = Math.max(0, Math.min(item.effect.mp, targetAlly.maxMp - targetAlly.mp));
+ 1472|         if (restore > 0) {
+
+=== attack 分支 applyDamage ===
+ 1573|       this.applyDamage(targetEnemy, attackRes.totalDamage);
+ 1574|       // 五行车阵：玩家主动攻击计入破阵进度
+ 1575|       this.recordCartBreakDamage(ally, targetEnemy, attackRes.totalDamage);
+ 1576| 
+ 1577|       let logMsg = `【${ally.name}】挥舞神兵，轰击【${targetEnemy.name}】！`;
+
+=== handleSkillCast 开头 ===
+ 1657|   async handleSkillCast(ally, action, cb) {
+ 1658|     const allSkills = ally.isPlayer
+ 1659|       ? (this.player.getSkills ? this.player.getSkills() : (this.player.skills || []))
+ 1660|       : (ally.skills || []);
+ 1661|     const skillKey = action.skillId || (typeof action.skill === 'string' ? action.skill : (action.skill?.id || action.skill?.name));
+ 1662|     let skill = (skillKey && allSkills.find(s => s.id === skillKey || s.name === skillKey))
+ 1663|       || (typeof action.skill === 'object' && action.skill ? { ...action.skill } : allSkills[0]);
+ 1664|     if (!skill) return;
+ 1665| 
+ 1666|     // 把真实施放的技能身份交给表现层；不能从最近一条战报猜测法术。
+ 1667|     const onSkillStep = cb;
+ 1668|     cb = onSkillStep ? (event) => onSkillStep({ ...event, skillId: skill.id, skillName: skill.name }) : null;
+ 1669| 
+ 1670|     skill.level = skill.level || 1;
+ 1671|     skill.mastery = (skill.mastery !== undefined) ? skill.mastery : (skill.proficiency || 0);
+ 1672| 
+ 1673|     const aliveEnemies = this.getAliveEnemies();
+
+=== settleRoundBuffs ===
+ 1000|   async settleRoundBuffs(cb) {
+ 1001|     for (const unit of [...this.allies, ...this.enemies]) {
+ 1002|       for (const buff of [...unit.buffs]) {
+ 1003|         // 单位已阵亡时立即停止后续结算，避免对尸体反复放毒花
+ 1004|         if (unit.hp <= 0) break;
+ 1005|         if (buff.id === 'wandu' && buff.appliedRound < this.round && unit.hp > 0) {
+ 1006|           const baseTick = Number(buff.poisonDmg);
+ 1007|           const decay = Number(buff.decayRatio);
+ 1008|           // NaN 防护：非法存档或旧数据会让中毒伤害变 NaN，进而把气血写成 NaN 造成"无损判胜"
+ 1009|           buff.poisonDmg = Math.max(1, Math.floor((Number.isFinite(baseTick) ? baseTick : 1) *
+ 1010|             (Number.isFinite(decay) ? decay : 0.75)));
+ 1011|           this.applyDamage(unit, buff.poisonDmg);
+ 1012|           this.log(`【毒伤】${unit.name} 损失 ${buff.poisonDmg} 点气血。`);
+ 1013|           if (cb) await cb({ type: 'poison_tick', ...(this.allies.includes(unit) ? { target: unit.id } : { targetIndex: unit.enemyIndex }),
+ 1014|             damage: buff.poisonDmg, text: `毒伤 -${buff.poisonDmg}` });
+ 1015|         }
+ 1016|         if (buff.id === 'bleed' && buff.appliedRound < this.round && unit.hp > 0) {
+ 1017|           const tick = Math.max(1, Math.floor(Number(buff.damagePerTurn) || 1));
+ 1018|           this.applyDamage(unit, tick);
+ 1019|           this.log(`【流血】${unit.name} 损失 ${tick} 点气血。`);
+ 1020|           if (cb) await cb({ type: 'poison_tick', ...(this.allies.includes(unit) ? { target: unit.id } : { targetIndex: unit.enemyIndex }),
+ 1021|             damage: tick, text: `流血 -${tick}` });
+ 1022|         }
+ 1023|         // 只在"施加回合之后"递减，保证后手施加的控制至少完整生效一回合。
+ 1024|         // 防御是"本回合内有效"的姿态：新代码用 expiresSameRound 显式标记，
+ 1025|         // 同时保留按名称兜底，兼容旧存档与既有断言里的裸 { name: '防御' } 写法。
+ 1026|         // 五行车阵的 duration 由 advanceCartCycle 单独推进，这里必须跳过，
+ 1027|         // 否则同一回合会被递减两次（恢复期从 2 回合缩成 1 回合）。
+ 1028|         const isCartState = buff.id === 'hh_cart_state';
+ 1029|         const isStanceBuff = buff.expiresSameRound === true || buff.name === '防御';
+ 1030|         if (!isCartState && buff.duration !== undefined && (isStanceBuff ||
+ 1031|           (buff.appliedRound !== undefined && buff.appliedRound < this.round))) buff.duration--;
+ 1032|       }
+ 1033|       // 中毒/流血致死也要走复活与死亡判定，与主动攻击链保持一致
+ 1034|       if (unit.hp <= 0) this.tryRebirth(unit);
+ 1035|       // 五行车阵是常驻机制状态，生命周期由 advanceCartCycle 全权管理，
+ 1036|       // 不能被通用到期过滤删除（否则机制只活一轮就消失）。
+ 1037|       unit.buffs = unit.buffs.filter(b => b.duration === undefined || b.duration > 0 ||
+ 1038|         (b && b.id === 'hh_cart_state'));
+ 1039|     }
+ 1040|     // 回合末推进五行车阵相位（放在常规 buff 结算之后）
+ 1041|     for (const enemy of this.enemies) {
+ 1042|       if (enemy && enemy.mechanicId === 'five_element_cart' && enemy.hp > 0) {
+ 1043|         this.advanceCartCycle(enemy);
+ 1044|       }
+ 1045|     }
+ 1046|   }
+ 1047| 
+ 1048|   // ===================== 五行车阵（红孩儿 Boss 机制）=====================
+ 1049| 
+ 1050|   // 返回该敌人当前的车阵状态 buff，没有则 null
+ 1051|   getCartState(enemy) {
+ 1052|     if (!enemy || !Array.isArray(enemy.buffs)) return null;
+ 1053|     return enemy.buffs.find(b => b && b.id === 'hh_cart_state') || null;
+ 1054|   }
+ 1055| 
+ 1056|   // 五行阵眼轮换顺序：金→木→水→火→土
+ 1057|   _cartNextElement(prev) {
+ 1058|     const order = ['metal', 'wood', 'water', 'fire', 'earth'];
+ 1059|     if (!prev) return order[0];
+ 1060|     const idx = order.indexOf(prev);
+ 1061|     return order[(idx + 1) % order.length];
+ 1062|   }
+ 1063| 
+ 1064|   // 写入首轮蓄力：phase charge，预告在玩家提交指令前展示
+ 1065|   initCartMechanic(enemy) {
+ 1066|     if (!enemy) return;
+ 1067|     if (!Array.isArray(enemy.buffs)) enemy.buffs = [];
+ 1068|     // 保证最多一条车阵状态
+ 1069|     enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_cart_state');
+ 1070|     const R = this.round; // 当前（蓄力）回合
+ 1071|     const threshold = Math.max(1, Math.floor((enemy.maxHp || enemy.hp || 0) * 0.05));
+ 1072|     const element = this._cartNextElement(null);
+ 1073|     enemy.buffs.push({
+ 1074|       id: 'hh_cart_state',
+ 1075|       name: '车阵蓄火',
+ 1076|       phase: 'charge',
+ 1077|       // 蓄力(R)→爆发(R+1) 之间经过一次回合末，duration 记为距到期的回合末次数
+ 1078|       duration: 1,
+ 1079|       appliedRound: R,
+ 1080|       activeFromRound: R,
+ 1081|       cycleStartRound: R,
+ 1082|       cycleId: (enemy.id || 'hh') + ':' + R,
+ 1083|       eyeElement: element,
+ 1084|       breakProgress: 0,
+ 1085|       breakThreshold: threshold,
+ 1086|       resolved: false
+ 1087|     });
+ 1088|     this.log(`【五行车阵】${enemy.name} 推出五辆火车，阵眼之火已然蓄起——下回合三昧真火将席卷全场！`);
+ 1089|   }
+ 1090| 
+ 1091|   // 相位推进：charge→burst→recovery→recovery→charge
+ 1092|   advanceCartCycle(enemy) {
+ 1093|     const st = this.getCartState(enemy);
+ 1094|     if (!st) return;
+ 1095|     if (st.phase === 'broken') {
+ 1096|       // 阵眼已破：维持到本轮恢复期结束再重开蓄力。
+ 1097|       // 若 duration 只给 1，破阵反而会让下一轮蓄力提前到来（玩家越努力越挨打）。
+ 1098|       st.duration--;
+ 1099|       if (st.duration <= 0) {
+ 1100|         const R = this.round + 1; // 下一回合开始新一轮蓄力
+ 1101|         const nextEl = this._cartNextElement(st.eyeElement);
+ 1102|         const threshold = Math.max(1, Math.floor((enemy.maxHp || enemy.hp || 0) * 0.05));
+ 1103|         st.name = '车阵蓄火';
+ 1104|         st.phase = 'charge';
+ 1105|         st.duration = 1;
+ 1106|         st.appliedRound = R;
+ 1107|         st.activeFromRound = R;
+ 1108|         st.cycleStartRound = R;
+ 1109|         st.cycleId = (enemy.id || 'hh') + ':' + R;
+ 1110|         st.eyeElement = nextEl;
+ 1111|         st.breakProgress = 0;
+ 1112|         st.breakThreshold = threshold;
+ 1113|         st.resolved = false;
+ 1114|         this.log(`【五行车阵】${enemy.name} 重整火车，阵眼转为新的五行，再度蓄火！`);
+ 1115|       }
+ 1116|       return;
+ 1117|     }
+ 1118|     if (st.phase === 'charge') {
+ 1119|       st.duration--;
+ 1120|       if (st.duration <= 0) {
+ 1121|         // 进入爆发：R+1 行动时执行群体三昧真火
+ 1122|         const R = this.round + 1;
+ 1123|         st.name = '五车俱燃';
+ 1124|         st.phase = 'burst';
+ 1125|         st.duration = 1;
+ 1126|         st.activeFromRound = R;
+ 1127|         // 爆发尚未执行
+ 1128|         st.resolved = false;
+ 1129|       }
+ 1130|       return;
+ 1131|     }
+ 1132|     if (st.phase === 'burst') {
+ 1133|       st.duration--;
+ 1134|       if (st.duration <= 0) {
+ 1135|         // 进入恢复：固定 2 回合只普攻
+ 1136|         const R = this.round + 1;
+ 1137|         st.name = '回气';
+ 1138|         st.phase = 'recovery';
+ 1139|         st.duration = 2;
+ 1140|         st.activeFromRound = R;
+ 1141|         st.resolved = true;
+ 1142|       }
+ 1143|       return;
+ 1144|     }
+ 1145|     if (st.phase === 'recovery') {
+ 1146|       st.duration--;
+ 1147|       if (st.duration <= 0) {
+ 1148|         // 恢复结束，建立下一轮蓄力
+ 1149|         const R = this.round + 1;
+ 1150|         const nextEl = this._cartNextElement(st.eyeElement);
+ 1151|         const threshold = Math.max(1, Math.floor((enemy.maxHp || enemy.hp || 0) * 0.05));
+ 1152|         st.name = '车阵蓄火';
+ 1153|         st.phase = 'charge';
+ 1154|         st.duration = 1;
+ 1155|         st.appliedRound = R;
+ 1156|         st.activeFromRound = R;
+ 1157|         st.cycleStartRound = R;
+ 1158|         st.cycleId = (enemy.id || 'hh') + ':' + R;
+ 1159|         st.eyeElement = nextEl;
+ 1160|         st.breakProgress = 0;
+ 1161|         st.breakThreshold = threshold;
+ 1162|         st.resolved = false;
+ 1163|         this.log(`【五行车阵】${enemy.name} 回气已毕，阵眼之火再度蓄起！`);
+ 1164|       }
+ 1165|       return;
+ 1166|     }
+ 1167|   }
+ 1168| 
+ 1169|   // 破阵累计：仅玩家主动攻击/伤害技能、蓄力期、目标为 Boss、实际扣血 > 0 才计入
+ 1170|   recordCartBreakDamage(attacker, target, dealt) {
+ 1171|     const st = this.getCartState(target);
+ 1172|     if (!st) return;
+ 1173|     // 必须处于蓄力期且窗口已开放
+ 1174|     if (st.phase !== 'charge' || st.activeFromRound > this.round) return;
+ 1175|     // 来源必须是玩家主动一方（DOT/反伤/反击由调用点不传入此函数来排除）
+ 1176|     if (!attacker || !this.allies.includes(attacker)) return;
+ 1177|     const real = Number(dealt);
+ 1178|     if (!Number.isFinite(real) || real <= 0) return;
+ 1179|     st.breakProgress += real;
+ 1180|     if (st.breakProgress >= st.breakThreshold && st.phase === 'charge' && !st.resolved) {
+ 1181|       // 破阵：转 broken，取消本轮爆发，清守息，反馈只触发一次
+ 1182|       st.phase = 'broken';
+ 1183|       st.name = '阵眼已破';
+ 1184|       st.resolved = true;
+ 1185|       // 破阵后进入与恢复等长的喘息，但不提前启动下一轮蓄力
+ 1186|       st.duration = 2;
+ 1187|       st.activeFromRound = this.round;
+ 1188|       // 清除本轮对应的守息 buff
+ 1189|       for (const ally of this.allies) {
+ 1190|         if (!Array.isArray(ally.buffs)) continue;
+ 1191|         ally.buffs = ally.buffs.filter(b => !(b && b.id === 'hh_cart_guard' && b.cycleId === st.cycleId));
+ 1192|       }
+ 1193|       this.log(`【破阵】${target.name} 的五行阵眼被击碎，三昧真火溃散，本轮爆发被彻底化解！`);
+ 1194|     }
+ 1195|   }
+ 1196| 
+ 1197|   // 授予/刷新守息：不叠加层数，R 得 duration 2、R+1 得 duration 1
+ 1198|   applyCartGuard(ally) {
+ 1199|     if (!ally) return;
+ 1200|     const bossWithCart = this.enemies.find(e =>
+ 1201|       e && e.mechanicId === 'five_element_cart' && e.hp > 0 && this.getCartState(e));
+ 1202|     if (!bossWithCart) return;
+ 1203|     const st = this.getCartState(bossWithCart);
+ 1204|     // 仅在蓄力或爆发且本轮未结算时才给守息
+ 1205|     if (!st || (st.phase !== 'charge' && st.phase !== 'burst') || st.resolved) return;
+ 1206|     if (!Array.isArray(ally.buffs)) ally.buffs = [];
+ 1207|     // 蓄力期获得可覆盖到爆发（2），爆发期获得仅当回合（1）
+ 1208|     const dur = st.phase === 'charge' ? 2 : 1;
+ 1209|     const exist = ally.buffs.find(b => b && b.id === 'hh_cart_guard');
+ 1210|     if (exist) {
+ 1211|       // 刷新而非叠加
+ 1212|       exist.sourceId = bossWithCart.id;
+ 1213|       exist.cycleId = st.cycleId;
+ 1214|       exist.appliedRound = this.round;
+ 1215|       exist.duration = dur;
+ 1216|       exist.burstDamageFactor = 0.65;
+ 1217|       exist.consumed = false;
+ 1218|     } else {
+ 1219|       ally.buffs.push({
+ 1220|         id: 'hh_cart_guard',
+ 1221|         name: '守息避火',
+ 1222|         sourceId: bossWithCart.id,
+ 1223|         cycleId: st.cycleId,
+ 1224|         appliedRound: this.round,
+ 1225|         duration: dur,
+ 1226|         burstDamageFactor: 0.65,
+ 1227|         consumed: false
+ 1228|       });
+ 1229|     }
+ 1230|     this.log(`【守息避火】${ally.name} 屏息凝神，以御三昧真火之势。`);
+ 1231|   }
+ 1232| 
+ 1233|   // 执行车阵爆发：对每个存活友方逐个结算一次三昧真火，套用守息与既有减伤链
+ 1234|   async resolveCartBurst(enemy, cb) {
+ 1235|     const st = this.getCartState(enemy);
+ 1236|     if (!st) return;
+ 1237|     // 已破阵或已结算则不爆发
+ 1238|     if (st.phase !== 'burst' || st.resolved) {
+ 1239|       st.resolved = true;
+ 1240|       return;
+ 1241|     }
+ 1242|     st.resolved = true;
+ 1243|     // 车阵爆发 = 既有 G 系法术基准威力 × 1.5
+ 1244|     const baseMagic = (enemy.magic || enemy.atk || enemy.attack || 0);
+ 1245|     const burstBase = Math.max(1, Math.floor(baseMagic * 1.5));
+ 1246|     this.log(`【五车俱燃】${enemy.name} 五辆火车同时喷焰，三昧真火席卷全场！`);
+ 1247|     if (cb) await cb({ type: 'cast', targetIndex: enemy.enemyIndex, text: '三昧真火·五车俱燃！', skillId: 'hh_cart_burst', skillName: '三昧真火' });
+ 1248|     const hits = [];
+ 1249|     const aliveAllies = this.getAliveAllies();
+ 1250|     for (const ally of aliveAllies) {
+ 1251|       if (ally.hp <= 0) continue;
+ 1252|       // 基准伤害加入轻微浮动，走既有减伤链
+ 1253|       let dmg = burstBase;
+ 1254|       // 守息减伤与普通防御取"更强"而非相乘
+ 1255|       let factor = 1;
+ 1256|       const guard = Array.isArray(ally.buffs)
+ 1257|         ? ally.buffs.find(b => b && b.id === 'hh_cart_guard' && b.sourceId === enemy.id && b.cycleId === st.cycleId && !b.consumed)
+ 1258|         : null;
+ 1259|       if (guard) {
+ 1260|         factor = Math.min(factor, guard.burstDamageFactor);
+ 1261|         guard.consumed = true;
+ 1262|       }
+ 1263|       const defend = Array.isArray(ally.buffs)
+ 1264|         ? ally.buffs.find(b => b && (b.id === 'defend' || b.name === '防御') && Number.isFinite(b.defRate))
+ 1265|         : null;
+ 1266|       if (defend) {
+ 1267|         // 普通防御 50% 减伤对应 factor 0.5，取更强（更小的 factor）
+ 1268|         factor = Math.min(factor, defend.defRate);
+ 1269|       }
+ 1270|       dmg = Math.max(1, Math.floor(dmg * factor));
+ 1271|       this.applyDamage(ally, dmg);
+ 1272|       this.log(`【三昧真火】${ally.name} 被烈焰灼烧，损失 ${dmg} 点气血。`);
+ 1273|       hits.push({ target: ally.id, damage: dmg, text: `-${dmg}` });
+ 1274|       if (ally.hp <= 0) this.tryRebirth(ally);
+ 1275|     }
+ 1276|     if (cb) await cb({ type: 'hits', hits });
+ 1277|   }
+ 1278| 
+ 1279|   // 战斗结束/破阵后清理车阵残留状态
+ 1280|   cleanupCartMechanic(enemy) {
+ 1281|     if (enemy && Array.isArray(enemy.buffs)) {
+ 1282|       enemy.buffs = enemy.buffs.filter(b => !b || b.id !== 'hh_cart_state');
+ 1283|     }
+ 1284|     for (const ally of this.allies) {
+ 1285|       if (Array.isArray(ally.buffs)) {
+ 1286|         ally.buffs = ally.buffs.filter(b => !b || b.id !== 'hh_cart_guard');
+ 1287|       }
+ 1288|     }
+ 1289|   }
+ 1290| 
+ 1291|   // 检查战斗结束
+ 1292|   checkBattleEnd() {
+
+=== handleEnemyTurn 开头 ===
+ 2227|   async handleEnemyTurn(enemy, action, cb) {
+ 2228|     if (await this.handleControlState(enemy, action, cb)) return;
+ 2229|     // 五行车阵：按相位接管红孩儿的行动
+ 2230|     const cartState = this.getCartState(enemy);
+ 2231|     if (cartState && cartState.activeFromRound <= this.round) {
+ 2232|       // 爆发回合：行动时执行一次群体三昧真火，不再普攻
+ 2233|       if (cartState.phase === 'burst' && !cartState.resolved) {
+ 2234|         await this.resolveCartBurst(enemy, cb);
+ 2235|         return;
+ 2236|       }
+ 2237|       // 蓄力回合：只做蓄火演出，不造成任何伤害
+ 2238|       if (cartState.phase === 'charge') {
+ 2239|         this.log(`【五行车阵】${enemy.name} 催动阵眼之火，烈焰升腾——本回合蓄势待发！`);
+ 2240|         if (cb) await cb({ type: 'message', text: '红孩儿正在蓄火，下回合三昧真火将席卷全场！' });
+ 2241|         return;
+ 2242|       }
+ 2243|     }
+ 2244|     const aliveAllies = this.getAliveAllies();
+ 2245|     if (aliveAllies.length === 0) return;
+ 2246| 
+ 2247|     const targetAlly = this.allies.find(a => a.id === action.targetId && a.hp > 0) || aliveAllies[0];
