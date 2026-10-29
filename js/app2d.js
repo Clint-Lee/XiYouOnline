@@ -1102,12 +1102,14 @@ class GameApp2D {
       pansi_breaking_light: 212,
       pansi_restoring: 214,
       pansi_cleared: 216,
-      poer_cleared: 218,
-      chedi_cleared: 164,
-      tongtian_cleared: 170,
-      huoyan_cleared: 180,
-      pansi_cleared: 190,
-      shituo_cleared: 200,
+      poer_cleared: 148,
+      shituo_arrived: 218,
+      shituo_recon: 220,
+      shituo_cave: 222,
+      shituo_plea: 224,
+      shituo_final: 226,
+      shituo_restoring: 228,
+      shituo_cleared: 230,
       journey_completed: 999
     };
 
@@ -1230,6 +1232,23 @@ class GameApp2D {
     if (npcId === 'npc_pansi_west_exit') {
       // 西行出口只在终态放行
       return storyPhase === 'pansi_cleared';
+    }
+
+    // 8.4 狮驼岭：报信太白、巡山小钻风、洞口、获救樵夫与西行关口
+    if (npcId === 'npc_taibai_warning') {
+      return storyPhase === 'shituo_arrived';
+    }
+    if (npcId === 'npc_shituo_zuanfeng') {
+      return storyPhase === 'shituo_recon';
+    }
+    if (npcId === 'npc_shituo_cavemouth') {
+      return ['shituo_cave', 'shituo_plea', 'shituo_final'].includes(storyPhase);
+    }
+    if (npcId === 'npc_shituo_villager') {
+      return ['shituo_restoring', 'shituo_cleared'].includes(storyPhase);
+    }
+    if (npcId === 'npc_shituo_west_exit') {
+      return storyPhase === 'shituo_cleared';
     }
 
     // 8.1.5 第十六回 火焰山
@@ -1676,6 +1695,7 @@ class GameApp2D {
     this.ensureTongtianChapterStarted();
     this.ensureHuoyanChapterStarted();
     this.ensurePansiChapterStarted();
+    this.ensureShituoChapterStarted();
 
     // 每次过图或进入新场景，自动持久化历练进度
     this.saveAutoProgress();
@@ -1797,7 +1817,14 @@ class GameApp2D {
       'pansi_seeking_rooster': 'npc_pansi_maori',
       'pansi_breaking_light': 'npc_pansi_maori',
       'pansi_restoring': 'npc_pansi_tangseng',
-      'pansi_cleared': 'npc_pansi_west_exit'
+      'pansi_cleared': 'npc_pansi_west_exit',
+      'shituo_arrived': 'npc_taibai_warning',
+      'shituo_recon': 'npc_shituo_zuanfeng',
+      'shituo_cave': 'npc_shituo_cavemouth',
+      'shituo_plea': 'npc_shituo_cavemouth',
+      'shituo_final': 'npc_shituo_cavemouth',
+      'shituo_restoring': 'npc_shituo_villager',
+      'shituo_cleared': 'npc_shituo_west_exit'
     };
 
     const shouldShowQuestExclamation = (n) => {
@@ -2498,6 +2525,19 @@ class GameApp2D {
       return;
     }
 
+    // 大雷音寺为西行终点：狮驼岭因果未了不得提前踏入
+    if (p.targetMap === 'daleiyinsi' && this.storyPhase !== 'shituo_cleared') {
+      this.autoMovePath = [];
+      this.autoMoveTargetCallback = null;
+      const angle = Math.atan2(this.playerChar.y - p.y, this.playerChar.x - p.x);
+      const safe = this.ensurePlayerSafePosition(this.currentMapId,
+        p.x + Math.cos(angle) * 30, p.y + Math.sin(angle) * 30);
+      this.playerChar.x = safe.x;
+      this.playerChar.y = safe.y;
+      window.showGameMessage('岭上因果未了，佛门重地暂不开放。先了结狮驼岭的事，再来叩门。', 'warning', 3500);
+      return;
+    }
+
     // 关隘与练功区等级限制校验 (主线对应任务特许放行)
     const pLevel = (this.playerData && this.playerData.level) || (this.player && this.player.level) || 1;
     const isWuxingWoodPass = p.targetMap === 'wuxingshan' && (this.storyPhase === 'liujiacun_go_cut_wood' || this.storyPhase === 'liujiacun_wood_gathering');
@@ -2844,6 +2884,15 @@ class GameApp2D {
     }
     this.interactedNpcSet.add(npc.id);
 
+    // 狮驼岭：太白报信与小钻风仅在对应阶段开放；洞口按阶段三态派发
+    if (npc.id === 'npc_taibai_warning' && this.storyPhase !== 'shituo_arrived') {
+      window.Dialogue.start({ steps: [{ speaker: '太白金星', speakerTitle: '【临别清风】', text: '老夫的话已带到。岭上的账，你们自己算——老夫只看结局。' }] });
+      return;
+    }
+    if (npc.id === 'npc_shituo_cavemouth') {
+      npc.dialogueKey = this.storyPhase === 'shituo_cave' ? 'shituo_cave_intro' :
+        this.storyPhase === 'shituo_plea' ? 'shituo_after_cave' : 'shituo_final_intro';
+    }
     if (npc.id === 'npc_baigujing') {
       npc.dialogueKey = this.storyPhase === 'baihu_first_cleared' ? 'baigujing_second_encounter' :
         this.storyPhase === 'baihu_second_cleared' ? 'baigujing_third_encounter' : 'baigujing_encounter';
@@ -8199,6 +8248,116 @@ class GameApp2D {
   // 叙事红线（双重责任）：八戒越界必须担责；蜘蛛精绑缚伤人也不因越界获得正当性。
   // 不新增第三类 Boss 机制；破光靠昴日星官两次啼鸣，不是打掉血条。
   // =========================================================================
+
+  // =========================================================================
+  // 第十八回：狮驼岭（阶段链与战斗口径见 storyQuests.js 狮驼对白块注释）
+  // =========================================================================
+
+  ensureShituoChapterStarted() {
+    if (this.currentMapId !== 'shituoling') return false;
+    if (this.storyPhase !== 'pansi_cleared') return false;
+    this.storyPhase = 'shituo_arrived';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
+
+  // 洞前决战：青狮精 + 白象精（战胜即因果，佛光收服走剧情）
+  triggerShituoCaveBattle() {
+    if (this.storyPhase !== 'shituo_cave') return;
+    if (this.playerData.storyEvents?.shituo_cave_won) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const qingshi = {
+      id: 'boss_shituo_qingshi', name: '青狮精', appearance: 'heixiong_guai', modelId: 'bear',
+      level: 70, hp: 52000, maxHp: 52000, mp: 12000, maxMp: 12000,
+      atk: 460, def: 230, matk: 430, mdef: 225, spd: 50,
+      skills: ['金刚护体', '雷霆万钧', '定身咒']
+    };
+    const baixiang = {
+      id: 'boss_shituo_baixiang', name: '白象精', appearance: 'heixiong_guai', modelId: 'bear',
+      level: 69, hp: 50000, maxHp: 50000, mp: 11000, maxMp: 11000,
+      atk: 440, def: 245, matk: 410, mdef: 235, spd: 46,
+      skills: ['佛光普照', '飞沙走石']
+    };
+
+    this.start2DBattle([qingshi, baixiang], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.shituo_cave_won = true;
+      this.storyPhase = 'shituo_plea';
+      const reward = this.playerData.claimStoryReward('shituo_cave', {
+        items: [{ itemId: 'jinchuang_yao', count: 2 }],
+        silver: 8000, exp: 60000
+      }, this.inventory);
+      if (!reward.success && reward.reason !== 'already_claimed') {
+        window.showGameMessage('战利先由洞中获救者代为保管——腾出行囊再来找他们领取，无须重打。', 'warning', 5000);
+      }
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      if (this.scheduleStoryDialogue) this.scheduleStoryDialogue('shituo_after_cave', 500);
+    });
+  }
+
+  // 终战：大鹏金翅雕（须先得如来应允——佛光压阵是开战前提）
+  triggerShituoFinalBattle() {
+    if (this.storyPhase !== 'shituo_final') return;
+    if (this.playerData.storyEvents?.shituo_boss_won) return;
+    if (!this.playerData.storyEvents?.shituo_buddha_pledge) return;
+    if (window.Dialogue) window.Dialogue.close();
+
+    const dapeng = {
+      id: 'boss_shituo_dapeng', name: '大鹏金翅雕', appearance: 'huangfeng_guai', modelId: 'huangfeng_guai',
+      level: 72, hp: 62000, maxHp: 62000, mp: 14000, maxMp: 14000,
+      atk: 500, def: 240, matk: 470, mdef: 235, spd: 58,
+      skills: ['雷霆万钧', '三昧真火', '封印咒']
+    };
+    const zu1 = {
+      id: 'mob_shituo_zu_1', name: '狮驼妖卒', appearance: 'wolf', modelId: 'wolf',
+      level: 62, hp: 18000, maxHp: 18000, mp: 4000, maxMp: 4000,
+      atk: 320, def: 160, matk: 280, mdef: 150, spd: 44,
+      skills: ['撕咬']
+    };
+    const zu2 = { ...zu1, id: 'mob_shituo_zu_2', name: '狮驼妖卒' };
+
+    this.start2DBattle([dapeng, zu1, zu2], () => {
+      this.playerData.storyEvents = this.playerData.storyEvents || {};
+      this.playerData.storyEvents.shituo_boss_won = true;
+      this.storyPhase = 'shituo_restoring';
+      this.updatePlayerHud();
+      this.saveAutoProgress();
+      if (this.scheduleStoryDialogue) this.scheduleStoryDialogue('shituo_victory', 500);
+    });
+  }
+
+  // 章节谢礼：获救樵夫处领取（原子入包，满包保留可重试；成功即放行西行）
+  claimShituoChapterReward() {
+    // 读档断点：奖励已入账但阶段未推进（如满包时代曾领取），补推进即可，不重发
+    if (this.playerData.storyRewards?.shituo_chapter_reward === true && this.storyPhase === 'shituo_restoring') {
+      this.storyPhase = 'shituo_cleared';
+      this.saveAutoProgress();
+      this.refreshMapNpcs();
+      return;
+    }
+    if (this.storyPhase !== 'shituo_restoring') {
+      window.showGameMessage('樵夫拱手：“恩公的账在岭上已经清了，往前走吧。”', 'info');
+      return;
+    }
+    const result = this.playerData.claimStoryReward('shituo_chapter_reward', {
+      items: [{ itemId: 'eq_peishi_shituo', count: 1 }],
+      silver: 12000, exp: 90000
+    }, this.inventory);
+    if (!result.success) {
+      if (result.reason !== 'already_claimed') {
+        window.showGameMessage('行囊装不下樵夫的谢礼，腾出一个装备格再来——玉佩给你留着。', 'warning', 5000);
+      }
+      return;
+    }
+    this.storyPhase = 'shituo_cleared';
+    this.updatePlayerHud();
+    this.saveAutoProgress();
+    window.showGameMessage('🎉【狮驼伏魔】岭上事了！获赠【狮驼辟邪玉佩】×1 与银两谢礼——西行关口已开，大雷音寺在望！', 'success', 6000);
+    this.refreshMapNpcs();
+  }
 
   ensurePansiChapterStarted() {
     if (this.currentMapId !== 'pansidong') return false;
@@ -13749,6 +13908,37 @@ class GameApp2D {
         (sp === 'pansi_poisoned' || sp === 'pansi_seeking_rooster' || sp === 'pansi_breaking_light')
           ? '不是打掉血条才破金光，须先有克制金光之人' : '泉边有人，便应止步；未得应允，不可近前';
       isDone = sp === 'pansi_cleared';
+    } else if (sp.startsWith('shituo_')) {
+      ordealNumber = '【第十九难·狮驼绝境】';
+      ordealName = '八百里狮驼岭 · 三魔与狮驼国';
+      ordealDesc = '八百里狮驼岭上，青狮、白象、大鹏三魔坐地称王，洞中犹有关而未杀之人。先听太白金星报信，再从巡山小妖口中探出宝瓶与三魔底细；脱瓶、破洞、求援灵山——佛光垂岭，方伏金翅。岭上事了，西天在望。';
+      chapter = '第十八回 · 狮驼伏魔';
+      stepName = sp === 'shituo_cleared' ? '经西行关口，奔赴大雷音寺' :
+        sp === 'shituo_restoring' ? '向获救樵夫交代善后并领取谢礼' :
+          sp === 'shituo_final' ? '随佛光阵门决战大鹏金翅雕' :
+            sp === 'shituo_plea' ? '静候灵山援应，整备决战' :
+              sp === 'shituo_cave' ? '往狮驼洞口，迎战狮象二魔' :
+                sp === 'shituo_recon' ? '向巡山小钻风探问虚实' : '听太白金星报信，应下探山';
+      stepTarget = sp === 'shituo_cleared' ? '狮驼事了，灵山在望' :
+        sp === 'shituo_restoring' ? '送归获救者、领取玉佩谢礼、了结岭上因果' :
+          sp === 'shituo_final' ? '护住佛光阵门，不让金翅冲散阵线' :
+            sp === 'shituo_plea' ? '悟空已上灵山；洞里的人还等着，不可冒进' :
+              sp === 'shituo_cave' ? '先问被掳之人下落，再论刀枪' :
+                sp === 'shituo_recon' ? '问话比闯门便宜；宝瓶之事务必问明' : '三句实话都记下：宝瓶、援手、西天有账可算';
+      stepProgress = sp === 'shituo_cleared' ? '功德圆满' :
+        sp === 'shituo_restoring' ? '金翅已伏' :
+          sp === 'shituo_final' ? '佛光垂岭' :
+            sp === 'shituo_plea' ? '狮象已败' :
+              sp === 'shituo_cave' ? '宝瓶已脱' :
+                sp === 'shituo_recon' ? '太白已别' : '初至狮驼岭';
+      stepProgressRatio = sp === 'shituo_cleared' ? 1 :
+        sp === 'shituo_restoring' ? 0.9 : sp === 'shituo_final' ? 0.75 :
+          sp === 'shituo_plea' ? 0.6 : sp === 'shituo_cave' ? 0.4 :
+            sp === 'shituo_recon' ? 0.2 : 0.05;
+      stepHint = sp === 'shituo_cleared' ? '狮驼事了，灵山在望' :
+        sp === 'shituo_final' ? '胜负即因果；佛光压阵，不必拼命' :
+          sp === 'shituo_plea' ? '山穷水尽时，西天有账可算' : '问话比闯门便宜；进洞容易出来难';
+      isDone = sp === 'shituo_cleared';
     }
 
     return {

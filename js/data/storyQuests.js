@@ -5762,7 +5762,309 @@ window.GAME_DATA.STORY_DIALOGUES = {
         ]
       }
     ]
-  }
+  },
+
+  // =========================================================================
+  // 第十八回：八百里狮驼岭·狮驼国（青狮 / 白象 / 大鹏金翅雕）
+  // 阶段链：pansi_cleared → shituo_arrived → shituo_recon → shituo_cave
+  //        → shituo_plea → shituo_final → shituo_restoring → shituo_cleared
+  // 叙事红线：狮驼国受害线索克制处理——以「获救行人各自归家」收束，不渲染凶事细节，
+  //          不拿被掳者开玩笑；三魔保持威压与分寸，幽默只放在巡山问路与路上闲谈。
+  // 战斗口径：不新增第三类 Boss 机制；胜负即因果，佛光显圣是剧情收服而非血条清空。
+  // =========================================================================
+
+  shituo_warning: {
+    steps: [
+      {
+        speaker: '太白金星', speakerTitle: '【拦路报信】', speakerIcon: '⭐',
+        text: '少侠留步。前方八百里，便是狮驼岭。老夫今日不递请帖，只递实话：那岭上坐地的不是三只妖怪，是三座山。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '老仙放心。俺老孙五百年前也占过山——山有多高，胆就得有多大。'
+      },
+      {
+        speaker: '太白金星', speakerTitle: '【三句实话】', speakerIcon: '⭐',
+        text: '那老夫只说三句。其一，洞前有个巡山的小的，问话比闯门便宜。其二，他们腰间有个宝瓶，进去容易出来难，莫逞强。其三，真到了山穷水尽，朝西天抬头——有人管这岭上的账。'
+      },
+      {
+        speaker: '太白金星', speakerTitle: '【天仙显圣】', speakerIcon: '⭐',
+        text: '话带到了。老夫隐了，你们自家当心。',
+        options: [
+          {
+            text: '【应下，先行探山】',
+            action: () => {
+              const app = window.App2D;
+              if (!app || app.storyPhase !== 'shituo_arrived') return;
+              app.storyPhase = 'shituo_recon';
+              app.refreshMapNpcs();
+              app.saveAutoProgress();
+              window.showGameMessage('⭐ 太白金星化作清风而去。前路有个敲锣巡山的小妖，先探探虚实。', 'info', 4500);
+            }
+          },
+          { text: '【记下了，告辞】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+        ]
+      }
+    ]
+  },
+
+  shituo_recon: {
+    steps: [
+      {
+        speaker: '巡山小钻风', speakerTitle: '【狮驼巡山】', speakerIcon: '🥁',
+        text: '（敲锣）大王叫俺巡山嘞！……哎，你、你这面生得很呐？哪个洞的？'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【低声】', speakerIcon: '🐒',
+        text: '嚷什么。俺们也是来投奔大王的。这岭上的规矩，你给说道说道，省得俺们冲撞了贵人。'
+      },
+      {
+        speaker: '巡山小钻风', speakerTitle: '【考较口音】', speakerIcon: '🥁',
+        text: '嘿，想进我们洞，先过俺这关！你既说是来投奔的，那你说说——咱大王的镇洞宝贝，是什么？'
+      },
+      {
+        speaker: '巡山小钻风', speakerTitle: '【等待回答】', speakerIcon: '🥁',
+        text: '说不上来，就回去把山名报明白了再来！',
+        options: [
+          {
+            text: '【金刚琢，能套万物】',
+            nextStep: 3
+          },
+          {
+            text: '【紫金红葫芦，叫名收人】',
+            nextStep: 3
+          },
+          {
+            text: '【阴阳二气瓶，一时三刻化浆水】',
+            action: () => {
+              const app = window.App2D;
+              if (!app || app.storyPhase !== 'shituo_recon') return;
+              app.playerData.storyEvents = app.playerData.storyEvents || {};
+              app.playerData.storyEvents.shituo_recon_done = true;
+              app.storyPhase = 'shituo_cave';
+              app.refreshMapNpcs();
+              app.saveAutoProgress();
+              window.showGameMessage('🕳️ 问出了宝瓶与三魔底细。随小钻风上洞前石坪——当心，宝瓶就在他身上！', 'warning', 5000);
+              if (app.scheduleStoryDialogue) app.scheduleStoryDialogue('shituo_flask_event', 400);
+            }
+          }
+        ]
+      },
+      {
+        speaker: '巡山小钻风', speakerTitle: '【啼笑皆非】', speakerIcon: '🥁',
+        text: '金刚琢？那是金兜山青牛老爷的宝贝！你投错山头啦——再想想！'
+      },
+      {
+        speaker: '巡山小钻风', speakerTitle: '【啼笑皆非】', speakerIcon: '🥁',
+        text: '紫金葫芦是平顶山两位爷的！你到底是跟谁混的？——再想想！'
+      }
+    ]
+  },
+
+  shituo_flask_event: {
+    steps: [
+      {
+        speaker: '威灵大将', speakerTitle: '【瓶中】', speakerIcon: '🛡️',
+        text: '话音未落，眼前一黑——瓶口吸入，天地倒悬。瓶中黑焰不灼皮肉，只一阵一阵地往骨头里钻凉气。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【瓶中】', speakerIcon: '🐒',
+        text: '莫慌。老孙当年在八卦炉里蹲过，比这讲究多了。——摸着了，救命毫毛在此！'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【捻毛化虹】', speakerIcon: '🐒',
+        text: '捻着毫毛喊声「变」——化作钻杆细虹，贴着瓶底一点一点磨。瓶是宝贝，毫毛是性命，看谁先熬不住！',
+        action: () => {
+          const app = window.App2D;
+          if (!app) return;
+          if (app.storyPhase !== 'shituo_cave') return;
+          app.playerData.storyEvents = app.playerData.storyEvents || {};
+          if (app.playerData.storyEvents.shituo_flask_escaped) return;
+          app.playerData.storyEvents.shituo_flask_escaped = true;
+          app.refreshMapNpcs();
+          app.saveAutoProgress();
+          window.showGameMessage('✨ 毫毛磨穿瓶底，众人脱险。出得瓶来，洞前石坪已是战场——去洞口对峙！', 'success', 5000);
+        }
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【脱险】', speakerIcon: '🛡️',
+        text: '出得瓶来，山风灌进领口，凉得干净。洞门就在头顶石坪上——这一回，是自己走进去的，不是被装进去的。'
+      }
+    ]
+  },
+
+  shituo_cave_intro: {
+    steps: [
+      {
+        speaker: '青狮精', speakerTitle: '【大大王】', speakerIcon: '🦁',
+        text: '（瓮声）瓶里没化干净的东西，自己走出来了？好胆。报上名姓，洞前石碑上好添一笔。'
+      },
+      {
+        speaker: '白象精', speakerTitle: '【二大王】', speakerIcon: '🐘',
+        text: '大哥且慢。长枪挑猴毛——这模样，像极了五百年前那只。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '认得便好，省得自报家门。俺只问一句：洞里关着的那些人，可都囫囵着？放出来，今日便算你们的体面。'
+      },
+      {
+        speaker: '青狮精', speakerTitle: '【大大王】', speakerIcon: '🦁',
+        text: '进了狮驼岭，哪有「放」字！——小的们，排开阵势！',
+        options: [
+          {
+            text: '【迎战狮象二魔】',
+            action: () => {
+              if (window.App2D) window.App2D.triggerShituoCaveBattle();
+            }
+          },
+          { text: '【先退后整备】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+        ]
+      }
+    ]
+  },
+
+  shituo_after_cave: {
+    steps: [
+      {
+        speaker: '威灵大将', speakerTitle: '【洞前】', speakerIcon: '🛡️',
+        text: '青狮白象力竭败退，洞门大开。可洞顶气压骤沉——云层里，有什么东西收了翅。'
+      },
+      {
+        speaker: '大鹏金翅雕', speakerTitle: '【三大王】', speakerIcon: '🦅',
+        text: '（云端俯瞰）两个哥哥没本事，不怪山门。小猴头，你赢的是狮与象。金翅在我背上——你连我带起的风都追不上。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '追不上便不求追。老孙上天搬兵去——你在这儿等着，把翅膀收好。'
+      },
+      {
+        speaker: '唐三藏', speakerTitle: '【西行在肩】', speakerIcon: '🧘',
+        text: '悟空。去便快去回。洞里那些人还等着——我们在这儿守着，不进洞，也不后退。',
+        options: [
+          {
+            text: '【请悟空上灵山求援】',
+            action: () => {
+              const app = window.App2D;
+              if (!app || app.storyPhase !== 'shituo_plea') return;
+              app.playerData.storyEvents = app.playerData.storyEvents || {};
+              if (app.playerData.storyEvents.shituo_buddha_pledge) return;
+              app.playerData.storyEvents.shituo_buddha_pledge = true;
+              app.storyPhase = 'shituo_final';
+              app.refreshMapNpcs();
+              app.saveAutoProgress();
+              if (app.scheduleStoryDialogue) app.scheduleStoryDialogue('shituo_buddha_arrives', 400);
+            }
+          },
+          { text: '【先整备再求援】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+        ]
+      }
+    ]
+  },
+
+  shituo_buddha_arrives: {
+    steps: [
+      {
+        speaker: '如来佛祖', speakerTitle: '【灵山显圣】', speakerIcon: '☸️',
+        text: '（佛光落岭）文殊、普贤，唤你们座下的青狮、白象回去——山是山，座骑是座骑，账要分开算。'
+      },
+      {
+        speaker: '大鹏金翅雕', speakerTitle: '【三大王】', speakerIcon: '🦅',
+        text: '佛祖。这岭上妖魔横行，你今日才来。叫我收翅容易——这岭上的账，你先答我一句。'
+      },
+      {
+        speaker: '如来佛祖', speakerTitle: '【灵山显圣】', speakerIcon: '☸️',
+        text: '我不劝你皈依，先与你论辈分，再论高低。今有取经人在此，你若肯收翅，便同护西行；你若不服——便再试一次你的云程。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【决战将启】', speakerIcon: '🛡️',
+        text: '佛光为界，阵门已开。三魔现形——最后一战，去看看那金翅到底有多快。'
+      }
+    ]
+  },
+
+  shituo_final_intro: {
+    steps: [
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '佛祖在上压阵，俺们只管放开了打。老规矩：枪对枪，棒对棒——金翅再快，也有落地的时候。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【决战将启】', speakerIcon: '🛡️',
+        text: '护住阵门与佛光，别让大鹏把阵线冲散。',
+        options: [
+          {
+            text: '【决战大鹏金翅雕】',
+            action: () => {
+              if (window.App2D) window.App2D.triggerShituoFinalBattle();
+            }
+          },
+          { text: '【稍候再战】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+        ]
+      }
+    ]
+  },
+
+  shituo_victory: {
+    steps: [
+      {
+        speaker: '如来佛祖', speakerTitle: '【灵山显圣】', speakerIcon: '☸️',
+        text: '青狮白象归座，各回各山。大鹏落了我掌心——不杀你，也不封你，你先替灵山守着这岭上的门，账慢慢算。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '好归宿。比吃人强。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【岭上】', speakerIcon: '🛡️',
+        text: '妖雾散了。先去洞里看看还关着的人——赢了仗，把人送回去才算完。'
+      }
+    ]
+  },
+
+  shituo_aftercare: {
+    steps: [
+      {
+        speaker: '获救樵夫', speakerTitle: '【死里逃生】', speakerIcon: '🪵',
+        text: '多谢……多谢恩公。俺们被关在洞里这些天，全靠彼此搭句话才撑住。名姓都记得清，出去各回各家、各报各信。'
+      },
+      {
+        speaker: '获救樵夫', speakerTitle: '【死里逃生】', speakerIcon: '🪵',
+        text: '俺们商量好了：这条岭往后改个名，叫回「青岭」。恩公若不嫌弃，行囊里翻出件旧物相赠——岭上传下来的辟邪玉佩，愿您西行一路平安。',
+        options: [
+          {
+            text: '【收下谢礼】',
+            action: () => {
+              if (window.App2D) window.App2D.claimShituoChapterReward();
+            }
+          },
+          { text: '【改日再领】', action: () => { if (window.Dialogue) window.Dialogue.close(); } }
+        ]
+      }
+    ]
+  },
+
+  shituo_cleared_end: {
+    steps: [
+      {
+        speaker: '唐三藏', speakerTitle: '【灵山在望】', speakerIcon: '🧘',
+        text: '狮驼过了。前面便是灵山大雷音寺——一路的账，到了那里自有个说法。'
+      },
+      {
+        speaker: '孙悟空', speakerTitle: '【齐天大圣】', speakerIcon: '🐒',
+        text: '师父，你这毛病又犯了。走平常路你念叨，走妖魔窝你也念叨——到了佛祖跟前，你可怎么念叨？'
+      },
+      {
+        speaker: '唐三藏', speakerTitle: '【灵山在望】', speakerIcon: '🧘',
+        text: '到了跟前，就不必念叨了。……走吧。'
+      },
+      {
+        speaker: '威灵大将', speakerTitle: '【收束】', speakerIcon: '🛡️',
+        text: '伤者归家，群妖归山。动身——西天就在眼前。',
+        action: () => { if (window.App2D) window.App2D.saveAutoProgress(); }
+      }
+    ]
+  },
+
 };
 
 // 兼容别名绑定 (确保新旧测试用例与历史存档平滑兼容)
@@ -5973,6 +6275,15 @@ if (window.GAME_DATA) {
       seal: '盘丝破妄',
       triggerMap: 'pansidong',
       triggerPhase: 'pansi_arrived'
+    },
+    'chapter_18': {
+      id: 'chapter_18',
+      chapterNum: '第十八回',
+      title: '第十八回 · 狮驼伏魔',
+      subtitle: '八百里狮驼藏凶煞，佛光垂岭伏金翅',
+      seal: '狮驼伏魔',
+      triggerMap: 'shituoling',
+      triggerPhase: 'shituo_arrived'
     }
   };
 }

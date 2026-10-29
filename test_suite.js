@@ -5103,6 +5103,7 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
   await require('./test_tongtian_chapter.js')(assert);
   await require('./test_huoyan_chapter.js')(assert);
   await require('./test_pansi_chapter.js')(assert);
+  await require('./test_shituoling_chapter.js')(assert);
 
   console.log('\n======================================================');
   console.log(`🎉 全部自动化测试执行完毕！通过率: ${passedTests}/${totalTests} (${totalTests ? (passedTests / totalTests * 100).toFixed(1) : 0}%)`);

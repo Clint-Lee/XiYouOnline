@@ -6,7 +6,7 @@
 > *技术栈*: 原生 HTML5 / Canvas API / Modern CSS3 / Node.js 极简静态服务（零第三方外部大引擎包袱）  
 > *代码仓库*: `https://github.com/Libaoyun/XiYouOnline.git` (分支: `develop`)  
 > *本地服务*: `http://localhost:5173/` (运行终端: `pnpm dev` 或 `node server.js`)  
-> *自动化测试*: `node test_suite.js`（2026-10-25：2683/2683 项断言通过）
+> *自动化测试*: `node test_suite.js`（2026-10-26：3426/3426 项断言通过）
 
 > **2026-10-25 第二批 · P5 收官（反馈分级与战果清点）**：
 > 1. **P5.1 战斗反馈分级**：抵抗与闪避视觉分离（暖橙 `float-resist` vs 纯白 `float-dodge`）；伤害飘字按 `attackResult.elementRelation` 附加 `⚡克制 / 🛡被克` 前缀；飘字七类映射重构为 `_floatClassForType` 纯函数共用。

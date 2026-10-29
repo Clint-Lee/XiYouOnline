@@ -689,6 +689,22 @@ window.GAME_DATA.ITEMS = {
     desc: '【土属性挂链】以破除金光后散落的蜈蚣壳屑与盘丝岭净土共炼，佩戴后赋予主人五行【土】属性！厚土辟毒，妖氛不近。'
   },
 
+  eq_peishi_shituo: {
+    id: 'eq_peishi_shituo',
+    name: '【金】狮驼辟邪玉佩',
+    type: 'equip',
+    slot: 'necklace',
+    element: 'gold',
+    reqLevel: 70,
+    icon: '🟡',
+    price: 62000,
+    quality: 'gold',
+    attrs: { atk: 78, def: 60, matk: 230, mdef: 200, mp: 980 },
+    resists: { phy: 32, leiting: 24, fengyin: 22 },
+    counterAttackRate: 0.14,
+    desc: '【金属性挂链】狮驼岭获救百姓相传的辟邪古佩，佛光垂岭之夜灵光大盛。佩戴后赋予主人五行【金】属性！金啸镇岭，邪祟避行。'
+  },
+
   // === 剧情战利特级神装 ===
   eq_ring_baigu: {
     id: 'eq_ring_baigu',
