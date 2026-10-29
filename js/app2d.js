@@ -3819,6 +3819,12 @@ class GameApp2D {
         matchedChapterKey = 'chapter_17';
       }
     }
+    // 18. 第十八回：狮驼岭（青狮/白象/大鹏金翅雕）
+    else if (mapId === 'shituoling') {
+      if (!this.shownChapterSet.has('chapter_18')) {
+        matchedChapterKey = 'chapter_18';
+      }
+    }
     // 16. 第十六回：火焰山（铁扇公主/牛魔王）
     else if (mapId === 'huoyanshan') {
       if (!this.shownChapterSet.has('chapter_16')) {

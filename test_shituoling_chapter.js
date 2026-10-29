@@ -275,6 +275,14 @@ module.exports = async function (assert) {
       '大雷音寺传送门必须挂狮驼终态门禁');
   }
 
+  // ── 10.5 章回开幕分支已接入 ──
+  {
+    const code = require('fs').readFileSync(
+      require('path').join(__dirname, 'js/app2d.js'), 'utf8');
+    assert(code.includes("mapId === 'shituoling'") && code.includes("shownChapterSet.has('chapter_18')"),
+      '章回开幕触发链必须包含狮驼岭分支（画卷展开不缺席）');
+  }
+
   // ── 11. 主线唯一感叹号：狮驼七阶段目标全部有归属 ──
   {
     // 感叹号目标表闭包于 getQuestTargets 内，以源码断言防回归

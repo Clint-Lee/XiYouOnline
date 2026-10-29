@@ -1,6 +1,19 @@
 # 西游项目下一轮开发交接
 
 ## 当前接手入口：下一阶段玩法与体验开发（2026-10-26 更新）
+**2026-10-26 补充（推送前收官）：**
+- 补齐第十八回章回开幕触发链分支（`shituoling` → chapter_18 画卷展开此前不会触发，已修并加源码断言，基线 3427/3427）。
+- **仓库远端已迁移：新源 `https://github.com/Clint-Lee/XiYouOnline.git`**（旧源 Libaoyun/XiYouOnline 仍保留为 origin；推送请以新源为准）。
+
+**下一步：大雷音寺终章（取经功成）——勘察已完成，照此直接开工：**
+1. 舞台就绪：`daleiyinsi` 地图 38x28 全图连通（1064 格），`npc_rulai_buddha`@(608,256) tile(19,8)、`npc_anuo_jiaye`@(800,352) tile(25,11) 均可达且声明对白键 `rulai_talk`/`anuo_talk`（已存在）；狮驼岭西侧传送门 (32,448) 已挂 `shituo_cleared` 终态门禁，落点 (1120,448) 可达。
+2. 建议五阶段链：`daleiyi_arrived(232)→request(234)→sutra(236)→journey_completed(999)`，加 `ensureDaleiyinsiChapterStarted`（进图自启，仿 shituo）；`journey_completed` 权重 999 已存在。
+3. 对白要点（4 个新键 + 复用 rulai_talk/anuo_talk 回访）：拜佛陈情 → 阿傩·迦叶索人事（“白得的经人不惜字”，紫金钵盂相赠）→ 传经收束（“你欠的账路上都还了；这一卷是众生欠你们的”）→ 终态回访。动态派发仿守门夜叉三态（rulai/anuo 按 phase 分发到新对白或 rulai_talk/anuo_talk）。
+4. 需新增物品：`zijin_boyu`（紫金钵盂，quest_item 参照 biao_letter 格式）、`zhenjing_dacheng`（大乘真经，终章奖励 trophy）；终章奖励 `claimStoryReward('daleiyi_finale')` 原子入包（满包保留重试 + 已领取未推进阶段的读档断点守卫，仿 claimShituoChapterReward）。
+5. CHAPTER_CONFIGS 增 `finale`（chapterNum 终章 · 功德圆满，triggerMap daleiyinsi / triggerPhase daleiyi_arrived）**并在 checkAndTriggerChapterOpening 触发链加对应分支**（链是硬编码 else-if，勿只加配置）。
+6. 卷轴分支：`daleiyi_`/`journey_completed` 落【第八十一难·功行圆满】终章卷轴（当前未接会回落“与刘伯钦对话”旧任务——测试断言防回落）；MAIN_QUEST_TARGETS 四阶段归属（arrived→rulai, request/sutra→anuo, journey_completed→rulai）。
+7. 门禁修正：tryEnterPortal 的 daleiyinsi 分支当前只放行 `shituo_cleared`，需扩展为数组包含 daleiyi 各阶段与 journey_completed，否则功成后回不了灵山。
+8. 回归仿 `test_shituoling_chapter.js`（11 节结构）。终章交付后游戏进入自由探索圆满态；`journey_completed` 已在存档兼容列表（行 99/745 与正则）无需改。
 **2026-10-26 新增：第十八回狮驼岭全章闭环落地（合并后基线 3324 → 3426/3426 全绿）。** 要点：
 1. 狮驼岭地图重建（可行走 7.1%→36.6%，官道/狮驼洞/南部山谷三区全连通）+ 5 个章节 NPC（太白报信/巡山小钻风/守门夜叉/获救樵夫/西行关口，全部可达且模型分发合规）。
 2. 七阶段链：shituo_arrived → recon → cave → plea → final → restoring → cleared（权重 218-230），含巡山线索题（两错一正）、阴阳二气瓶脱险事件、狮象二魔战、灵山求援、大鹏终战（佛援为开战前提）、善后领礼。
