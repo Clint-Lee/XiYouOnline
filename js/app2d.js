@@ -1955,6 +1955,23 @@ class GameApp2D {
         avatarCircleEl.innerHTML = window.Portraits ? window.Portraits.getPortraitSvg(roleId, 26) : '🧙‍♂️';
       }
     }
+    this.updateH5QuestPill();
+  }
+
+  // 实时同步 H5 移动控制台中的任务目标徽章
+  updateH5QuestPill() {
+    const pillText = document.getElementById('h5-quest-pill-text');
+    if (!pillText) return;
+    try {
+      if (typeof this.getOrdealAndQuestInfo === 'function') {
+        const info = this.getOrdealAndQuestInfo();
+        if (info && info.ordealName) {
+          pillText.innerText = '历练: ' + info.ordealName;
+          return;
+        }
+      }
+    } catch (e) {}
+    pillText.innerText = '📜 历练目标';
   }
 
   // 依据真实容器尺寸与设备像素比同步画布，保证 CSS 显示尺寸、画布属性尺寸与点击换算三者一致
@@ -2252,6 +2269,127 @@ class GameApp2D {
         }
       });
     }
+
+    // 初始化移动端专属 H5 虚拟摇杆罗盘与快捷交互
+    this.initH5TouchController();
+  }
+
+  // H5 移动触屏专属：五维虚拟摇杆罗盘与指尖快捷交互系统
+  initH5TouchController() {
+    const dpad = document.getElementById('h5-dpad-base');
+    if (!dpad) return;
+
+    let activePointerId = null;
+
+    const updateDirectionFromPointer = (clientX, clientY) => {
+      const rect = dpad.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = clientX - centerX;
+      const dy = clientY - centerY;
+      const dist = Math.hypot(dx, dy);
+
+      this.keysDown['ArrowUp'] = false;
+      this.keysDown['ArrowDown'] = false;
+      this.keysDown['ArrowLeft'] = false;
+      this.keysDown['ArrowRight'] = false;
+
+      dpad.querySelectorAll('.h5-dpad-btn').forEach(b => b.classList.remove('active'));
+
+      if (dist < 14) {
+        const centerBtn = document.getElementById('h5-dpad-center');
+        if (centerBtn) centerBtn.classList.add('active');
+        return;
+      }
+
+      // 依据极坐标角度判定 4 方向 (-180 ~ 180)
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      if (angle >= -135 && angle <= -45) {
+        this.keysDown['ArrowUp'] = true;
+        const btn = document.getElementById('h5-dpad-up');
+        if (btn) btn.classList.add('active');
+      } else if (angle >= 45 && angle <= 135) {
+        this.keysDown['ArrowDown'] = true;
+        const btn = document.getElementById('h5-dpad-down');
+        if (btn) btn.classList.add('active');
+      } else if (Math.abs(angle) > 135) {
+        this.keysDown['ArrowLeft'] = true;
+        const btn = document.getElementById('h5-dpad-left');
+        if (btn) btn.classList.add('active');
+      } else if (Math.abs(angle) < 45) {
+        this.keysDown['ArrowRight'] = true;
+        const btn = document.getElementById('h5-dpad-right');
+        if (btn) btn.classList.add('active');
+      }
+    };
+
+    const stopDpad = (e) => {
+      if (activePointerId !== null && e && e.pointerId !== activePointerId) return;
+      activePointerId = null;
+      this.keysDown['ArrowUp'] = false;
+      this.keysDown['ArrowDown'] = false;
+      this.keysDown['ArrowLeft'] = false;
+      this.keysDown['ArrowRight'] = false;
+      dpad.querySelectorAll('.h5-dpad-btn').forEach(b => b.classList.remove('active'));
+    };
+
+    dpad.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      activePointerId = e.pointerId;
+      try { dpad.setPointerCapture(e.pointerId); } catch (err) {}
+      updateDirectionFromPointer(e.clientX, e.clientY);
+    });
+
+    dpad.addEventListener('pointermove', (e) => {
+      if (activePointerId === null || e.pointerId !== activePointerId) return;
+      e.preventDefault();
+      updateDirectionFromPointer(e.clientX, e.clientY);
+    });
+
+    dpad.addEventListener('pointerup', stopDpad);
+    dpad.addEventListener('pointercancel', stopDpad);
+    dpad.addEventListener('pointerleave', stopDpad);
+
+    // 中心按键点击与互动
+    const centerBtn = document.getElementById('h5-dpad-center');
+    if (centerBtn) {
+      centerBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.interactNearby();
+        if (window.Sound && window.Sound.playBeep) window.Sound.playBeep();
+      });
+    }
+
+    // 右侧大按键：交谈/互动
+    const actInteract = document.getElementById('h5-btn-interact');
+    if (actInteract) {
+      actInteract.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.interactNearby();
+      });
+    }
+
+    // 虚拟罗盘显隐开关与持久化记忆
+    const toggleBtn = document.getElementById('h5-toggle-pad-btn');
+    const dpadContainer = document.getElementById('h5-dpad-container');
+    if (toggleBtn && dpadContainer) {
+      try {
+        const saved = localStorage.getItem('xiyou_h5_pad');
+        if (saved === 'hidden') {
+          dpadContainer.style.display = 'none';
+          toggleBtn.innerText = '👆 纯点';
+        }
+      } catch (err) {}
+
+      toggleBtn.addEventListener('click', () => {
+        const isHidden = dpadContainer.style.display === 'none';
+        dpadContainer.style.display = isHidden ? 'flex' : 'none';
+        toggleBtn.innerText = isHidden ? '🎮 罗盘' : '👆 纯点';
+        try { localStorage.setItem('xiyou_h5_pad', isHidden ? 'visible' : 'hidden'); } catch (err) {}
+      });
+    }
+
+    this.updateH5QuestPill();
   }
 
   // 集中计算实际绘制矩形，消除 object-fit: contain 居中黑边对点击造成的坐标偏移
@@ -3106,7 +3244,12 @@ class GameApp2D {
     this.playerChar.isRiding = isRiding;
     window.Sound.playSuccess();
     const btn = document.getElementById('quick-ride-btn');
-    if (btn) btn.innerText = isRiding ? '🏇 状态:骑乘中' : '🚶 状态:步行中';
+    if (btn) {
+      const isMobile = window.innerWidth <= 600;
+      btn.innerText = isMobile 
+        ? (isRiding ? '🏇 骑乘' : '🚶 步行')
+        : (isRiding ? '🏇 状态:骑乘中' : '🚶 状态:步行中');
+    }
     window.showGameMessage(isRiding ? '🏇 已翻身上马疾驰，移动速度提升！' : '🚶 已翻身下马改为步行。', 'info');
   }
 

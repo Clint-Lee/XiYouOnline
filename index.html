@@ -44,21 +44,21 @@
     <nav class="nav-controls">
       <button id="top-restart-btn" onclick="window.App2D.restartGame()" class="nav-btn nav-btn-restart"
         title="放弃当前所有历练与属性，格式化恢复到游戏最开始">
-        🔄 重新开始
+        <span class="nav-btn-icon">🔄</span><span class="nav-btn-text">重置</span>
       </button>
       <button id="top-save-btn" onclick="window.App2D.saveManualProgress()" class="nav-btn nav-btn-save"
         title="立即手动保存历练进度">
-        <span id="save-status-indicator" style="color:#2ed573;font-size:10px;">●</span> 存档
+        <span id="save-status-indicator" style="color:#2ed573;font-size:10px;">●</span><span class="nav-btn-text">存档</span>
       </button>
       <button id="toggle-sound-btn" class="nav-btn" title="一键开启或关闭复古 8-bit 音效">
-        🔇 音效:关
+        <span class="nav-btn-icon">🔇</span><span class="nav-btn-text">音效</span>
       </button>
       <button id="toggle-mode-btn" class="nav-btn" title="在经典按键机与大屏模式之间切换">
-        📱 掌机
+        <span class="nav-btn-icon">📱</span><span class="nav-btn-text">掌机</span>
       </button>
       <button id="top-menu-btn" onclick="window.App2D.toggleFoldableMenu()" class="nav-btn nav-btn-menu-highlight"
         title="展开/收起系统主菜单 (快捷键: M)">
-        📜 菜单
+        <span class="nav-btn-icon">📜</span><span class="nav-btn-text">菜单</span>
       </button>
     </nav>
   </header>
@@ -76,21 +76,24 @@
         <!-- 2D 游戏视口宿主 -->
         <div class="game-viewport" id="game-viewport" style="position:relative;">
           <!-- 场景标题悬浮浮条 (右上角) -->
-          <div style="position:absolute;top:8px;right:8px;z-index:10;display:flex;gap:6px;">
+          <div class="viewport-hud-bar" id="viewport-hud-bar">
             <span class="scene-location-badge" id="scene-location-text">🏯 天宫·南天门与凌霄宝殿</span>
-            <button onclick="window.App2D.openOrdealQuestModal()" id="quest-ordeal-btn" class="nav-btn"
-              style="padding:2px 8px;font-size:11px;background:rgba(35,20,10,0.92);border-color:#ffd700;color:#fce7b2;box-shadow:0 0 6px rgba(255,215,0,0.35);cursor:pointer;"
+            <button onclick="window.App2D.openOrdealQuestModal()" id="quest-ordeal-btn" class="nav-btn viewport-hud-btn"
               title="查看西行八十一难与当前主线目标 (快捷键: Q)">
-              📜 历练 [Q]
+              <span class="hud-btn-icon">📜</span>
+              <span class="hud-btn-text">历练</span>
+              <span class="hud-btn-hotkey">[Q]</span>
             </button>
-            <button onclick="window.App2D.toggleSceneRosterModal()" id="scene-roster-btn" class="nav-btn"
-              style="padding:2px 8px;font-size:11px;background:rgba(20,15,10,0.85);border-color:#ffd700;"
+            <button onclick="window.App2D.toggleSceneRosterModal()" id="scene-roster-btn" class="nav-btn viewport-hud-btn"
               title="翻阅山海经生灵图鉴与万灵名册 (快捷键: Tab)">
-              📖 山海经 [Tab]
+              <span class="hud-btn-icon">📖</span>
+              <span class="hud-btn-text">山海经</span>
+              <span class="hud-btn-hotkey">[Tab]</span>
             </button>
-            <button onclick="window.App2D.toggleMountRiding()" id="quick-ride-btn" class="nav-btn"
-              style="padding:2px 8px;font-size:11px;background:rgba(20,15,10,0.85);border-color:#ffd700;">
-              🏇 状态:骑乘中
+            <button onclick="window.App2D.toggleMountRiding()" id="quick-ride-btn" class="nav-btn viewport-hud-btn"
+              title="上下坐骑 (快捷键: R)">
+              <span class="hud-btn-icon">🏇</span>
+              <span class="hud-btn-text" id="quick-ride-text">骑乘</span>
             </button>
           </div>
 
@@ -328,6 +331,55 @@
           <button class="quick-action-btn" onclick="window.App2D.openInventoryModal('all')" title="打开仙家乾坤袋 (快捷键: B)">
             <span>🎒</span> 背包 <span class="kbd-sub">[B]</span>
           </button>
+        </div>
+      </div>
+
+      <!-- H5 移动端与触屏专属：五维虚拟罗盘与指尖快捷动作轮盘 -->
+      <div class="h5-touch-controller" id="h5-touch-controller">
+        <!-- 左侧：触屏五维罗盘 (D-Pad) -->
+        <div class="h5-dpad-container" id="h5-dpad-container">
+          <div class="h5-dpad-base" id="h5-dpad-base">
+            <button class="h5-dpad-btn h5-dpad-up" id="h5-dpad-up" data-dir="up" title="向上走">▲</button>
+            <button class="h5-dpad-btn h5-dpad-left" id="h5-dpad-left" data-dir="left" title="向左走">◀</button>
+            <button class="h5-dpad-btn h5-dpad-center" id="h5-dpad-center" title="互动交谈">
+              <span class="taiji-symbol">☯</span>
+            </button>
+            <button class="h5-dpad-btn h5-dpad-right" id="h5-dpad-right" data-dir="right" title="向右走">▶</button>
+            <button class="h5-dpad-btn h5-dpad-down" id="h5-dpad-down" data-dir="down" title="向下走">▼</button>
+          </div>
+        </div>
+
+        <!-- 中部：当前主线任务指引徽章与控制切换 -->
+        <div class="h5-touch-center-hud">
+          <div class="h5-quest-pill" id="h5-quest-pill" onclick="window.App2D.openOrdealQuestModal()" title="点击查看主线历练目标">
+            <span class="h5-quest-pill-icon">📜</span>
+            <span class="h5-quest-pill-text" id="h5-quest-pill-text">历练目标</span>
+          </div>
+          <button class="h5-toggle-pad-btn" id="h5-toggle-pad-btn" title="收起/展开触控罗盘">
+            🎮 罗盘
+          </button>
+        </div>
+
+        <!-- 右侧：指尖动作金刚阵 (交谈互动、坐骑、背包、属性、菜单) -->
+        <div class="h5-action-cluster">
+          <button class="h5-act-main" id="h5-btn-interact" title="与附近NPC或场景物体互动 (交谈/接任务)">
+            <span class="act-icon">💬</span>
+            <span class="act-text">交互</span>
+          </button>
+          <div class="h5-act-sub-row">
+            <button class="h5-act-sub" id="h5-btn-mount" onclick="window.App2D.toggleMountRiding()" title="上下坐骑">
+              <span>🏇</span>
+            </button>
+            <button class="h5-act-sub" id="h5-btn-bag" onclick="window.App2D.openInventoryModal('all')" title="打开仙囊背包">
+              <span>🎒</span>
+            </button>
+            <button class="h5-act-sub" id="h5-btn-profile" onclick="window.App2D.openPlayerProfileModal()" title="人物属性与潜能">
+              <span>👤</span>
+            </button>
+            <button class="h5-act-sub" id="h5-btn-menu" onclick="window.App2D.toggleFoldableMenu()" title="三界主菜单">
+              <span>📜</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
