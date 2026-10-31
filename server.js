@@ -10,6 +10,12 @@ const path = require('path');
 const crypto = require('crypto');
 const { exec } = require('child_process');
 
+// 自动加载 .env 配置文件（Node 20+ 内置支持）
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile(envPath); } catch {}
+}
+
 const PORT = Number(process.env.PORT) || 5173;
 const ROOT_DIR = __dirname;
 
