@@ -17,6 +17,7 @@ if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
 }
 
 const PORT = Number(process.env.PORT) || 5173;
+const HOST = process.env.HOST || '127.0.0.1';
 const ROOT_DIR = __dirname;
 
 const BADGE_URL = (process.env.BADGE_URL || 'http://localhost:8080').replace(/\/$/, '');
@@ -28,7 +29,9 @@ const PUBLIC_URL = (process.env.XIYOU_PUBLIC_URL || `http://localhost:${PORT}`).
 const SESSION_COOKIE = 'xiyou_session';
 const STATE_COOKIE = 'xiyou_badge_state';
 const SESSION_TTL = 30 * 86400000;
-const SAVE_DIR = path.join(ROOT_DIR, 'saves');
+const SAVE_DIR = path.resolve(process.env.XIYOU_SAVE_DIR || path.join(ROOT_DIR, 'saves'));
+const COOKIE_SECURITY = PUBLIC_URL.startsWith('https://') ? '; Secure' : '';
+const PUBLIC_ASSET_DIRECTORIES = new Set(['assets', 'css', 'js', 'rules']);
 const SAVE_MAX_BYTES = 256 * 1024;
 
 const MIME_TYPES = {
@@ -153,7 +156,7 @@ function sameOriginOk(req) {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return true;
   const origin = req.headers.origin;
   if (!origin) return true; // 同源 GET 表单/非浏览器客户端
-  try { return new URL(origin).host === req.headers.host; } catch { return false; }
+  try { return new URL(origin).origin === new URL(PUBLIC_URL).origin; } catch { return false; }
 }
 
 function startServer(port) {
@@ -170,7 +173,7 @@ function startServer(port) {
       if (route === '/auth/badge') {
         const state = crypto.randomBytes(16).toString('hex');
         const redirectUri = encodeURIComponent(PUBLIC_URL + '/auth/badge/callback');
-        res.setHeader('Set-Cookie', `${STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`);
+        res.setHeader('Set-Cookie', `${STATE_COOKIE}=${state}; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=600`);
         res.writeHead(302, { Location: `${BADGE_PORTAL_URL}/login?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${redirectUri}&state=${state}` });
         res.end();
         return;
@@ -181,7 +184,7 @@ function startServer(port) {
         const state = query.get('state') || '';
         const expected = readCookie(req, STATE_COOKIE);
         const ticket = query.get('ticket') || '';
-        const clearState = `${STATE_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+        const clearState = `${STATE_COOKIE}=; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=0`;
         if (!expected || expected.length !== state.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(state))) {
           res.setHeader('Set-Cookie', clearState);
           res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -203,7 +206,7 @@ function startServer(port) {
             createdAt: new Date().toISOString() };
           writePlayer(key, player);
         }
-        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${issueSession(player)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL / 1000}`);
+        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${issueSession(player)}; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=${SESSION_TTL / 1000}`);
         res.writeHead(302, { Location: '/' });
         res.end();
         console.log(`[Badge SSO] 玩家登录: ${player.username} (${key})`);
@@ -211,7 +214,7 @@ function startServer(port) {
       }
 
       if (route === '/auth/logout') {
-        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+        res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=0`);
         res.writeHead(302, { Location: '/' });
         res.end();
         return;
@@ -268,6 +271,16 @@ function startServer(port) {
       // ── 静态资源 ──
       let reqPath = decodeURIComponent(route);
       if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
+      reqPath = path.posix.normalize(reqPath);
+      const segments = reqPath.split('/').filter(Boolean);
+      const publicPath = reqPath === '/index.html' || PUBLIC_ASSET_DIRECTORIES.has(segments[0]);
+      if (!publicPath || reqPath.includes('\\') || reqPath.includes('\0') || segments.some(segment => segment.startsWith('.'))) {
+        res.writeHead(404); res.end(); return;
+      }
+      if (!['GET', 'HEAD'].includes(req.method)) {
+        res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return;
+      }
+
 
       // ── 统一登录守卫：游戏必须登录后才能进入 ──
       if (reqPath === '/index.html') {
@@ -280,7 +293,7 @@ function startServer(port) {
       }
 
       const filePath = path.join(ROOT_DIR, reqPath);
-      if (!filePath.startsWith(ROOT_DIR)) {
+      if (!filePath.startsWith(ROOT_DIR + path.sep)) {
         res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('403 访问被拒绝');
         return;
@@ -292,6 +305,9 @@ function startServer(port) {
           res.end(`404 资源未找到: ${reqPath}`);
           return;
         }
+        // Reject symlinks that escape the public repository boundary.
+        const realPath = fs.realpathSync(filePath);
+        if (!realPath.startsWith(ROOT_DIR + path.sep)) { res.writeHead(404); res.end(); return; }
         res.writeHead(200, {
           'Content-Type': getContentType(filePath),
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0',
@@ -307,6 +323,9 @@ function startServer(port) {
   });
 
   server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && process.env.NODE_ENV === 'production') {
+      console.error('Configured production port is occupied'); process.exitCode = 1; return;
+    }
     if (err.code === 'EADDRINUSE') {
       console.log(`⚠️ 端口 ${port} 已被占用，正在自动切换至 ${port + 1}...`);
       startServer(port + 1);
@@ -315,7 +334,7 @@ function startServer(port) {
     }
   });
 
-  server.listen(port, () => {
+  server.listen(port, HOST, () => {
     const url = `http://localhost:${port}`;
     console.log('\n======================================================');
     console.log('       🎋 汉风西游OL · 正统2D神话复刻版');
