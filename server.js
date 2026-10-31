@@ -263,6 +263,16 @@ function startServer(port) {
       let reqPath = decodeURIComponent(route);
       if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
 
+      // ── 统一登录守卫：游戏必须登录后才能进入 ──
+      if (reqPath === '/index.html') {
+        const session = readSession(req);
+        if (!session) {
+          res.writeHead(302, { Location: '/auth/badge' });
+          res.end();
+          return;
+        }
+      }
+
       const filePath = path.join(ROOT_DIR, reqPath);
       if (!filePath.startsWith(ROOT_DIR)) {
         res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
