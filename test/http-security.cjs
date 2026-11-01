@@ -30,7 +30,7 @@ const { spawn } = require('node:child_process');
       try { await fetch(base, { redirect: 'manual' }); ready = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 100)); }
     }
     assert.ok(ready, 'isolated test server starts');
-    assert.equal((await fetch(base, { redirect: 'manual' })).status, 302);
+    assert.equal((await fetch(base, { redirect: 'manual' })).status, 200);
     assert.equal((await fetch(base + '/js/fixture.js')).status, 200);
     for (const resource of ['/server.js', '/saves/.session-secret', '/.git/config', '/node_modules/package.json', '/scratch/test.js']) {
       assert.equal((await fetch(base + resource, { method: 'HEAD' })).status, 404, resource);

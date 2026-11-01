@@ -282,15 +282,7 @@ function startServer(port) {
       }
 
 
-      // ── 统一登录守卫：游戏必须登录后才能进入 ──
-      if (reqPath === '/index.html') {
-        const session = readSession(req);
-        if (!session) {
-          res.writeHead(302, { Location: '/auth/badge' });
-          res.end();
-          return;
-        }
-      }
+      // ── 首页展示东方神话门户落地页；未登录玩家点击“开始使用”再跳转 /auth/badge ──
 
       const filePath = path.join(ROOT_DIR, reqPath);
       if (!filePath.startsWith(ROOT_DIR + path.sep)) {

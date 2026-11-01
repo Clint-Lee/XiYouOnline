@@ -12,10 +12,311 @@
   <meta name="description"
     content="正统复刻《汉风西游》2D自由行走探索RPG：威灵显赫大将军天宫执勤，御马监选坐骑，蟠桃园采摘仙桃经验飞升，暗助孙悟空大闹天宫，贬落凡尘刘家村，随刘伯钦打猎，长安见玄奘菩萨，五行山揭帖破封救大圣！">
   <meta name="keywords" content="汉风西游, 威灵显赫大将军, 孙悟空大闹天宫, 蟠桃园, 御马监, 刘伯钦, 五行山, 2DRPG, 冒泡社区怀旧">
+  
   <link rel="stylesheet" href="css/style.css?v=5.5.0">
+  <style>
+    /* ── 汉风西游 · 东方神话高定门户落地页 ── */
+    body.modern-mode {
+      background-image: linear-gradient(180deg, rgba(7, 9, 15, 0.84) 0%, rgba(10, 12, 20, 0.92) 100%), url('assets/xiyou-bg.jpg') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-attachment: fixed !important;
+    }
+
+    .xiyou-landing-portal {
+      position: fixed;
+      inset: 0;
+      z-index: 98000;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 28px 42px;
+      background-image:
+        radial-gradient(circle at 22% 28%, rgba(245, 158, 11, 0.14) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(6, 9, 17, 0.78) 0%, rgba(10, 14, 26, 0.56) 46%, rgba(5, 8, 15, 0.90) 100%),
+        url('assets/xiyou-bg.jpg');
+      background-size: cover;
+      background-position: center;
+      color: #f8fafc;
+      overflow-y: auto;
+      transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.42s;
+    }
+
+    .xiyou-landing-portal.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .xiyou-portal-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      max-width: 1240px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .xiyou-portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .xiyou-portal-seal {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      background: linear-gradient(135deg, rgba(217, 119, 6, 0.32), rgba(120, 53, 15, 0.65));
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      box-shadow: 0 0 22px rgba(245, 158, 11, 0.28);
+    }
+
+    .xiyou-portal-brand-text strong {
+      display: block;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #fef3c7;
+    }
+
+    .xiyou-portal-brand-text small {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: rgba(253, 230, 138, 0.72);
+      text-transform: uppercase;
+    }
+
+    .xiyou-portal-pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #fde68a;
+      background: rgba(15, 23, 42, 0.68);
+      border: 1px solid rgba(251, 191, 36, 0.38);
+      backdrop-filter: blur(12px);
+    }
+
+    .xiyou-portal-pill.is-authed {
+      color: #a7f3d0;
+      border-color: rgba(52, 211, 153, 0.48);
+      background: rgba(6, 78, 59, 0.68);
+    }
+
+    .xiyou-portal-main {
+      max-width: 1240px;
+      width: 100%;
+      margin: auto;
+      padding: 28px 0;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 38px;
+      align-items: center;
+    }
+
+    .xiyou-hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #fcd34d;
+      background: rgba(120, 53, 15, 0.48);
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      margin-bottom: 18px;
+    }
+
+    .xiyou-hero-title {
+      margin: 0 0 16px;
+      font-size: clamp(34px, 4.4vw, 56px);
+      font-weight: 900;
+      line-height: 1.14;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #fffbeb 0%, #fde68a 48%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .xiyou-hero-desc {
+      margin: 0 0 28px;
+      font-size: 15.5px;
+      line-height: 1.82;
+      color: rgba(226, 232, 240, 0.9);
+      max-width: 640px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
+    }
+
+    .xiyou-cta-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 11px;
+    }
+
+    .xiyou-cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 34px;
+      border-radius: 14px;
+      border: 1px solid rgba(253, 224, 71, 0.72);
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 52%, #b45309 100%);
+      color: #fffbeb;
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      box-shadow: 0 14px 34px -6px rgba(245, 158, 11, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }
+
+    .xiyou-cta-btn:hover {
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 20px 42px -6px rgba(245, 158, 11, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      filter: brightness(1.06);
+    }
+
+    .xiyou-cta-sub {
+      font-size: 12.5px;
+      color: rgba(253, 230, 138, 0.8);
+    }
+
+    .xiyou-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .xiyou-feature-card {
+      padding: 18px 20px;
+      border-radius: 16px;
+      background: rgba(11, 15, 28, 0.68);
+      border: 1px solid rgba(251, 191, 36, 0.24);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .xiyou-feature-card:hover {
+      border-color: rgba(251, 191, 36, 0.55);
+      transform: translateY(-3px);
+    }
+
+    .xiyou-feature-icon {
+      font-size: 22px;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+
+    .xiyou-feature-card h3 {
+      margin: 0 0 6px;
+      font-size: 15.5px;
+      font-weight: 800;
+      color: #fef3c7;
+    }
+
+    .xiyou-feature-card p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(203, 213, 225, 0.86);
+    }
+
+    .xiyou-portal-footer {
+      max-width: 1240px;
+      width: 100%;
+      margin: 0 auto;
+      padding-top: 14px;
+      border-top: 1px solid rgba(251, 191, 36, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12.5px;
+      color: rgba(226, 232, 240, 0.68);
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 900px) {
+      .xiyou-landing-portal { padding: 18px 18px; }
+      .xiyou-portal-main { grid-template-columns: 1fr; gap: 22px; }
+      .xiyou-feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 
 <body class="modern-mode">
+
+  <!-- 🏛️ 汉风西游 · 东方神话高定门户落地页 (未登录默认展示，点击开始使用跳转 Badge 登录) -->
+  <section id="xiyou-landing-portal" class="xiyou-landing-portal">
+    <div class="xiyou-portal-topbar">
+      <div class="xiyou-portal-brand">
+        <div class="xiyou-portal-seal">📿</div>
+        <div class="xiyou-portal-brand-text">
+          <strong>汉风西游 · 仙凡三界卷</strong>
+          <small>ORIENTAL MYTHIC 2D RPG · BADGE ECOSYSTEM</small>
+        </div>
+      </div>
+      <div id="xiyou-landing-auth-pill" class="xiyou-portal-pill">🛡️ Badge 统一身份通行证接入</div>
+    </div>
+
+    <div class="xiyou-portal-main">
+      <div class="xiyou-hero-copy">
+        <div class="xiyou-hero-kicker">🏯 正统 2D 国风神话自由探索 · 八十一难全图复刻</div>
+        <h1 class="xiyou-hero-title">一念凌霄起<br>万里踏西行</h1>
+        <p class="xiyou-hero-desc">
+          自南天门威灵显赫大将军天宫执勤、御马监遴选汗血龙骧、瑶池蟠桃胜境采桃飞升，至暗助齐天大圣大闹天宫、贬落凡尘刘家村，再赴长安会玄奘、五行山揭帖破封——重温纯正国风 2D 寻路探索与回合斗法。
+        </p>
+        <div class="xiyou-cta-group">
+          <button id="xiyou-landing-start-btn" class="xiyou-cta-btn" onclick="window.XiYouPortal && window.XiYouPortal.handleStartJourney()">
+            <span>⚔️</span>
+            <span id="xiyou-landing-cta-text">开始使用 · 踏入西游</span>
+            <span>→</span>
+          </button>
+          <span id="xiyou-landing-cta-sub" class="xiyou-cta-sub">点击后将跳转至 Badge 统一认证中心登录，解锁完整三界历练与云存档</span>
+        </div>
+      </div>
+
+      <div class="xiyou-feature-grid">
+        <article class="xiyou-feature-card">
+          <span class="xiyou-feature-icon">🗺️</span>
+          <h3>仙凡全图 · 自由寻路</h3>
+          <p>凌霄宝殿、瑶池蟠桃园、高老庄、流沙河、火焰山等经典地图无缝探索，支持键鼠、掌机与 H5 触控罗盘。</p>
+        </article>
+        <article class="xiyou-feature-card">
+          <span class="xiyou-feature-icon">⚡</span>
+          <h3>三大门派 · 回合神通</h3>
+          <p>佛门金刚、方寸灵台、修罗武尊三大流派自由研习，五行生克、法宝祭炼与大圣破封绝学一气呵成。</p>
+        </article>
+        <article class="xiyou-feature-card">
+          <span class="xiyou-feature-icon">📖</span>
+          <h3>山海万灵 · 仙宠神驹</h3>
+          <p>收录《山海经》三界异兽图鉴，支持金柳露洗炼变异灵宠、御马监驯养神驹疾驰三界。</p>
+        </article>
+        <article class="xiyou-feature-card">
+          <span class="xiyou-feature-icon">☁️</span>
+          <h3>Badge 通行证 · 云端仙籍</h3>
+          <p>深度集成 Badge 单点登录与加密云存档，跨设备自动同步人物修为、仙囊法宝与八十一难进度。</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="xiyou-portal-footer">
+      <span>🎋 汉风西游 Online · 2D 东方神话复刻版 (H5 & 桌面双模自适应)</span>
+      <span>Powered by Badge Unified Auth & Cloud Save</span>
+    </div>
+  </section>
+
 
   <!-- 顶部模式切换与全局控制栏 -->
   <header class="top-nav">
@@ -42,6 +343,9 @@
       </div>
     </div>
     <nav class="nav-controls">
+      <button id="top-portal-btn" onclick="window.XiYouPortal && window.XiYouPortal.openLandingPortal()" class="nav-btn" title="查看汉风西游品牌主页">
+        <span class="nav-btn-icon">🏛️</span><span class="nav-btn-text">主页</span>
+      </button>
       <button id="top-restart-btn" onclick="window.App2D.restartGame()" class="nav-btn nav-btn-restart"
         title="放弃当前所有历练与属性，格式化恢复到游戏最开始">
         <span class="nav-btn-icon">🔄</span><span class="nav-btn-text">重置</span>

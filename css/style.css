@@ -436,33 +436,7 @@ body {
   border: 1px solid #4a3b2b;
 }
 
-/* 现代大屏模式下的外壳隐藏自适应 */
-body.modern-mode .phone-device {
-  width: 100%;
-  max-width: 860px;
-  border-radius: 12px;
-  padding: 12px;
-  background: #191612;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
-  border: 1px solid var(--border-ancient);
-}
-
-body.modern-mode .phone-speaker,
-body.modern-mode .phone-logo,
-body.modern-mode .phone-keypad {
-  display: none;
-}
-
-body.modern-mode .phone-screen-frame {
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
-body.modern-mode .game-viewport {
-  height: 640px;
-  border-radius: 8px;
-}
+/* 现代大屏沉浸模式见下文专属配置段落 */
 
 /* ==========================================================================
    功能机键盘区域 (九宫格与五维导航按键)
@@ -2032,18 +2006,34 @@ body.modern-mode .game-viewport {
    摆脱小屏幕按键机束缚，提供震撼宽屏、古典紫檀金边画卷与精致微光
    ========================================================================== */
 body.modern-mode {
-  padding: 10px 20px;
+  padding: 12px 20px 24px;
+  background: radial-gradient(circle at 50% 25%, #18202c 0%, #0b0c10 75%);
+  background-attachment: fixed;
+}
+
+body.modern-mode .main-stage {
+  max-width: 1040px;
+}
+
+body.modern-mode .top-nav {
+  max-width: 1040px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.75), 0 0 16px rgba(212, 175, 55, 0.12);
 }
 
 body.modern-mode .phone-device {
   width: 100%;
-  max-width: 880px;
-  background: linear-gradient(135deg, #1c1510 0%, #0d0906 100%);
-  border: 3px solid #d4af37;
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 25px rgba(212, 175, 55, 0.25);
-  padding: 16px;
+  max-width: 1040px;
+  background: linear-gradient(145deg, #221812 0%, #150f0a 60%, #0d0906 100%);
+  border: 2px solid rgba(212, 175, 55, 0.75);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.95), 0 0 35px rgba(212, 175, 55, 0.16), inset 0 1px 0 rgba(255, 220, 100, 0.35);
+  padding: 14px 16px 16px;
   position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* 隐藏听筒、Logo 与实体键盘 */
@@ -2056,21 +2046,30 @@ body.modern-mode .phone-keypad {
 /* 屏幕框展开为宽幅神话视界 */
 body.modern-mode .phone-screen-frame {
   width: 100%;
-  border: 2px solid #5c4732;
+  border: 1.5px solid #4a3826;
   border-radius: 10px;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 215, 0, 0.12);
   padding: 4px;
-  background: #000;
+  background: #080604;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 body.modern-mode .game-viewport {
   width: 100%;
-  height: 580px;
+  aspect-ratio: 760 / 580;
+  height: auto;
+  max-height: min(720px, calc(100vh - 195px));
+  min-height: 480px;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
   position: relative;
+  border-radius: 8px;
+  border: 1px solid rgba(138, 106, 68, 0.5);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9);
 }
 
 body.modern-mode #game-canvas {
