@@ -2012,11 +2012,13 @@ body.modern-mode {
 }
 
 body.modern-mode .main-stage {
-  max-width: 1040px;
+  max-width: min(96vw, 1380px);
+  width: 100%;
 }
 
 body.modern-mode .top-nav {
-  max-width: 1040px;
+  max-width: min(96vw, 1380px);
+  width: 100%;
   height: 44px;
   min-height: 44px;
   max-height: 44px;
@@ -2026,7 +2028,7 @@ body.modern-mode .top-nav {
 
 body.modern-mode .phone-device {
   width: 100%;
-  max-width: 1040px;
+  max-width: min(96vw, 1380px);
   background: linear-gradient(145deg, #221812 0%, #150f0a 60%, #0d0906 100%);
   border: 2px solid rgba(212, 175, 55, 0.75);
   border-radius: 16px;
@@ -2058,10 +2060,10 @@ body.modern-mode .phone-screen-frame {
 
 body.modern-mode .game-viewport {
   width: 100%;
-  aspect-ratio: 760 / 580;
-  height: auto;
-  max-height: min(720px, calc(100vh - 195px));
-  min-height: 480px;
+  aspect-ratio: auto;
+  height: min(760px, calc(100vh - 150px));
+  min-height: 520px;
+  max-height: 840px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -2075,15 +2077,18 @@ body.modern-mode .game-viewport {
 body.modern-mode #game-canvas {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  image-rendering: auto; /* 移除强制粗暴pixelated，保证中文字体与立绘的高清锐利平滑 */
+  display: block;
+  object-fit: fill;
+  image-rendering: auto;
 }
 
-/* 窄窗口维持 760:580 画布比例，避免地图上下出现大块空黑边。 */
 @media (max-width: 720px) {
   body.modern-mode .game-viewport {
-    height: auto;
-    aspect-ratio: 760 / 580;
+    aspect-ratio: auto;
+    width: 100%;
+    height: calc(100dvh - 160px);
+    min-height: 380px;
+    max-height: none;
   }
 }
 
@@ -4406,11 +4411,11 @@ body:not(.modern-mode) .dialogue-speaker-name {
 
 @media (max-width: 560px) {
   body.modern-mode .game-viewport {
-    aspect-ratio: 760 / 580;
+    aspect-ratio: auto;
     width: 100%;
-    height: auto;
-    max-height: 52dvh;
-    min-height: 0;
+    height: calc(100dvh - 160px);
+    min-height: 380px;
+    max-height: none;
   }
   body.modern-mode .modern-bottom-bar { flex-wrap: wrap; padding: 8px; gap: 8px; }
   .bottom-lore-ticker { min-width: 0; }
@@ -6173,10 +6178,10 @@ body:not(.modern-mode) .dialogue-speaker-name {
   }
   body.modern-mode .game-viewport {
     width: 100%;
-    height: auto;
-    aspect-ratio: 760 / 580;
-    max-height: 52dvh;
-    min-height: 0;
+    aspect-ratio: auto;
+    height: calc(100dvh - 160px);
+    min-height: 380px;
+    max-height: none;
   }
   /* 移动端呈现专属 H5 虚拟罗盘控制盘，隐藏桌面底部横条 */
   body.modern-mode .h5-touch-controller {

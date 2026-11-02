@@ -1975,39 +1975,34 @@ class GameApp2D {
   }
 
   // 依据真实容器尺寸与设备像素比同步画布，保证 CSS 显示尺寸、画布属性尺寸与点击换算三者一致
-  // canvas 不支持 object-fit，必须显式按 contain 语义计算信箱黑边偏移
+  // 依据真实容器尺寸同步画布与摄像机视口，实现全分辨率自适应响应式（无黑边、无形变）
   syncCanvasSize() {
     if (!this.canvas) return null;
     const viewport = this.canvas.parentElement || document.getElementById('game-viewport');
     const rect = viewport ? viewport.getBoundingClientRect() : null;
-    const isHandheld = !document.body.classList.contains('modern-mode');
-    // 逻辑基准分辨率：大屏 760x580，掌机 320x380
-    const baseW = isHandheld ? 320 : 760;
-    const baseH = isHandheld ? 380 : 580;
-    const cssW = Math.max(1, Math.floor(rect && rect.width > 0 ? rect.width : baseW));
-    const cssH = Math.max(1, Math.floor(rect && rect.height > 0 ? rect.height : baseH));
+    const isModern = document.body.classList.contains('modern-mode');
+    // 掌机模式下固定 320x380 小屏；大屏/H5 现代模式下依据容器真实宽度和高度计算逻辑分辨率
+    const baseW = !isModern ? 320 : (rect && rect.width > 0 ? Math.floor(rect.width) : 960);
+    const baseH = !isModern ? 380 : (rect && rect.height > 0 ? Math.floor(rect.height) : 640);
+    const cssW = Math.max(320, baseW);
+    const cssH = Math.max(320, baseH);
 
-    const dpr = Math.min(3, Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
-    const attrW = Math.max(1, Math.round(cssW * dpr));
-    const attrH = Math.max(1, Math.round(cssH * dpr));
+    // 采用与容器 1:1 像素映射，瓦片与角色保持经典视觉尺度，视野范围随视口自适应伸展
+    if (this.canvas.width !== cssW) this.canvas.width = cssW;
+    if (this.canvas.height !== cssH) this.canvas.height = cssH;
 
-    if (this.canvas.width !== attrW) this.canvas.width = attrW;
-    if (this.canvas.height !== attrH) this.canvas.height = attrH;
-
-    // 记录逻辑视口与信箱偏移，供 screenToWorld 与指针换算使用
     this._canvasCssWidth = cssW;
     this._canvasCssHeight = cssH;
-    this._canvasDpr = dpr;
-    const scale = Math.min(cssW / baseW, cssH / baseH);
-    this._canvasScale = scale > 0 ? scale : 1;
-    this._canvasOffsetX = (cssW - baseW * this._canvasScale) / 2;
-    this._canvasOffsetY = (cssH - baseH * this._canvasScale) / 2;
+    this._canvasDpr = 1;
+    this._canvasScale = 1;
+    this._canvasOffsetX = 0;
+    this._canvasOffsetY = 0;
 
     if (this.camera && typeof this.camera.resize === 'function') {
-      this.camera.resize(baseW, baseH);
+      this.camera.resize(cssW, cssH);
     }
     this._vignetteGrad = null;
-    return this._canvasScale;
+    return 1;
   }
 
   // 将指针事件坐标换算为逻辑画布坐标（已含信箱黑边与设备像素比）
@@ -2163,13 +2158,41 @@ class GameApp2D {
       });
     }
 
-    // 画布鼠标点击 -> 智能触发 A* 寻路或交互 (带 contain 留白偏移校准与弹窗防护)
+    // 画布鼠标点击与触屏轻触 -> 智能触发 A* 寻路或交互 (带弹窗防护与防误触)
     if (this.canvas) {
-      this.canvas.addEventListener('click', (e) => {
+      const handlePointerTap = (clientX, clientY) => {
         if (this.hasExplorationModal()) return;
-        const pt = this.getCanvasPointerPosition(e.clientX, e.clientY);
-        if (!pt) return; // 点击在留白黑边处，安全忽略        this.handleClickCanvas(pt.x, pt.y);
+        const pt = this.getCanvasPointerPosition(clientX, clientY);
+        if (!pt) return;
+        this.handleClickCanvas(pt.x, pt.y);
+      };
+
+      this.canvas.addEventListener('click', (e) => {
+        handlePointerTap(e.clientX, e.clientY);
       });
+
+      // 移动端 H5 轻触识别（防止 touchstart 延迟或与滚动事件冲突）
+      let touchStartTime = 0;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      this.canvas.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length === 1) {
+          touchStartTime = Date.now();
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      this.canvas.addEventListener('touchend', (e) => {
+        if (e.changedTouches && e.changedTouches.length === 1) {
+          const dt = Date.now() - touchStartTime;
+          const touch = e.changedTouches[0];
+          const dist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
+          if (dt < 400 && dist < 18) {
+            handlePointerTap(touch.clientX, touch.clientY);
+          }
+        }
+      }, { passive: true });
 
       // H5 触屏适配：屏蔽画布长按系统菜单与触摸拖动引发的页面滚动 (弹窗内部滚动不受影响)
       this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -2392,7 +2415,7 @@ class GameApp2D {
     this.updateH5QuestPill();
   }
 
-  // 集中计算实际绘制矩形，消除 object-fit: contain 居中黑边对点击造成的坐标偏移
+  // 集中计算实际绘制矩形，精确换算画布点击与触控坐标，消除任何缩放偏移
   getCanvasPointerPosition(clientX, clientY) {
     if (!this.canvas) return null;
     const rect = this.canvas.getBoundingClientRect();
@@ -2401,33 +2424,17 @@ class GameApp2D {
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
 
-    const isContain = document.body?.classList?.contains('modern-mode') ||
-      (typeof window !== 'undefined' && window.getComputedStyle && window.getComputedStyle(this.canvas).objectFit === 'contain');
-
-    if (isContain) {
-      const scale = Math.min(rect.width / this.canvas.width, rect.height / this.canvas.height);
-      const drawW = this.canvas.width * scale;
-      const drawH = this.canvas.height * scale;
-      const offsetX = (rect.width - drawW) / 2;
-      const offsetY = (rect.height - drawH) / 2;
-
-      // 处于留白黑边内，不属于画布有效画面，返回 null 阻止错误寻路
-      if (localX < offsetX || localX > offsetX + drawW || localY < offsetY || localY > offsetY + drawH) {
-        return null;
-      }
-
-      const clickX = (localX - offsetX) / scale;
-      const clickY = (localY - offsetY) / scale;
-      return {
-        x: Math.max(0, Math.min(this.canvas.width, clickX)),
-        y: Math.max(0, Math.min(this.canvas.height, clickY))
-      };
-    } else {
-      return {
-        x: Math.max(0, Math.min(this.canvas.width, (localX / rect.width) * this.canvas.width)),
-        y: Math.max(0, Math.min(this.canvas.height, (localY / rect.height) * this.canvas.height))
-      };
+    if (localX < 0 || localX > rect.width || localY < 0 || localY > rect.height) {
+      return null;
     }
+
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+
+    return {
+      x: Math.max(0, Math.min(this.canvas.width, localX * scaleX)),
+      y: Math.max(0, Math.min(this.canvas.height, localY * scaleY))
+    };
   }
 
   // 场景鼠标点击智能分发

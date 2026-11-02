@@ -182,15 +182,17 @@
       try { enteredBefore = sessionStorage.getItem(ENTERED_KEY) === '1'; } catch {}
       const hasAuthedParam = window.location.search.includes('authed=1');
       if (hasAuthedParam) {
-        try { sessionStorage.setItem(ENTERED_KEY, '1'); } catch {}
+        // 刚完成 Badge 统一认证回调：清理参数并确保保留在仙途入口主页，展示认证身份，等待玩家主动点击进入三界
+        try { sessionStorage.removeItem(ENTERED_KEY); } catch {}
         try {
           const cleanSearch = window.location.search.replace(/[?&]authed=1/, '').replace(/^&/, '?');
           const cleanUrl = window.location.pathname + (cleanSearch && cleanSearch !== '?' ? cleanSearch : '');
           window.history.replaceState({}, '', cleanUrl || '/');
         } catch {}
       }
-      // 若已登录且刚从 Badge 登录回调回来（或已点击过开始使用），直接进入三界游戏画布
-      if (me && (enteredBefore || hasAuthedParam)) {
+      syncLandingPortalUI();
+      // 只有此前已在当前会话明确点击过进入三界、且非刚刚登录回调返回时，才跳过主页；其余均停留在西游主页
+      if (enteredBefore && !hasAuthedParam) {
         portal.classList.add('is-hidden');
       } else {
         portal.classList.remove('is-hidden');
