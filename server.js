@@ -185,14 +185,19 @@ function startServer(port) {
         const expected = readCookie(req, STATE_COOKIE);
         const ticket = query.get('ticket') || '';
         const clearState = `${STATE_COOKIE}=; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=0`;
-        if (!expected || expected.length !== state.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(state))) {
-          res.setHeader('Set-Cookie', clearState);
-          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('登录状态校验失败，请返回重新发起登录');
-          return;
+        res.setHeader('Set-Cookie', clearState);
+
+        // 如果是由子应用发起登录（存在 state 参数或已设置 state cookie），严格比对防 CSRF；
+        // 若两者均为空，则属于 Badge 平台直接发起的一键直达 (IdP-Initiated SSO)，依靠单用途随机 Ticket 进行后端安全核销
+        if (expected || state) {
+          if (!expected || !state || expected.length !== state.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(state))) {
+            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('登录状态校验失败，请返回重新发起登录');
+            return;
+          }
         }
+
         if (!ticket || ticket.length > 256) {
-          res.setHeader('Set-Cookie', clearState);
           res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('缺少有效登录票据');
           return;
@@ -207,7 +212,7 @@ function startServer(port) {
           writePlayer(key, player);
         }
         res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${issueSession(player)}; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=${SESSION_TTL / 1000}`);
-        res.writeHead(302, { Location: '/' });
+        res.writeHead(302, { Location: '/?authed=1' });
         res.end();
         console.log(`[Badge SSO] 玩家登录: ${player.username} (${key})`);
         return;

@@ -180,8 +180,17 @@
       syncLandingPortalUI();
       let enteredBefore = false;
       try { enteredBefore = sessionStorage.getItem(ENTERED_KEY) === '1'; } catch {}
+      const hasAuthedParam = window.location.search.includes('authed=1');
+      if (hasAuthedParam) {
+        try { sessionStorage.setItem(ENTERED_KEY, '1'); } catch {}
+        try {
+          const cleanSearch = window.location.search.replace(/[?&]authed=1/, '').replace(/^&/, '?');
+          const cleanUrl = window.location.pathname + (cleanSearch && cleanSearch !== '?' ? cleanSearch : '');
+          window.history.replaceState({}, '', cleanUrl || '/');
+        } catch {}
+      }
       // 若已登录且刚从 Badge 登录回调回来（或已点击过开始使用），直接进入三界游戏画布
-      if (me && enteredBefore) {
+      if (me && (enteredBefore || hasAuthedParam)) {
         portal.classList.add('is-hidden');
       } else {
         portal.classList.remove('is-hidden');
