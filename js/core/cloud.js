@@ -128,14 +128,14 @@
       }
     } else {
       if (statusPill) {
-        statusPill.textContent = '🛡️ Badge 统一身份通行证接入';
+        statusPill.textContent = '🛡️ 天枢 · 统一身份通行证接入';
         statusPill.classList.remove('is-authed');
       }
       if (primaryBtnText) {
         primaryBtnText.textContent = '开始使用 · 踏入西游';
       }
       if (subHint) {
-        subHint.textContent = '点击后将跳转至 Badge 统一认证中心登录，解锁完整三界历练与云存档';
+        subHint.textContent = '点击后将跳转至 天枢统一认证中心登录，解锁完整三界历练与云存档';
       }
     }
   }
@@ -147,12 +147,19 @@
     syncLandingPortalUI();
   }
 
+    function handleLogout() {
+    if (confirm('确认退出当前仙籍账号并返回仙途主页？本地与云端历练进度均已安全保存。')) {
+      try { sessionStorage.removeItem(ENTERED_KEY); } catch {}
+      window.location.href = '/auth/logout';
+    }
+  }
+
   function handleStartJourney() {
-    try { sessionStorage.setItem(ENTERED_KEY, '1'); } catch {}
     if (!me) {
       window.location.href = '/auth/badge';
       return;
     }
+    try { sessionStorage.setItem(ENTERED_KEY, '1'); } catch {}
     const portal = document.getElementById('xiyou-landing-portal');
     if (portal) {
       portal.classList.add('is-hidden');
