@@ -187,10 +187,10 @@ function startServer(port) {
         const clearState = `${STATE_COOKIE}=; HttpOnly; SameSite=Lax${COOKIE_SECURITY}; Path=/; Max-Age=0`;
         res.setHeader('Set-Cookie', clearState);
 
-        // 如果是由子应用发起登录（存在 state 参数或已设置 state cookie），严格比对防 CSRF；
-        // 若两者均为空，则属于 Badge 平台直接发起的一键直达 (IdP-Initiated SSO)，依靠单用途随机 Ticket 进行后端安全核销
-        if (expected || state) {
-          if (!expected || !state || expected.length !== state.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(state))) {
+        // 如果是由子应用发起登录（URL 中带 state 参数），严格比对防 CSRF；
+        // 若 URL 中无 state 参数，则属于 Badge 平台直接发起的一键直达 (IdP-Initiated SSO)，依靠单用途随机 Ticket 由服务端核销保证安全
+        if (state) {
+          if (!expected || expected.length !== state.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(state))) {
             res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('登录状态校验失败，请返回重新发起登录');
             return;
