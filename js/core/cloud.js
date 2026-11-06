@@ -112,7 +112,20 @@
     if (!portal) return;
     const statusPill = document.getElementById('xiyou-landing-auth-pill');
     const primaryBtnText = document.getElementById('xiyou-landing-cta-text');
+    const guestBtn = document.getElementById('xiyou-landing-guest-btn');
     const subHint = document.getElementById('xiyou-landing-cta-sub');
+    const saveBanner = document.getElementById('xiyou-local-save-banner');
+
+    if (saveBanner) {
+      const local = localPayload();
+      const pData = local && (local.data?.player || local.player);
+      if (pData && pData.name) {
+        saveBanner.style.display = 'block';
+        saveBanner.innerHTML = '📜 <b>检测到本地历练仙籍</b>：' + escapeText(pData.name) + ' (Lv.' + Number(pData.level || 1) + ') · 银两 <b>' + Number(pData.silver ?? pData.gold ?? 0) + '</b> 两';
+      } else {
+        saveBanner.style.display = 'none';
+      }
+    }
 
     if (me) {
       const displayName = me.nickname || me.username;
@@ -122,6 +135,9 @@
       }
       if (primaryBtnText) {
         primaryBtnText.textContent = '开始使用 · 进入三界 (' + displayName + ')';
+      }
+      if (guestBtn) {
+        guestBtn.style.display = 'none';
       }
       if (subHint) {
         subHint.textContent = 'Badge 云端仙籍已就绪 · 跨端实时云存档同步开启';
@@ -134,8 +150,11 @@
       if (primaryBtnText) {
         primaryBtnText.textContent = '开始使用 · 踏入西游';
       }
+      if (guestBtn) {
+        guestBtn.style.display = 'inline-flex';
+      }
       if (subHint) {
-        subHint.textContent = '点击后将跳转至 天枢统一认证中心登录，解锁完整三界历练与云存档';
+        subHint.textContent = '点击主按钮跳转天枢统一认证中心登录解锁云存档；或点击右侧免登录试玩本地历练';
       }
     }
   }
@@ -145,6 +164,26 @@
     if (!portal) return;
     portal.classList.remove('is-hidden');
     syncLandingPortalUI();
+  }
+
+  function enterGuestRealm() {
+    try { sessionStorage.setItem(ENTERED_KEY, '1'); } catch {}
+    const portal = document.getElementById('xiyou-landing-portal');
+    if (portal) {
+      portal.classList.add('is-hidden');
+    }
+  }
+
+  function returnToBadgePortal() {
+    if (window.App2D && typeof window.App2D.saveManualProgress === 'function') {
+      try { window.App2D.saveManualProgress(); } catch {}
+    }
+    const host = window.location.hostname || 'localhost';
+    if (host === 'localhost' || host === '127.0.0.1') {
+      window.location.href = window.location.protocol + '//' + host + ':5173/';
+    } else {
+      window.location.href = window.location.protocol + '//' + host + ':8080/';
+    }
   }
 
     function handleLogout() {
@@ -169,6 +208,8 @@
   window.XiYouPortal = {
     openLandingPortal,
     handleStartJourney,
+    enterGuestRealm,
+    returnToBadgePortal,
     isAuthenticated: () => Boolean(me),
   };
 

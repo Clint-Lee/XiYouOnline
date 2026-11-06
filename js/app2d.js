@@ -2415,25 +2415,30 @@ class GameApp2D {
     this.updateH5QuestPill();
   }
 
-  // 集中计算实际绘制矩形，精确换算画布点击与触控坐标，消除任何缩放偏移
+  // 集中计算实际绘制矩形，精确换算画布点击与触控坐标，消除任何缩放偏移与留白黑边误触
   getCanvasPointerPosition(clientX, clientY) {
     if (!this.canvas) return null;
     const rect = this.canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
 
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
+    const canvasW = this.canvas.width || 760;
+    const canvasH = this.canvas.height || 580;
+    const scale = Math.min(rect.width / canvasW, rect.height / canvasH);
+    const drawW = canvasW * scale;
+    const drawH = canvasH * scale;
+    const offsetX = (rect.width - drawW) / 2;
+    const offsetY = (rect.height - drawH) / 2;
 
-    if (localX < 0 || localX > rect.width || localY < 0 || localY > rect.height) {
+    const localX = clientX - rect.left - offsetX;
+    const localY = clientY - rect.top - offsetY;
+
+    if (localX < 0 || localX > drawW || localY < 0 || localY > drawH) {
       return null;
     }
 
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-
     return {
-      x: Math.max(0, Math.min(this.canvas.width, localX * scaleX)),
-      y: Math.max(0, Math.min(this.canvas.height, localY * scaleY))
+      x: localX / scale,
+      y: localY / scale
     };
   }
 

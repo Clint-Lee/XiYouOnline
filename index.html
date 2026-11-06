@@ -267,7 +267,12 @@
           <small>ORIENTAL MYTHIC 2D RPG · BADGE ECOSYSTEM</small>
         </div>
       </div>
-      <div id="xiyou-landing-auth-pill" class="xiyou-portal-pill">🛡️ 天枢 · 统一身份通行证接入</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div id="xiyou-landing-auth-pill" class="xiyou-portal-pill">🛡️ 天枢 · 统一身份通行证接入</div>
+        <button type="button" class="xiyou-portal-pill" style="cursor:pointer;" onclick="window.XiYouPortal && window.XiYouPortal.returnToBadgePortal()">
+          🏛️ 返回天枢门户
+        </button>
+      </div>
     </div>
 
     <div class="xiyou-portal-main">
@@ -277,13 +282,19 @@
         <p class="xiyou-hero-desc">
           自南天门威灵显赫大将军天宫执勤、御马监遴选汗血龙骧、瑶池蟠桃胜境采桃飞升，至暗助齐天大圣大闹天宫、贬落凡尘刘家村，再赴长安会玄奘、五行山揭帖破封——重温纯正国风 2D 寻路探索与回合斗法。
         </p>
+        <div id="xiyou-local-save-banner" style="display:none;margin-bottom:18px;padding:10px 15px;border-radius:12px;background:rgba(15,23,42,0.75);border:1px solid rgba(251,191,36,0.42);border-left:4px solid #f59e0b;font-size:13px;color:#fef3c7;max-width:620px;"></div>
         <div class="xiyou-cta-group">
-          <button id="xiyou-landing-start-btn" class="xiyou-cta-btn" onclick="window.XiYouPortal && window.XiYouPortal.handleStartJourney()">
-            <span>⚔️</span>
-            <span id="xiyou-landing-cta-text">开始使用 · 踏入西游</span>
-            <span>→</span>
-          </button>
-          <span id="xiyou-landing-cta-sub" class="xiyou-cta-sub">点击后将跳转至 天枢统一身份平台登录，解锁完整三界历练与云存档</span>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+            <button id="xiyou-landing-start-btn" class="xiyou-cta-btn" onclick="window.XiYouPortal && window.XiYouPortal.handleStartJourney()">
+              <span>⚔️</span>
+              <span id="xiyou-landing-cta-text">开始使用 · 踏入西游</span>
+              <span>→</span>
+            </button>
+            <button id="xiyou-landing-guest-btn" type="button" class="xiyou-portal-pill" style="padding:14px 22px;border-radius:14px;font-size:14.5px;font-weight:700;cursor:pointer;" onclick="window.XiYouPortal && window.XiYouPortal.enterGuestRealm()">
+              🏮 免登录直接试玩 (本地存档)
+            </button>
+          </div>
+          <span id="xiyou-landing-cta-sub" class="xiyou-cta-sub">点击主按钮跳转天枢统一身份平台登录，开启跨端云仙籍同步；也可直接免登录本地历练</span>
         </div>
       </div>
 
@@ -345,6 +356,9 @@
     <nav class="nav-controls">
       <button id="top-portal-btn" onclick="window.XiYouPortal && window.XiYouPortal.openLandingPortal()" class="nav-btn" title="查看汉风西游品牌主页">
         <span class="nav-btn-icon">🏛️</span><span class="nav-btn-text">主页</span>
+      </button>
+      <button id="top-badge-btn" onclick="window.XiYouPortal && window.XiYouPortal.returnToBadgePortal()" class="nav-btn" title="保存进度并返回天枢统一门户">
+        <span class="nav-btn-icon">🛡️</span><span class="nav-btn-text">门户</span>
       </button>
       <button id="top-restart-btn" onclick="window.App2D.restartGame()" class="nav-btn nav-btn-restart"
         title="放弃当前所有历练与属性，格式化恢复到游戏最开始">
