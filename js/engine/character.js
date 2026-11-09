@@ -331,8 +331,73 @@ class Character {
       }
     }
 
-    // 3. 绘制身体形象
-    this.drawBody(ctx, screenX, screenY);
+    // 2.5 仙家降世金芒奇观（Spawn Flash: 通天金光神柱、莲华地阵与升腾仙尘粒子）
+    if (this.spawnFlashUntil && this.spawnFlashUntil > Date.now()) {
+      const now = Date.now();
+      const remain = this.spawnFlashUntil - now;
+      const totalDuration = 1800;
+      const progress = Math.max(0, Math.min(1, 1 - (remain / totalDuration)));
+
+      ctx.save();
+      // 地面扩散莲华金环
+      const ringRadius = 14 + progress * 24;
+      const ringAlpha = Math.max(0, (1 - progress) * 0.85);
+      ctx.strokeStyle = `rgba(255, 215, 0, ${ringAlpha})`;
+      ctx.lineWidth = 3 - progress * 1.5;
+      ctx.beginPath();
+      ctx.ellipse(screenX, screenY + this.height / 2 - 2, ringRadius, ringRadius * 0.4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 内层旋转金符光环
+      const spinAngle = (now / 180) % (Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 250, 101, ${ringAlpha * 0.9})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(screenX, screenY + this.height / 2 - 2, ringRadius * 0.65, ringRadius * 0.26, spinAngle, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 通天降世金光神柱 (向上穿透云霄，逐渐消散)
+      const pillarAlpha = Math.max(0, (1 - progress * 0.85) * 0.75);
+      const pillarW = Math.max(12, (1 - progress * 0.5) * 36);
+      const pillarGrad = ctx.createLinearGradient(screenX - pillarW / 2, 0, screenX + pillarW / 2, 0);
+      pillarGrad.addColorStop(0, 'rgba(255, 215, 0, 0)');
+      pillarGrad.addColorStop(0.3, `rgba(255, 240, 150, ${pillarAlpha * 0.6})`);
+      pillarGrad.addColorStop(0.5, `rgba(255, 255, 255, ${pillarAlpha})`);
+      pillarGrad.addColorStop(0.7, `rgba(255, 240, 150, ${pillarAlpha * 0.6})`);
+      pillarGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+      ctx.fillStyle = pillarGrad;
+      ctx.fillRect(screenX - pillarW / 2, screenY - 140, pillarW, 140 + this.height / 2);
+
+      // 上升金星仙尘 (6~8颗金色光尘粒子环绕升腾)
+      for (let i = 0; i < 7; i++) {
+        const pSeed = (i * 97 + now / 70) % 100;
+        const pY = screenY + (this.height / 2) - (pSeed / 100) * 120;
+        const pX = screenX + Math.sin(pSeed * 0.1 + i) * (pillarW * 0.6);
+        const pAlpha = Math.sin((pSeed / 100) * Math.PI) * (1 - progress) * 0.9;
+        ctx.fillStyle = `rgba(255, 235, 100, ${pAlpha})`;
+        ctx.beginPath();
+        ctx.arc(pX, pY, 1.8 + Math.sin(i + now / 100) * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 3. 绘制身体形象 (支持降世瞬间由小至大灵动现身)
+    if (this.spawnFlashUntil && this.spawnFlashUntil > Date.now()) {
+      const now = Date.now();
+      const remain = this.spawnFlashUntil - now;
+      const progress = Math.max(0, Math.min(1, 1 - (remain / 1800)));
+      const appearScale = Math.min(1, 0.25 + progress * 3.5);
+      ctx.save();
+      ctx.translate(screenX, screenY + this.height / 2);
+      ctx.scale(appearScale, appearScale);
+      ctx.translate(-screenX, -(screenY + this.height / 2));
+      this.drawBody(ctx, screenX, screenY);
+      ctx.restore();
+    } else {
+      this.drawBody(ctx, screenX, screenY);
+    }
 
     // 4. 头顶文字与称号系统 (彻底移至头顶高处，杜绝遮挡面部与身体)
     ctx.save();
@@ -952,12 +1017,346 @@ class CharacterRenderer {
       CharacterRenderer.drawCreature(ctx, 'tree', by, animTimer, direction, isMoving);
     } else if (mId.includes('gui') || mId.includes('turtle') || mId.includes('dahai_gui')) {
       CharacterRenderer.drawPetTurtle(ctx, by, animTimer, direction);
+    } else if (mId.includes('altar_shrine') || mId.includes('jitan')) {
+      CharacterRenderer.drawAltarShrine(ctx, by, animTimer, direction);
+    } else if (mId.includes('water_vortex') || mId.includes('shuifu') || mId.includes('vortex')) {
+      CharacterRenderer.drawWaterVortex(ctx, by, animTimer, direction);
+    } else if (mId.includes('fire_altar') || mId.includes('huogen')) {
+      CharacterRenderer.drawFireAltar(ctx, by, animTimer, direction);
+    } else if (mId.includes('west_gate_stele') || mId.includes('stele') || mId.includes('guankou')) {
+      CharacterRenderer.drawWestGateStele(ctx, by, animTimer, direction);
+    } else if (mId.includes('maori') || mId.includes('xingguan')) {
+      CharacterRenderer.drawMaoriXingguan(ctx, by, animTimer, direction, isMoving);
     } else if (mId.includes('mushroom') || mId.includes('mogu') || mId.includes('lingzhi') || mId.includes('芝')) {
       CharacterRenderer.drawMushroom(ctx, by, animTimer);
     } else {
       CharacterRenderer.drawHeavenGeneral(ctx, by, animTimer, direction, isMoving);
     }
 
+    ctx.restore();
+  }
+
+  // =========================================================================
+  // 专属场景交互物与神灵绘制引擎 (祭坛、水府漩涡、试火台、西行界碑、昴日星官)
+  // =========================================================================
+  static drawAltarShrine(ctx, by, animTimer, direction) {
+    ctx.save();
+    // 1. 基座（双层汉白玉八角石台）
+    ctx.fillStyle = '#7f8c8d';
+    ctx.beginPath();
+    ctx.ellipse(0, by + 12, 22, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#bdc3c7';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#95a5a6';
+    ctx.beginPath();
+    ctx.ellipse(0, by + 7, 18, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. 青铜三足鼎
+    ctx.fillStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.arc(0, by - 2, 12, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 鼎口与鼎耳
+    ctx.fillStyle = '#34495e';
+    ctx.fillRect(-13, by - 5, 26, 4);
+    ctx.strokeRect(-13, by - 5, 26, 4);
+    // 三足
+    ctx.fillStyle = '#1a252f';
+    ctx.fillRect(-9, by + 8, 3, 5);
+    ctx.fillRect(6, by + 8, 3, 5);
+    ctx.fillRect(-1.5, by + 9, 3, 4);
+
+    // 3. 香炉内香火炽炭
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.ellipse(0, by - 3, 9, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. 三炷清香
+    for (let i = -1; i <= 1; i++) {
+      ctx.strokeStyle = '#c0392b';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(i * 4, by - 3);
+      ctx.lineTo(i * 3, by - 18);
+      ctx.stroke();
+
+      // 燃烧香头火星
+      ctx.fillStyle = '#f39c12';
+      ctx.beginPath();
+      ctx.arc(i * 3, by - 18, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 缭绕升腾青烟
+      const smokeWave = Math.sin(animTimer * 0.2 + i * 1.5) * 4;
+      ctx.strokeStyle = 'rgba(236, 240, 241, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(i * 3, by - 18);
+      ctx.quadraticCurveTo(i * 3 + smokeWave, by - 28, i * 3 - smokeWave * 0.5, by - 38);
+      ctx.stroke();
+    }
+
+    // 5. 祭台两侧红绸与祭品果盘
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(-18, by + 3, 4, 10);
+    ctx.fillRect(14, by + 3, 4, 10);
+    ctx.restore();
+  }
+
+  static drawWaterVortex(ctx, by, animTimer, direction) {
+    ctx.save();
+    const t = animTimer * 0.15;
+    // 1. 底层深渊漩涡暗流
+    ctx.fillStyle = 'rgba(12, 36, 97, 0.85)';
+    ctx.beginPath();
+    ctx.ellipse(0, by + 6, 24, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. 多重顺时针旋转的水流光环
+    for (let i = 0; i < 3; i++) {
+      const radius = 22 - i * 6;
+      const rot = t + (i * Math.PI) / 3;
+      ctx.save();
+      ctx.translate(0, by + 6);
+      ctx.rotate(rot);
+      ctx.strokeStyle = i === 0 ? 'rgba(0, 210, 211, 0.7)' : (i === 1 ? 'rgba(84, 160, 255, 0.8)' : 'rgba(255, 255, 255, 0.9)');
+      ctx.lineWidth = 2 - i * 0.4;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, radius, radius * 0.45, 0, 0, Math.PI * 1.6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 3. 漩涡中心幽深水府光柱与升腾水泡
+    const eyeGrad = ctx.createRadialGradient(0, by + 6, 1, 0, by + 6, 12);
+    eyeGrad.addColorStop(0, 'rgba(24, 220, 255, 0.9)');
+    eyeGrad.addColorStop(0.6, 'rgba(10, 61, 98, 0.6)');
+    eyeGrad.addColorStop(1, 'rgba(10, 61, 98, 0)');
+    ctx.fillStyle = eyeGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, by + 6, 12, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let b = 0; b < 4; b++) {
+      const bubblePhase = (animTimer * 0.08 + b * 0.25) % 1;
+      const bx = Math.sin(b * 2.3 + animTimer * 0.1) * 14 * (1 - bubblePhase);
+      const bY = by + 6 - bubblePhase * 24;
+      ctx.fillStyle = `rgba(130, 224, 255, ${1 - bubblePhase})`;
+      ctx.beginPath();
+      ctx.arc(bx, bY, 1.5 + b * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  static drawFireAltar(ctx, by, animTimer, direction) {
+    ctx.save();
+    // 1. 焦黑玄武岩石基座
+    ctx.fillStyle = '#2f3542';
+    ctx.beginPath();
+    ctx.ellipse(0, by + 10, 24, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ff4757';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 2. 炽热岩浆裂缝
+    ctx.strokeStyle = '#ffa502';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-16, by + 10);
+    ctx.lineTo(-4, by + 8);
+    ctx.lineTo(8, by + 12);
+    ctx.lineTo(18, by + 9);
+    ctx.stroke();
+
+    // 3. 中心熔岩火口光辉
+    const lavaGrad = ctx.createRadialGradient(0, by + 6, 2, 0, by + 6, 16);
+    lavaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    lavaGrad.addColorStop(0.3, 'rgba(255, 107, 129, 0.85)');
+    lavaGrad.addColorStop(0.7, 'rgba(235, 77, 75, 0.4)');
+    lavaGrad.addColorStop(1, 'rgba(235, 77, 75, 0)');
+    ctx.fillStyle = lavaGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, by + 6, 18, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. 向上跃动的烈焰与火舌
+    for (let f = 0; f < 5; f++) {
+      const fx = (f - 2) * 6;
+      const flameH = 14 + Math.sin(animTimer * 0.3 + f * 1.3) * 6;
+      ctx.fillStyle = f % 2 === 0 ? '#ff9f43' : '#ff5252';
+      ctx.beginPath();
+      ctx.moveTo(fx - 3.5, by + 8);
+      ctx.quadraticCurveTo(fx, by + 4 - flameH, fx + 3.5, by + 8);
+      ctx.fill();
+    }
+
+    // 5. 飘浮火星余烬
+    for (let s = 0; s < 4; s++) {
+      const sparkPhase = (animTimer * 0.12 + s * 0.28) % 1;
+      const sx = Math.sin(s * 3.1 + animTimer * 0.15) * 12;
+      const sy = by + 6 - sparkPhase * 28;
+      ctx.fillStyle = `rgba(255, 242, 0, ${1 - sparkPhase})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  static drawWestGateStele(ctx, by, animTimer, direction) {
+    ctx.save();
+    // 1. 赑屃基座台
+    ctx.fillStyle = '#57606f';
+    ctx.fillRect(-18, by + 8, 36, 8);
+    ctx.strokeStyle = '#747d8c';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-18, by + 8, 36, 8);
+
+    // 2. 古朴界碑石身
+    ctx.fillStyle = '#747d8c';
+    ctx.beginPath();
+    ctx.moveTo(-12, by + 8);
+    ctx.lineTo(-12, by - 22);
+    ctx.quadraticCurveTo(0, by - 28, 12, by - 22);
+    ctx.lineTo(12, by + 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#a4b0be';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 3. 碑面金色铭文「西行界」
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 8px "Microsoft YaHei", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 4;
+    ctx.fillText('西', 0, by - 16);
+    ctx.fillText('行', 0, by - 8);
+    ctx.fillText('界', 0, by);
+    ctx.shadowBlur = 0;
+
+    // 4. 碑顶祥云缭绕
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    const cloudWave = Math.sin(animTimer * 0.15) * 3;
+    ctx.beginPath();
+    ctx.arc(-8 + cloudWave, by - 24, 5, 0, Math.PI * 2);
+    ctx.arc(6 - cloudWave, by - 25, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  static drawMaoriXingguan(ctx, by, animTimer, direction, isMoving) {
+    ctx.save();
+    const flip = direction === 'left' ? -1 : 1;
+    ctx.scale(flip, 1);
+
+    const legMove = isMoving ? Math.sin(animTimer * 0.45) * 3.5 : 0;
+    const wingFlap = Math.sin(animTimer * 0.25) * 2;
+
+    // 1. 头后赤金大日神轮 (太阳星官特质)
+    const haloGrad = ctx.createRadialGradient(0, by - 22, 4, 0, by - 22, 20);
+    haloGrad.addColorStop(0, 'rgba(255, 242, 0, 0.9)');
+    haloGrad.addColorStop(0.5, 'rgba(255, 71, 87, 0.5)');
+    haloGrad.addColorStop(1, 'rgba(255, 71, 87, 0)');
+    ctx.fillStyle = haloGrad;
+    ctx.beginPath();
+    ctx.arc(0, by - 22, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 八道纯金星芒
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.7)';
+    ctx.lineWidth = 1.2;
+    for (let r = 0; r < 8; r++) {
+      const ang = (r * Math.PI) / 4 + animTimer * 0.05;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ang) * 12, by - 22 + Math.sin(ang) * 12);
+      ctx.lineTo(Math.cos(ang) * 20, by - 22 + Math.sin(ang) * 20);
+      ctx.stroke();
+    }
+
+    // 2. 双腿与金足巨爪 (金靴带灵爪)
+    ctx.fillStyle = '#f39c12';
+    ctx.fillRect(-6 + legMove, by + 6, 4, 8);
+    ctx.fillRect(2 - legMove, by + 6, 4, 8);
+
+    // 3. 仙禽金白锦袍法衣
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(-11, by - 12);
+    ctx.lineTo(11, by - 12);
+    ctx.lineTo(14, by + 8);
+    ctx.lineTo(-14, by + 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 胸前赤红金鸡翎羽绣纹
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.moveTo(0, by - 12);
+    ctx.lineTo(6, by - 2);
+    ctx.lineTo(0, by + 4);
+    ctx.lineTo(-6, by - 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // 4. 双侧白金双翼云袖
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.beginPath();
+    ctx.ellipse(-13, by - 4 + wingFlap, 6, 12, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(13, by - 4 - wingFlap, 6, 12, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 5. 昴日星官神首 (金冠与赤红巨羽冠幞)
+    ctx.fillStyle = '#ffeedd';
+    ctx.beginPath();
+    ctx.arc(0, by - 20, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 赤红高耸双冠
+    ctx.fillStyle = '#ff3838';
+    ctx.beginPath();
+    ctx.moveTo(-4, by - 26);
+    ctx.quadraticCurveTo(-2, by - 36, 0, by - 27);
+    ctx.quadraticCurveTo(3, by - 38, 5, by - 26);
+    ctx.closePath();
+    ctx.fill();
+
+    // 金星神帽
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(-7, by - 26, 14, 4);
+
+    // 双目明朗有神
+    ctx.fillStyle = '#1e272e';
+    ctx.fillRect(2, by - 21, 2, 2.5);
+
+    // 仙家红髯
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.moveTo(1, by - 14);
+    ctx.lineTo(3, by - 9);
+    ctx.lineTo(0, by - 12);
+    ctx.fill();
     ctx.restore();
   }
 

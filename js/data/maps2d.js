@@ -26662,7 +26662,27 @@ window.GAME_DATA.MAPS_2D = {
         "y": 448,
         "appearance": "tudi_gong",
         "icon": "📜",
-        "dialogueKey": "haoshan_tudi_talk"
+        "dialogueKey": "huoyun_tudi_warning"
+      },
+      {
+        "id": "npc_redboy_disguise",
+        "name": "枯松涧孩童",
+        "title": "【受困啼哭孩童】",
+        "x": 672,
+        "y": 448,
+        "appearance": "changan_child",
+        "icon": "🧒",
+        "dialogueKey": "huoyun_redboy_trick"
+      },
+      {
+        "id": "npc_redboy_boss",
+        "name": "圣婴大王·红孩儿",
+        "title": "【火云洞之主】",
+        "x": 448,
+        "y": 448,
+        "appearance": "honghaier",
+        "icon": "🔥",
+        "dialogueKey": "huoyun_boss_encounter"
       }
     ],
     "monsters": [
@@ -27900,7 +27920,7 @@ window.GAME_DATA.MAPS_2D = {
       { "id": "npc_heishui_moang", "name": "西海龙太子摩昂", "title": "【奉命擒妖】", "x": 832, "y": 352, "appearance": "longwang", "icon": "🐉", "dialogueKey": "heishui_moang_briefing" },
       { "id": "npc_heishui_tuojie", "name": "鼍洁", "title": "【黑水大王】", "x": 992, "y": 448, "appearance": "yecha", "icon": "🐊", "dialogueKey": "heishui_tuojie_challenge" },
       { "id": "npc_heishui_rivergod_restored", "name": "黑水河神", "title": "【复位谢恩】", "x": 928, "y": 544, "appearance": "tudi_gong", "icon": "🌊", "dialogueKey": "heishui_reward_claim" },
-      { "id": "npc_heishui_tangseng_rescued", "name": "唐三藏", "title": "【脱险】", "x": 1056, "y": 768, "appearance": "stone_monkey", "icon": "🧘", "dialogueKey": "heishui_crossing_epilogue" }
+      { "id": "npc_heishui_tangseng_rescued", "name": "唐三藏", "title": "【脱险】", "x": 1056, "y": 768, "appearance": "tang_seng", "icon": "🧘", "dialogueKey": "heishui_crossing_epilogue" }
     ],
     "monsters": [
       { "id": "mob_heishui_shrimp_1", "name": "黑水虾卒", "appearance": "shrimp", "x": 384, "y": 192, "level": 58, "hp": 9000, "maxHp": 9000, "atk": 380, "def": 190, "spd": 44, "skills": ["连击"] },
@@ -30285,11 +30305,11 @@ window.GAME_DATA.MAPS_2D = {
         "title": "【敬道重法君主】",
         "x": 896,
         "y": 352,
-        "appearance": "tang_seng",
+        "appearance": "baoxiang_king",
         "icon": "👑",
         "dialogueKey": "chedi_king_talk"
       },
-      { "id": "npc_chedi_monk", "name": "受役僧人", "title": "【被役沙门】", "x": 576, "y": 704, "appearance": "stone_monkey", "icon": "🧘", "dialogueKey": "chedi_monk_appeal" },
+      { "id": "npc_chedi_monk", "name": "受役僧人", "title": "【被役沙门】", "x": 576, "y": 704, "appearance": "tang_seng", "icon": "🧘", "dialogueKey": "chedi_monk_appeal" },
       { "id": "npc_chedi_tiger", "name": "虎力大仙", "title": "【黄毛虎力】", "x": 832, "y": 384, "appearance": "tiger", "icon": "🐯", "dialogueKey": "chedi_rain_trial" },
       { "id": "npc_chedi_deer", "name": "鹿力大仙", "title": "【白毛鹿力】", "x": 288, "y": 288, "appearance": "fox", "icon": "🦌", "dialogueKey": "chedi_discern_trial" },
       { "id": "npc_chedi_sheep", "name": "羊力大仙", "title": "【灰毛羊力】", "x": 928, "y": 512, "appearance": "wolf", "icon": "🐑", "dialogueKey": "chedi_final_challenge" }
@@ -31528,11 +31548,11 @@ window.GAME_DATA.MAPS_2D = {
         "icon": "🐢",
         "dialogueKey": "tongtian_yuan_talk"
       },
-      { "id": "npc_tongtian_elder", "name": "陈家长者", "title": "【陈家庄乡老】", "x": 224, "y": 416, "appearance": "stone_monkey", "icon": "👴", "dialogueKey": "tongtian_appeal" },
-      { "id": "npc_tongtian_child", "name": "陈关保与一秤金", "title": "【被选中的祭童】", "x": 192, "y": 320, "appearance": "stone_monkey", "icon": "🧒", "dialogueKey": "tongtian_child_words" },
-      { "id": "npc_tongtian_altar", "name": "河畔祭坛", "title": "【寒祭旧约】", "x": 576, "y": 448, "appearance": "stone_monkey", "icon": "🕯️", "dialogueKey": "tongtian_altar_rite" },
-      { "id": "npc_tongtian_watergate", "name": "水府入口", "title": "【暗流侧口】", "x": 864, "y": 640, "appearance": "shrimp", "icon": "🌊", "dialogueKey": "tongtian_watergate" },
-      { "id": "npc_tongtian_guanyin", "name": "观世音菩萨", "title": "【南海大慈大悲】", "x": 640, "y": 416, "appearance": "stone_monkey", "icon": "🪷", "dialogueKey": "tongtian_guanyin_arrival" }
+      { "id": "npc_tongtian_elder", "name": "陈家长者", "title": "【陈家庄乡老】", "x": 224, "y": 416, "appearance": "liu_taigong", "icon": "👴", "dialogueKey": "tongtian_appeal" },
+      { "id": "npc_tongtian_child", "name": "陈关保与一秤金", "title": "【被选中的祭童】", "x": 192, "y": 320, "appearance": "changan_child", "icon": "🧒", "dialogueKey": "tongtian_child_words" },
+      { "id": "npc_tongtian_altar", "name": "河畔祭坛", "title": "【寒祭旧约】", "x": 576, "y": 448, "appearance": "altar_shrine", "icon": "🕯️", "dialogueKey": "tongtian_altar_rite" },
+      { "id": "npc_tongtian_watergate", "name": "水府入口", "title": "【暗流侧口】", "x": 864, "y": 640, "appearance": "water_vortex", "icon": "🌊", "dialogueKey": "tongtian_watergate" },
+      { "id": "npc_tongtian_guanyin", "name": "观世音菩萨", "title": "【南海大慈大悲】", "x": 640, "y": 416, "appearance": "guanyin", "icon": "🪷", "dialogueKey": "tongtian_guanyin_arrival" }
     ],
     "monsters": [
       {
@@ -32754,12 +32774,12 @@ window.GAME_DATA.MAPS_2D = {
     ],
     "playerSpawn": { "x": 256, "y": 768, "direction": "up" },
     "npcs": [
-      { "id": "npc_huoyan_villager", "name": "灾民代表", "title": "【火焰山灾民】", "x": 192, "y": 672, "appearance": "stone_monkey", "icon": "🧑‍🌾", "dialogueKey": "huoyan_appeal" },
+      { "id": "npc_huoyan_villager", "name": "灾民代表", "title": "【火焰山灾民】", "x": 192, "y": 672, "appearance": "liu_taigong", "icon": "🧑‍🌾", "dialogueKey": "huoyan_appeal" },
       { "id": "npc_huoyan_land", "name": "火焰山土地", "title": "【本境土地】", "x": 384, "y": 640, "appearance": "tudi_gong", "icon": "👴", "dialogueKey": "huoyan_land_talk" },
       { "id": "npc_huoyan_princess", "name": "铁扇公主", "title": "【翠云山芭蕉洞】", "x": 384, "y": 160, "appearance": "tieshan", "icon": "👸", "dialogueKey": "huoyan_borrow_fan" },
       { "id": "npc_huoyan_bull_king", "name": "牛魔王", "title": "【摩云洞平天大圣】", "x": 768, "y": 192, "appearance": "bull_demon", "icon": "🐂", "dialogueKey": "huoyan_bull_encounter" },
-      { "id": "npc_huoyan_fan_trial", "name": "试扇火口", "title": "【隔离试扇台】", "x": 608, "y": 416, "appearance": "shrimp", "icon": "🔥", "dialogueKey": "huoyan_test_fan" },
-      { "id": "npc_huoyan_fire_root", "name": "火根台", "title": "【断绝火根】", "x": 608, "y": 576, "appearance": "shrimp", "icon": "🪨", "dialogueKey": "huoyan_quench_fire" }
+      { "id": "npc_huoyan_fan_trial", "name": "试扇火口", "title": "【隔离试扇台】", "x": 608, "y": 416, "appearance": "fire_altar", "icon": "🔥", "dialogueKey": "huoyan_test_fan" },
+      { "id": "npc_huoyan_fire_root", "name": "火根台", "title": "【断绝火根】", "x": 608, "y": 576, "appearance": "fire_altar", "icon": "🪨", "dialogueKey": "huoyan_quench_fire" }
     ],
     "monsters": [
       { "id": "mob_hy_demon_1", "name": "火焰山焰魔", "appearance": "yecha", "x": 544, "y": 352, "level": 66, "hp": 16000, "maxHp": 16000, "atk": 420, "def": 210, "spd": 46, "skills": ["三昧真火"] },
@@ -33914,11 +33934,12 @@ window.GAME_DATA.MAPS_2D = {
         "icon": "🕸️",
         "dialogueKey": "pansi_talk"
       },
+      { "id": "npc_pansi_tangseng", "name": "唐三藏", "title": "【受缚师尊】", "x": 352, "y": 416, "appearance": "tang_seng", "icon": "🧘", "dialogueKey": "pansi_unbind" },
       { "id": "npc_pansi_spider", "name": "盘丝七女妖", "title": "【濯垢泉边】", "x": 416, "y": 416, "appearance": "fox", "icon": "🕷️", "dialogueKey": "pansi_unbind" },
       { "id": "npc_pansi_huanghua", "name": "黄花观主", "title": "【百眼魔君】", "x": 800, "y": 320, "appearance": "yecha", "icon": "👁️", "dialogueKey": "pansi_huanghua" },
-      { "id": "npc_pansi_oldwoman", "name": "指路老妇", "title": "【黎山故人】", "x": 640, "y": 640, "appearance": "stone_monkey", "icon": "👵", "dialogueKey": "pansi_poison_tea" },
-      { "id": "npc_pansi_maori", "name": "昴日星官", "title": "【双冠大公鸡】", "x": 768, "y": 448, "appearance": "stone_monkey", "icon": "🐓", "dialogueKey": "pansi_maori" },
-      { "id": "npc_pansi_west_exit", "name": "西行关口", "title": "【西去路】", "x": 1056, "y": 480, "appearance": "stone_monkey", "icon": "🌄", "dialogueKey": "pansi_cleared_end" }
+      { "id": "npc_pansi_oldwoman", "name": "指路老妇", "title": "【黎山故人】", "x": 640, "y": 640, "appearance": "changan_tea_granny", "icon": "👵", "dialogueKey": "pansi_poison_tea" },
+      { "id": "npc_pansi_maori", "name": "昴日星官", "title": "【双冠大公鸡】", "x": 768, "y": 448, "appearance": "maori_xingguan", "icon": "🐓", "dialogueKey": "pansi_maori" },
+      { "id": "npc_pansi_west_exit", "name": "西行关口", "title": "【西去路】", "x": 1056, "y": 480, "appearance": "west_gate_stele", "icon": "🌄", "dialogueKey": "pansi_cleared_end" }
     ],
     "monsters": [
       {
@@ -35190,7 +35211,7 @@ window.GAME_DATA.MAPS_2D = {
         "title": "【灵山在望】",
         "x": 144,
         "y": 448,
-        "appearance": "stone_monkey",
+        "appearance": "west_gate_stele",
         "icon": "🌄",
         "dialogueKey": "shituo_cleared_end"
       }

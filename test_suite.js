@@ -3732,7 +3732,7 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     story.pantao_intro.steps.at(-1).action();
     window.Dialogue.close();
     assert(app.storyPhase === 'heaven_to_water_pavilion', '太白交代后进入前往水阁阶段');
-    assert(!app.npcs.some(n => n.id === 'npc_tianpeng'), '未抵达水阁时天蓬仍不刷新');
+    assert(app.npcs.some(n => n.id === 'npc_tianpeng'), '太白交代完毕后天蓬元帅金芒闪烁立刻现身');
     let huaguoPortal = window.GAME_DATA.MAPS_2D.tiangong_palace.portals.find(p => p.targetMap === 'huaguoshan');
     app.tryEnterPortal(huaguoPortal);
     assert(app.currentMapId === 'tiangong_palace', '未领出征帅令不能跳过天宫任务去花果山');
@@ -3744,7 +3744,7 @@ console.log('\n▶️ [测试 4] 左右阵营战斗、①②③速度决序、�
     app.storyPhase = 'heaven_to_lingxiao';
     window.Dialogue.close();
     app.refreshMapNpcs();
-    assert(!app.npcs.some(n => n.id === 'npc_juanlian'), '天蓬战后未到凌霄殿前卷帘仍不出现');
+    assert(app.npcs.some(n => n.id === 'npc_juanlian'), '天蓬战后卷帘大将金芒闪烁立刻现身凌霄殿前');
     app.playerChar.x = 704; app.playerChar.y = 384;
     app.update();
     assert(app.storyPhase === 'heaven_saved_change' && app.npcs.some(n => n.id === 'npc_juanlian'), '抵达凌霄殿前才触发卷帘事件');

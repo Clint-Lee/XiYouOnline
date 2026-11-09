@@ -398,10 +398,10 @@ class BattleEngine {
     const passives = (attacker.entity && attacker.entity.passives) || (attacker.passives) || [];
     const targetPassives = (target.entity && target.entity.passives) || (target.passives) || [];
 
-    // 计算最终闪避率：高级闪避被动 + 隐身等 buff 提供的临时闪避
+    // 计算最终闪避率：高级闪避被动 + 隐身等 buff 提供的临时闪避（上限 1.0）
     const hasHighDodge = targetPassives.some(p => p.id === 'high_dodge' || p.name === '高级闪避');
     const buffDodge = Math.max(0, ...((target.buffs || []).map(b => Number(b.dodgeBonus) || 0)));
-    const finalDodgeRate = Math.min(0.75, dodgeRate + (hasHighDodge ? 0.15 : 0) + buffDodge);
+    const finalDodgeRate = Math.min(1.0, dodgeRate + (hasHighDodge ? 0.15 : 0) + buffDodge);
 
     // 序章剧情战役（天蓬战、大圣战）保证演出打击感与剧情爽感，默认不被普通闪避打断
     const isPrologueBattle = (target.id === 'tianpeng_boss' || attacker.id === 'tianpeng_boss' || target.id === 'wukong_havoc_boss' || attacker.id === 'wukong_havoc_boss');

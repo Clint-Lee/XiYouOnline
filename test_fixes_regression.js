@@ -203,7 +203,7 @@ module.exports = async function (assert) {
       `虚弱应降低实际伤害：正常 ${normal.totalDamage} vs 虚弱 ${weakened.totalDamage}`);
 
     // 隐身：dodgeBonus 应计入命中判定。用 forceDodge=false 且 dodgeBonus=1 验证必闪
-    const dodger = { id: 'invis', name: '隐身者', def: 10, maxHp: 1000, hp: 1000, dodgeRate: 0, buffs: [{ id: 'yinshen', dodgeBonus: 0.75 }] };
+    const dodger = { id: 'invis', name: '隐身者', def: 10, maxHp: 1000, hp: 1000, dodgeRate: 0, buffs: [{ id: 'yinshen', dodgeBonus: 1.0 }] };
     const hitRes = window.BattleEngine.calculateAttackDamage(normalAttacker, dodger, { forceFatal: false, forceCrit: false, forceCombo: false });
     assert(hitRes.isDodge === true, '隐身提供的闪避加成应真实参与命中判定');
   }

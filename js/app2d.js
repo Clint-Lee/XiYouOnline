@@ -1402,14 +1402,14 @@ class GameApp2D {
       // 花果山人物不能因天宫地图中的旧占位配置提前登场。
       if (npcId === 'npc_juling_shen' || npcId === 'npc_huaguo_monkey') return false;
 
-      // 事件一：天蓬调戏嫦娥（开局出现，解围后天蓬被王母降旨贬猪胎退场）
+      // 事件一：天蓬调戏嫦娥（太白交代后立即金芒现身，解围后天蓬被王母降旨贬猪胎退场）
       if (npcId === 'npc_tianpeng' || npcId === 'npc_change') {
-        return storyPhase === 'heaven_pantao_start';
+        return storyPhase === 'heaven_pantao_start' || storyPhase === 'heaven_to_water_pavilion';
       }
 
-      // 事件二：卷帘失手打碎琉璃盏（救嫦娥后登场，求情免死贬流沙河后退场）
+      // 事件二：卷帘失手打碎琉璃盏（救嫦娥后立即金芒现身殿前，求情免死贬流沙河后退场）
       if (npcId === 'npc_juanlian') {
-        return storyPhase === 'heaven_saved_change';
+        return storyPhase === 'heaven_saved_change' || storyPhase === 'heaven_to_lingxiao';
       }
 
       // 押解大圣凯旋与玉帝发落因果阶段
@@ -1690,6 +1690,7 @@ class GameApp2D {
     this.updatePlayerHud();
 
     // 章节起点初始化：只在上一个章节刚完结时触发，重复入图或后续章节回访均不回退
+    this.ensureHuoyunChapterStarted();
     this.ensureHeishuiChapterStarted();
     this.ensureChediChapterStarted();
     this.ensureTongtianChapterStarted();
@@ -1713,9 +1714,9 @@ class GameApp2D {
     const MAIN_QUEST_TARGETS = {
       // 天宫序章三大因缘
       'heaven_prologue': 'npc_taibai',
-      'heaven_to_water_pavilion': null,
+      'heaven_to_water_pavilion': 'npc_tianpeng',
       'heaven_pantao_start': 'npc_tianpeng',
-      'heaven_to_lingxiao': null,
+      'heaven_to_lingxiao': 'npc_juanlian',
       'heaven_saved_change': 'npc_juanlian',
       'heaven_saved_juanlian': 'npc_tianbing_scout',
       'heaven_huaguoshan': 'npc_tianbing_scout',
@@ -1872,21 +1873,36 @@ class GameApp2D {
 
     // 实例化 NPC (拒绝 Emoji，外观配置清晰，已点击/非任务 NPC 头顶绝不乱悬浮感叹号；依据剧情进度过滤未到出场时机的人物)
     const visibleNpcList = (mapData.npcs || []).filter(n => this.isNpcVisibleInStoryPhase(n.id, this.storyPhase, mapId));
-    this.npcs = visibleNpcList.map(n => new window.Character({
-      id: n.id,
-      name: n.id === 'npc_baigujing' ?
-        (this.storyPhase === 'wuzhuang_cleared' ? '送斋饭的村姑' :
-          this.storyPhase === 'baihu_first_cleared' ? '寻女的老妪' : '拄杖的老翁') : n.name,
-      title: n.id === 'npc_baigujing' ? '【白虎岭行路人】' : n.title,
-      type: 'npc',
-      x: n.x,
-      y: n.y,
-      appearance: n.id === 'npc_baigujing' ?
-        (this.storyPhase === 'wuzhuang_cleared' ? 'baigu_maiden' :
-          this.storyPhase === 'baihu_first_cleared' ? 'baigu_granny' : 'baigu_oldman') : n.appearance,
-      dialogueKey: n.dialogueKey,
-      questStatus: shouldShowQuestExclamation(n) || null
-    }));
+    this._lastVisibleNpcIdsByMap = this._lastVisibleNpcIdsByMap || {};
+    const prevIds = this._lastVisibleNpcIdsByMap[mapId];
+
+    this.npcs = visibleNpcList.map(n => {
+      const isNewlySpawned = prevIds && !prevIds.has(n.id);
+      const npcChar = new window.Character({
+        id: n.id,
+        name: n.id === 'npc_baigujing' ?
+          (this.storyPhase === 'wuzhuang_cleared' ? '送斋饭的村姑' :
+            this.storyPhase === 'baihu_first_cleared' ? '寻女的老妪' : '拄杖的老翁') : n.name,
+        title: n.id === 'npc_baigujing' ? '【白虎岭行路人】' : n.title,
+        type: 'npc',
+        x: n.x,
+        y: n.y,
+        appearance: n.id === 'npc_baigujing' ?
+          (this.storyPhase === 'wuzhuang_cleared' ? 'baigu_maiden' :
+            this.storyPhase === 'baihu_first_cleared' ? 'baigu_granny' : 'baigu_oldman') : n.appearance,
+        dialogueKey: n.dialogueKey,
+        questStatus: shouldShowQuestExclamation(n) || null
+      });
+      if (isNewlySpawned) {
+        npcChar.spawnFlashUntil = Date.now() + 1800;
+        if (this.particleSystem && typeof this.particleSystem.emit === 'function') {
+          this.particleSystem.emit(n.x, n.y, 'gold_spark', 15);
+        }
+      }
+      return npcChar;
+    });
+
+    this._lastVisibleNpcIdsByMap[mapId] = new Set(visibleNpcList.map(n => n.id));
 
     // 实例化怪物 (完整继承地图怪物全部属性、战斗技能与80%移速；若为刷新NPC则保留当前存活怪物不强制刷满)
     if (rebuildMonsters || !this.monsters || this.monsters.length === 0) {
@@ -3223,6 +3239,86 @@ class GameApp2D {
         npc.dialogueKey = 'changan_tea_news';
       } else {
         npc.dialogueKey = 'changan_tea_talk';
+      }
+    }
+
+    // 依据当前最新 storyPhase 动态匹配第十二至十七回 NPC 主线剧情对话
+    // 第十二回 火云洞
+    if (npc.id === 'npc_haoshan_tudi') {
+      if (this.storyPhase === 'pingding_cleared' || this.storyPhase === 'huoyun_arrived') {
+        npc.dialogueKey = 'huoyun_tudi_warning';
+      } else if (this.storyPhase === 'huoyun_cleared' || (this.playerData?.storyEvents?.huoyun_boss_won)) {
+        npc.dialogueKey = 'huoyun_reward_ready';
+      }
+    }
+    if (npc.id === 'npc_redboy_disguise') {
+      npc.dialogueKey = 'huoyun_redboy_trick';
+    }
+    if (npc.id === 'npc_redboy_boss') {
+      npc.dialogueKey = 'huoyun_boss_encounter';
+    }
+
+    // 第十三回 黑水河
+    if (npc.id === 'npc_heishui_rivergod_exiled') {
+      if (this.storyPhase === 'heishui_aid_needed') {
+        npc.dialogueKey = 'heishui_seek_west_sea_aid';
+      } else {
+        npc.dialogueKey = 'heishui_rivergod_appeal';
+      }
+    }
+
+    // 第十四回 车迟国
+    if (npc.id === 'npc_chedi_king') {
+      if (this.storyPhase === 'chedi_audience') {
+        npc.dialogueKey = 'chedi_royal_terms';
+      } else if (this.storyPhase === 'chedi_reward_pending') {
+        npc.dialogueKey = 'chedi_reward';
+      } else if (this.storyPhase === 'chedi_cleared') {
+        npc.dialogueKey = 'chedi_after_clear';
+      }
+    }
+
+    // 第十五回 通天河
+    if (npc.id === 'npc_tongtian_elder') {
+      if (this.storyPhase === 'tongtian_vowed') {
+        npc.dialogueKey = 'tongtian_vow';
+      } else if (this.storyPhase === 'tongtian_reward') {
+        npc.dialogueKey = 'tongtian_reward';
+      }
+    }
+    if (npc.id === 'npc_tongtian_altar') {
+      if (this.storyPhase === 'tongtian_vowed' || this.storyPhase === 'tongtian_altar') {
+        npc.dialogueKey = 'tongtian_altar_rite';
+      }
+    }
+
+    // 第十六回 火焰山
+    if (npc.id === 'npc_huoyan_princess') {
+      if (this.storyPhase === 'huoyan_seek_true_fan') {
+        npc.dialogueKey = 'huoyan_seek_true_fan';
+      } else if (this.storyPhase === 'huoyan_renew_request') {
+        npc.dialogueKey = 'huoyan_renew_request';
+      } else {
+        npc.dialogueKey = 'huoyan_borrow_fan';
+      }
+    }
+    if (npc.id === 'npc_huoyan_villager') {
+      if (this.storyPhase === 'huoyan_quench_fire' || this.storyPhase === 'huoyan_cleared') {
+        npc.dialogueKey = 'huoyan_reward';
+      }
+    }
+
+    // 第十七回 盘丝洞
+    if (npc.id === 'npc_pansi_spider') {
+      if (this.storyPhase === 'pansi_webbound') {
+        npc.dialogueKey = 'pansi_unbind';
+      }
+    }
+    if (npc.id === 'npc_pansi_maori') {
+      if (this.storyPhase === 'pansi_breaking_light') {
+        npc.dialogueKey = 'pansi_light_break';
+      } else if (this.storyPhase === 'pansi_restoring') {
+        npc.dialogueKey = 'pansi_form_revealed';
       }
     }
 
@@ -7802,6 +7898,16 @@ class GameApp2D {
   // 阶段链：pingding_cleared → huoyun_arrived → huoyun_redboy_ready
   //        → huoyun_boss_ready → huoyun_cleared
   // =========================================================================
+
+  // 首次进入火云洞：只在上一章刚刚完结时初始化，重复入图/后续章节回访均不回退
+  ensureHuoyunChapterStarted() {
+    if (this.currentMapId !== 'huoyundong') return false;
+    if (this.storyPhase !== 'pingding_cleared') return false;
+    this.storyPhase = 'huoyun_arrived';
+    this.refreshMapNpcs();
+    this.saveAutoProgress();
+    return true;
+  }
 
   // 第一战：红孩儿假意求救被识破后的遭遇战（带一名火云炎兵护卫）
   triggerHuoyunScoutBattle() {
