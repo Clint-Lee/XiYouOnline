@@ -12683,19 +12683,23 @@ class GameApp2D {
       this.renderMagicPortals(mapData.portals);
     }
 
-    // 9. 渲染左上角雷达小地图系统
+    // 9. 电影级水墨暗角景深与古典环境光 (聚拢中央视野，增强神话画卷沉浸感)
+    // 先绘暗角于场景之上，再绘制雷达等 UI，确保界面不被暗角遮挡。
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    // 柔和过渡：内圈留白更大、边缘暖色降噪，最大暗度由 0.42 收敛至约 0.30，避免生硬黑框。
+    const vigGrad = this.ctx.createRadialGradient(w / 2, h / 2, w * 0.46, w / 2, h / 2, w * 0.92);
+    vigGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vigGrad.addColorStop(0.62, 'rgba(10, 8, 5, 0)');
+    vigGrad.addColorStop(0.85, 'rgba(12, 9, 6, 0.14)');
+    vigGrad.addColorStop(1, 'rgba(14, 10, 6, 0.30)');
+    this.ctx.fillStyle = vigGrad;
+    this.ctx.fillRect(0, 0, w, h);
+
+    // 10. 渲染左上角雷达小地图系统 (位于暗角之上，保持清晰可读)
     if (this.minimap) {
       this.minimap.render(this.ctx, mapData, this.playerChar, this.storyPhase);
     }
-
-    // 10. 电影级水墨暗角景深与古典环境光 (聚拢中央视野，增强神话画卷沉浸感)
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    const vigGrad = this.ctx.createRadialGradient(w / 2, h / 2, w * 0.38, w / 2, h / 2, w * 0.78);
-    vigGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vigGrad.addColorStop(1, 'rgba(8, 6, 4, 0.42)');
-    this.ctx.fillStyle = vigGrad;
-    this.ctx.fillRect(0, 0, w, h);
   }
 
   // 渲染蟠桃胜境中实体大仙树与结满的仙桃

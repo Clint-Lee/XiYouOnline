@@ -1778,6 +1778,24 @@ class TilemapEngine {
         this.drawTile(ctx, tileType, screenX, screenY, c, r, mapData, sceneState);
       }
     }
+
+    // 3. 场景层次与环境光：克制的水墨纵深与古典柔光，绝不遮挡角色与交互。
+    try {
+      const vw = camera.viewportWidth, vh = camera.viewportHeight;
+      // 顶部大气薄雾受光，底部地面渐沉，强化空间纵深。
+      const depth = ctx.createLinearGradient(0, 0, 0, vh);
+      depth.addColorStop(0, 'rgba(255, 245, 220, 0.05)');
+      depth.addColorStop(0.55, 'rgba(0, 0, 0, 0)');
+      depth.addColorStop(1, 'rgba(8, 10, 6, 0.10)');
+      ctx.fillStyle = depth;
+      ctx.fillRect(0, 0, vw, vh);
+      // 柔和中央暖光晕，聚拢视线、提振神话画卷氛围。
+      const glow = ctx.createRadialGradient(vw * 0.5, vh * 0.42, vh * 0.1, vw * 0.5, vh * 0.5, vh * 0.85);
+      glow.addColorStop(0, 'rgba(255, 240, 200, 0.06)');
+      glow.addColorStop(1, 'rgba(255, 240, 200, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, vw, vh);
+    } catch (e) { /* 光照增强为可降级装饰，绝不影响主渲染 */ }
   }
 
   // 瓦片渲染统一门禁接口 (兼容 renderTile 别名)

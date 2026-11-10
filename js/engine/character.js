@@ -662,6 +662,30 @@ class Character {
 // 10. 仙佛神仙：南海观音、白骨妖仙、虎先锋、灵蛇仙宠、两界山猎户、太白金星
 // =========================================================================
 class CharacterRenderer {
+  // 柔和地面投影：径向渐变衰减，避免生硬黑边，提升神话画卷氛围与层次。
+  // 对不支持渐变的上下文（部分测试桩）安全降级为旧式硬边椭圆。
+  static softGroundShadow(ctx, y = 12, w = 17, h = 7, alpha = 0.42) {
+    try {
+      if (typeof ctx.createRadialGradient === 'function') {
+        const grad = ctx.createRadialGradient(0, y, 1, 0, y, w);
+        if (grad && typeof grad.addColorStop === 'function') {
+          grad.addColorStop(0, `rgba(10, 8, 6, ${alpha})`);
+          grad.addColorStop(0.65, `rgba(10, 8, 6, ${alpha * 0.5})`);
+          grad.addColorStop(1, 'rgba(10, 8, 6, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(0, y, w, h, 0, 0, Math.PI * 2);
+          ctx.fill();
+          return;
+        }
+      }
+    } catch (e) { /* 降级到硬边椭圆 */ }
+    ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(alpha + 0.06, 0.5)})`;
+    ctx.beginPath();
+    ctx.ellipse(0, y, w, h, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // 绘制神圣出招通天金黄光柱（复刻图3：脚底金光圆环、向上通天光柱与升腾灵气粒子）
   static drawActingLightPillar(ctx, x, y, width = 56, height = 108) {
     ctx.save();
@@ -831,15 +855,12 @@ class CharacterRenderer {
       CharacterRenderer.drawActingLightPillar(ctx, 0, 0, 58, 105);
     }
 
-    // 绘制脚底地面椭圆阴影
+    // 绘制脚底柔和地面投影
     const shadowW = isRiding ? 24 : 17;
     const shadowH = isRiding ? 9 : 7;
     // 画皮仍以村民形貌示人；“脚下无影”是对白中可核对的线索。
     if (!['baigu_maiden', 'baigu_granny', 'baigu_oldman'].includes(modelId)) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
-      ctx.beginPath();
-      ctx.ellipse(0, isRiding ? 14 : 12, shadowW, shadowH, 0, 0, Math.PI * 2);
-      ctx.fill();
+      CharacterRenderer.softGroundShadow(ctx, isRiding ? 14 : 12, shadowW, shadowH, isRiding ? 0.4 : 0.42);
     }
 
     // 呼吸浮动微动效

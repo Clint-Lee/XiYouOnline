@@ -24,6 +24,140 @@ window.CreatureArt = {
     const glaze = (base, light) => {
       const g = ctx.createLinearGradient(-16, -16, 16, 12); g.addColorStop(0, light); g.addColorStop(0.48, base); g.addColorStop(1, '#202330'); return g;
     };
+    // 柔和地面投影：径向衰减，避免生硬黑边，配合神话画卷氛围。
+    const softShadow = (y, rx, alpha = 0.3) => {
+      const sg = ctx.createRadialGradient(0, y, 1, 0, y, rx);
+      sg.addColorStop(0, `rgba(0,0,0,${alpha})`);
+      sg.addColorStop(0.7, `rgba(0,0,0,${alpha * 0.45})`);
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.ellipse(0, y, rx, rx * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+    };
+    // 猿猴战士基础骨架（猕猴/猿猴六阶共用），以毛色与肩饰区分军阶。
+    const drawApe = (furBase, furLight, trimColor, isGeneral, isMacaque) => {
+      softShadow(14, 17, 0.34);
+      const fur = glaze(furBase, furLight);
+      for (const side of [-1, 1]) {
+        ctx.fillStyle = '#352a22'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill();
+        ellipse(side * 4, 11, 3, 1.3, '#2c231c');
+      }
+      ctx.fillStyle = fur; ctx.beginPath(); ctx.roundRect(-9, -13, 18, 19, 4); ctx.fill();
+      ellipse(0, -2, 6.5, 7, 'rgba(255,250,240,0.16)');
+      for (const side of [-1, 1]) line([[side * 8, -9], [side * 12, -2], [side * 13, 3]], fur, 4);
+      ellipse(0, -19, 8, 7, fur);
+      ellipse(-8, -20, 3, 2.2, fur); ellipse(8, -20, 3, 2.2, fur);
+      ellipse(0, -16, 4, 3, '#e0c9a6');
+      eyes(-3, -20, '#ffd27a'); eyes(3, -20, '#ffd27a');
+      line([[-3, -14], [0, -15], [3, -14]], '#6c4a36', 0.7);
+      line([[-9, -10], [9, -10]], trimColor, 2);
+      if (isGeneral) { shape([[-3, -26], [-2, -32], [2, -32], [3, -26]], trimColor); ellipse(0, -30, 1.6, 1.6, '#fff0b8'); line([[0, -32], [0, -37]], trimColor, 2); ellipse(0, -38, 3, 1.5, trimColor); }
+    };
+    if (['yuanhou', 'yuanhou_bing', 'yuanhou_jiang', 'mihou', 'mihou_bing', 'mihou_jiang'].includes(id)) {
+      const isGen = id.endsWith('_jiang'), isSol = id.endsWith('_bing'), mac = id.startsWith('mihou');
+      const fur = mac ? (isGen ? '#8f8f88' : isSol ? '#9a9a92' : '#a6a69d') : (isGen ? '#6f5436' : isSol ? '#7a5d3e' : '#8a6b46');
+      const light = mac ? (isGen ? '#c2c2b8' : isSol ? '#cdcdc3' : '#d8d8ce') : (isGen ? '#b08e5e' : isSol ? '#b9976a' : '#c9a878');
+      const trim = mac ? '#7a7a70' : (isGen ? '#e0b04a' : isSol ? '#9c7330' : '#b9893f');
+      drawApe(fur, light, trim, isGen, mac);
+      if (isGen) { line([[13, 3], [20, -14]], '#6b4a2a', 2.2); ellipse(20, -15, 3, 4, '#d9c089'); }
+      else { line([[13, 3], [19, 2]], '#5b3f24', 2.5); ellipse(20, 2, 4, 2, '#8a5a32'); }
+    } else if (id === 'sun_wukong') {
+      softShadow(14, 18, 0.36);
+      line([[-14, -12], [16, 8]], '#caa24a', 2.4); ellipse(16, 8, 2.5, 2.5, '#e9d08a'); ellipse(-14, -12, 2.5, 2.5, '#e9d08a');
+      for (const side of [-1, 1]) { ctx.fillStyle = '#3a2c1c'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); ellipse(side * 4, 11, 3, 1.3, '#2c231c'); }
+      ctx.fillStyle = glaze('#e7b53c', '#fff0b0'); ctx.beginPath(); ctx.roundRect(-9, -13, 18, 19, 4); ctx.fill();
+      ctx.fillStyle = '#caa64e'; ctx.beginPath(); ctx.moveTo(-9, 2); ctx.lineTo(9, 2); ctx.lineTo(7, 12); ctx.lineTo(-7, 12); ctx.closePath(); ctx.fill();
+      for (let i = -1; i <= 1; i++) line([[i * 4, 3], [i * 5, 11]], '#7a5a22', 1);
+      for (const side of [-1, 1]) line([[side * 8, -9], [side * 12, -2], [side * 13, 3]], glaze('#e7b53c', '#fff0b0'), 4);
+      ellipse(0, -19, 8, 7, glaze('#caa14e', '#e9cf94'));
+      ellipse(-8, -20, 3, 2.2, glaze('#caa14e', '#e9cf94')); ellipse(8, -20, 3, 2.2, glaze('#caa14e', '#e9cf94'));
+      ellipse(0, -16, 4, 3, '#e9c9a3'); eyes(-3, -20, '#ff5a3c'); eyes(3, -20, '#ff5a3c');
+      line([[-3, -14], [0, -15], [3, -14]], '#6c4a36', 0.7);
+      shape([[-3, -26], [-2, -33], [2, -33], [3, -26]], '#7b1f1f');
+      line([[-3, -29], [-10, -36]], '#c0202f', 2); line([[3, -29], [10, -36]], '#c0202f', 2);
+      ellipse(-10, -37, 3, 1.6, '#ffd34d'); ellipse(10, -37, 3, 1.6, '#ffd34d');
+    } else if (id === 'zhu_bajie') {
+      softShadow(14, 18, 0.36);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#2e2622'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); ellipse(side * 4, 11, 3, 1.3, '#241d19'); }
+      ctx.fillStyle = glaze('#3b4a6b', '#7d93b8'); ctx.beginPath(); ctx.roundRect(-10, -12, 20, 20, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.roundRect(-10, -12, 20, 8, 5); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 9, -8], [side * 13, -1], [side * 13, 4]], glaze('#3b4a6b', '#7d93b8'), 4);
+      ellipse(0, -18, 9, 8, glaze('#caa07e', '#e9cdb0'));
+      ellipse(-10, -16, 5, 7, '#caa07e'); ellipse(10, -16, 5, 7, '#caa07e');
+      ellipse(0, -15, 5, 4, '#e3b497'); ellipse(-2, -15, 1.2, 1.5, '#5a3b2c'); ellipse(2, -15, 1.2, 1.5, '#5a3b2c');
+      eyes(-4, -20, '#ffd27a'); eyes(4, -20, '#ffd27a');
+      line([[13, 2], [20, -12]], '#8a8f96', 2.2); for (let i = 0; i < 4; i++) line([[18 + i, -13], [20 + i, -15]], '#c9ced4', 1.4);
+    } else if (id === 'honghaier') {
+      softShadow(13, 14, 0.32);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#5a1c14'; ctx.beginPath(); ctx.roundRect(side * 3.5 - 2, 3, 4, 8, 1.5); ctx.fill(); ellipse(side * 3.5, 10, 3, 1.2, '#420f0a'); }
+      ctx.fillStyle = glaze('#c23a2a', '#f08a6a'); ctx.beginPath(); ctx.roundRect(-8, -12, 16, 18, 4); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 7, -8], [side * 11, -1], [side * 12, 3]], glaze('#c23a2a', '#f08a6a'), 4);
+      ellipse(0, -18, 7, 6, glaze('#e7a07e', '#f6cdb0'));
+      eyes(-3, -19, '#ffe08a'); eyes(3, -19, '#ffe08a');
+      shape([[-3, -24], [-1, -30], [3, -30], [4, -24]], '#7a1a10'); ellipse(0, -30, 2.5, 3, '#caa14e');
+      line([[-13, -10], [15, 6]], '#9a9ea4', 2.2); shape([[15, 6], [18, 2], [17, 9]], '#d9dde2');
+      ctx.fillStyle = 'rgba(255,160,40,0.5)'; ctx.beginPath(); ctx.arc(-2, 4, 3, 0, Math.PI * 2); ctx.fill();
+    } else if (id === 'bull_demon') {
+      softShadow(15, 20, 0.4);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#241b14'; ctx.beginPath(); ctx.roundRect(side * 5 - 2, 3, 5, 11, 2); ctx.fill(); ellipse(side * 5, 13, 3.5, 1.4, '#18110c'); }
+      ctx.fillStyle = glaze('#3a2c22', '#7a5d44'); ctx.beginPath(); ctx.roundRect(-12, -14, 24, 22, 5); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 10, -10], [side * 15, -2], [side * 16, 4]], glaze('#3a2c22', '#7a5d44'), 5);
+      ctx.fillStyle = 'rgba(120,30,20,0.5)'; ctx.beginPath(); ctx.moveTo(-12, -12); ctx.quadraticCurveTo(-20, 2, -13, 12); ctx.lineTo(-9, 12); ctx.lineTo(-9, -10); ctx.closePath(); ctx.fill();
+      ellipse(0, -20, 11, 9, glaze('#4a382a', '#8a6a4c'));
+      ctx.strokeStyle = '#e8e2d0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-9, -26); ctx.quadraticCurveTo(-15, -34, -12, -38); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(9, -26); ctx.quadraticCurveTo(15, -34, 12, -38); ctx.stroke();
+      ellipse(0, -17, 5, 4, '#5a4636'); ellipse(-2, -17, 1.3, 1.6, '#1c140d'); ellipse(2, -17, 1.3, 1.6, '#1c140d');
+      ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0, -14, 3, 0.1, Math.PI - 0.1); ctx.stroke();
+      eyes(-4, -21, '#ffae3a'); eyes(4, -21, '#ffae3a');
+      line([[16, 4], [24, -8]], '#6b4a2a', 2.2); shape([[22, -10], [28, -12], [24, -4]], '#c9ced4');
+    } else if (id === 'jinjiao') {
+      softShadow(14, 16, 0.34);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#3a2c12'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); }
+      ctx.fillStyle = glaze('#b8860b', '#f0d27a'); ctx.beginPath(); ctx.roundRect(-9, -13, 18, 19, 4); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 8, -9], [side * 12, -2], [side * 13, 3]], glaze('#b8860b', '#f0d27a'), 4);
+      ellipse(0, -19, 7, 7, glaze('#e8c98a', '#f6e3b8'));
+      eyes(-3, -20, '#7a4a12'); eyes(3, -20, '#7a4a12');
+      shape([[-7, -24], [-5, -31], [5, -31], [7, -24]], '#d4af37'); ellipse(0, -31, 2, 2, '#fff0b8');
+      line([[-5, -28], [-12, -34]], '#e0b000', 2); line([[5, -28], [12, -34]], '#e0b000', 2);
+      ctx.fillStyle = '#caa24a'; ctx.beginPath(); ctx.ellipse(13, -2, 4, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#8a6a20'; ctx.fillRect(11, -8, 4, 3);
+    } else if (id === 'yinjiao') {
+      softShadow(14, 16, 0.34);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#2e2e36'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); }
+      ctx.fillStyle = glaze('#9aa3ad', '#e6ecf2'); ctx.beginPath(); ctx.roundRect(-9, -13, 18, 19, 4); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 8, -9], [side * 12, -2], [side * 13, 3]], glaze('#9aa3ad', '#e6ecf2'), 4);
+      ellipse(0, -19, 7, 7, glaze('#d8dde3', '#f2f6fa'));
+      eyes(-3, -20, '#3a4a6a'); eyes(3, -20, '#3a4a6a');
+      shape([[-7, -24], [-5, -31], [5, -31], [7, -24]], '#c0c6cc'); ellipse(0, -31, 2, 2, '#ffffff');
+      line([[-5, -28], [-12, -34]], '#b8bec4', 2); line([[5, -28], [12, -34]], '#b8bec4', 2);
+      ctx.fillStyle = '#7fae8a'; ctx.beginPath(); ctx.moveTo(9, -8); ctx.lineTo(9, 4); ctx.lineTo(17, 4); ctx.lineTo(17, -8); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#5f8a6a'; ctx.fillRect(10, -10, 6, 3);
+    } else if (id === 'tieshan') {
+      softShadow(14, 15, 0.32);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#2a3a2e'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); }
+      ctx.fillStyle = glaze('#2f7d5b', '#8fd6ad'); ctx.beginPath(); ctx.roundRect(-9, -13, 18, 19, 5); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 8, -9], [side * 12, -2], [side * 13, 3]], glaze('#2f7d5b', '#8fd6ad'), 4);
+      ellipse(0, -26, 5, 5, '#1c1410');
+      ellipse(0, -19, 7, 7, glaze('#e8c9a8', '#f6dcc0'));
+      eyes(-3, -20, '#3a6a4a'); eyes(3, -20, '#3a6a4a'); line([[-2, -15], [0, -16], [2, -15]], '#b06a5a', 0.6);
+      ctx.fillStyle = '#3fae6a'; ctx.beginPath(); ctx.moveTo(13, -4); ctx.quadraticCurveTo(26, -10, 22, -20); ctx.quadraticCurveTo(14, -18, 13, -4); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#1f6e3a'; ctx.lineWidth = 1; ctx.stroke();
+    } else if (id === 'huangfeng') {
+      softShadow(13, 15, 0.32);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#3a3410'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); }
+      ctx.fillStyle = glaze('#b89a2e', '#ecd77a'); ctx.beginPath(); ctx.roundRect(-9, -12, 18, 18, 4); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 8, -8], [side * 12, -1], [side * 13, 3]], glaze('#b89a2e', '#ecd77a'), 4);
+      ellipse(0, -18, 8, 7, glaze('#caa73a', '#f0d87a'));
+      ellipse(-8, -19, 3, 2.2, glaze('#caa73a', '#f0d87a')); ellipse(8, -19, 3, 2.2, glaze('#caa73a', '#f0d87a'));
+      ellipse(0, -15, 4, 3, '#e0c98a'); eyes(-3, -19, '#ff7a2a'); eyes(3, -19, '#ff7a2a');
+      ctx.strokeStyle = 'rgba(230,215,130,0.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(13, -4, 4, 0, Math.PI * 1.6); ctx.stroke(); ctx.beginPath(); ctx.arc(-13, -2, 3, 0, Math.PI * 1.6); ctx.stroke();
+    } else if (id === 'huangpao') {
+      softShadow(14, 16, 0.34);
+      for (const side of [-1, 1]) { ctx.fillStyle = '#2e2a14'; ctx.beginPath(); ctx.roundRect(side * 4 - 2, 3, 4, 9, 1.5); ctx.fill(); }
+      ctx.fillStyle = glaze('#c9a23a', '#f0d98a'); ctx.beginPath(); ctx.roundRect(-9, -13, 18, 19, 4); ctx.fill();
+      for (const side of [-1, 1]) line([[side * 8, -9], [side * 12, -2], [side * 13, 3]], glaze('#c9a23a', '#f0d98a'), 4);
+      ellipse(0, -19, 7, 7, glaze('#d8b878', '#f0d8a8'));
+      eyes(-3, -20, '#6a4a1a'); eyes(3, -20, '#6a4a1a');
+      ellipse(-7, -25, 3, 5, glaze('#3a5a2a', '#6a8a4a')); ellipse(7, -25, 3, 5, glaze('#3a5a2a', '#6a8a4a'));
+      line([[-9, -4], [9, -4]], '#8a2a1a', 2);
+    }
     if (['fish', 'red_carp', 'black_fish'].includes(id)) {
       const carp = id === 'red_carp', dark = id === 'black_fish';
       const skin = glaze(carp ? '#b46549' : dark ? '#34444b' : '#537f8b', carp ? '#ecc27d' : dark ? '#94a29d' : '#bcdbca');
@@ -174,6 +308,7 @@ window.CreatureArt = {
       else {shape([[-8,-12],[-2,-18],[1,-12]],'#b3b7a3');ellipse(-7,3,3,1.5,'#6e876b');}
     } else {
       // 人形野怪：骨骼、夜叉、山猴、恶僧与假道士各有不同头部与道具。
+      softShadow(13, 16, 0.3);
       const skeleton=id==='skeleton',monkey=id==='stone_monkey',tao=id==='demon_taoist',monk=id==='demon_monk';
       const body=skeleton?'#cfccbb':monkey?'#a47d56':tao?'#587d83':monk?'#6f5048':'#456c76';
       for(const side of [-1,1]){line([[side*4,3],[side*(5+stride),11]],skeleton?'#b8b7a7':'#403e42',3);ellipse(side*(5+stride),11,3,1.5,'#39383c');}
