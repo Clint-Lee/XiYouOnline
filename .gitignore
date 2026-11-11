@@ -1,3 +1,7 @@
 node_modules/
 saves/
 *.log
+
+# 本地工具产物（不进远程仓库）
+.vite/
+.workbuddy/
