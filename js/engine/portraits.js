@@ -131,11 +131,12 @@ class MasterPortraitEngine {
       'shuyao': 'assets/monsters/shuyao.svg',
       'tree': 'assets/monsters/kushu_jing.jpg',
       'xiaohua_she': 'assets/monsters/xiaohua_she.svg',
-      'sheyao': 'assets/monsters/sheyao.svg',
+      // Boss 级妖怪改用高精国风工笔立绘（金色圆形描边渲染），小怪保留简笔以维持层级差异
+      'sheyao': 'assets/monsters/sheyao_portrait.jpg',
       'snake': 'assets/monsters/xiaohua_she.svg',
       'wolf_wild': 'assets/monsters/wolf_wild.svg',
       'shanlang': 'assets/monsters/wolf_wild.svg',
-      'langyao': 'assets/monsters/langyao.svg',
+      'langyao': 'assets/monsters/langyao_portrait.jpg',
       'wolf': 'assets/monsters/wolf_wild.svg'
     };
     if (typeof window !== 'undefined') window.MonsterArtMap = this.customMonsterImages;

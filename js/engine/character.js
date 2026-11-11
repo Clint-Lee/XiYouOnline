@@ -755,8 +755,8 @@ class CharacterRenderer {
     if (s.includes('kushu') || s === 'tree') return 'assets/monsters/kushu_jing.jpg';
     if (s.includes('shuyao')) return 'assets/monsters/shuyao.svg';
     if (s.includes('xiaohua_she') || s === 'snake') return 'assets/monsters/xiaohua_she.svg';
-    if (s.includes('sheyao')) return 'assets/monsters/sheyao.svg';
-    if (s.includes('langyao')) return 'assets/monsters/langyao.svg';
+    if (s.includes('sheyao')) return 'assets/monsters/sheyao_portrait.jpg';
+    if (s.includes('langyao')) return 'assets/monsters/langyao_portrait.jpg';
     if (s.includes('wolf_wild') || s.includes('shanlang') || s === 'wolf') return 'assets/monsters/wolf_wild.svg';
     return null;
   }
