@@ -328,6 +328,10 @@ class ParticleSystem {
         ctx.beginPath();
         ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = 'rgba(255, 240, 246, 0.55)';
+        ctx.beginPath();
+        ctx.ellipse(-p.size * 0.22, -p.size * 0.08, p.size * 0.42, p.size * 0.16, -0.2, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       } else if (p.type === 'firefly') {
         const glow = 0.5 + Math.sin(p.pulse) * 0.5;
@@ -428,6 +432,11 @@ class ParticleSystem {
           ctx.globalAlpha = p.alpha * lifeRatio;
           ctx.beginPath();
           ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = 'rgba(255, 240, 246, 0.52)';
+          ctx.beginPath();
+          ctx.ellipse(-p.size * 0.2, -p.size * 0.1, p.size * 0.4, p.size * 0.18, 0, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();

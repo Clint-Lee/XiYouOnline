@@ -753,12 +753,12 @@ body {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  background: linear-gradient(180deg, #3d140e 0%, #1a0805 100%);
+  background: linear-gradient(180deg, #431710 0%, #270d08 55%, #160704 100%);
   border-bottom: 2px solid #d4af37;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.88), inset 0 1px 0 rgba(255, 224, 130, 0.28);
   position: relative;
   z-index: 50;
-  padding: 2px 0 4px;
+  padding: 3px 0 5px;
 }
 
 .dragon-plaque-title-row {
@@ -779,7 +779,7 @@ body {
   font-size: 20px;
   font-weight: 900;
   color: #fff9e6;
-  text-shadow: 0 0 8px #ffd700, 0 2px 4px #000, 0 0 15px #f39c12;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.85), 0 2px 4px #000, 0 0 18px rgba(243, 156, 18, 0.75);
   letter-spacing: 6px;
   padding: 0 10px;
 }
@@ -798,23 +798,25 @@ body {
   flex: 1;
   text-align: center;
   padding: 2px 6px;
-  background: rgba(30, 15, 8, 0.85);
+  background: rgba(30, 15, 8, 0.88);
   border: 1px solid #c59b27;
   border-radius: 4px;
   font-size: 11px;
   font-weight: bold;
+  font-variant-numeric: tabular-nums;
   color: #fff2cc;
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 215, 0, 0.16);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .battle-banner-pill.acting-timer {
-  background: linear-gradient(90deg, #4a150e 0%, #631e13 50%, #4a150e 100%);
+  background: linear-gradient(90deg, #4a150e 0%, #6d2115 50%, #4a150e 100%);
   border-color: #ffd700;
   color: #ffd700;
   font-size: 11.5px;
+  box-shadow: inset 0 0 8px rgba(255, 215, 0, 0.18), 0 0 10px rgba(212, 175, 55, 0.25);
 }
 
 /* 战场舞台区域 (全画幅画布 + 居中蜂窝菜单) */
@@ -1980,21 +1982,23 @@ body {
 }
 
 .dialogue-opt-btn {
-  background: linear-gradient(180deg, #5c1d18 0%, #38120e 100%);
-  border: 1px solid #ffd700;
-  color: #fff;
+  background: linear-gradient(180deg, #62201a 0%, #3a120e 100%);
+  border: 1px solid #d4af37;
+  color: #fff9e6;
   padding: 5px 12px;
   font-size: 11px;
   font-weight: bold;
   border-radius: 4px;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  transition: all 0.15s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 224, 130, 0.24);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dialogue-opt-btn:hover {
-  background: #7a2620;
-  transform: scale(1.03);
+  background: linear-gradient(180deg, #7d2821 0%, #4c1712 100%);
+  border-color: #ffd700;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.28), inset 0 1px 0 rgba(255, 236, 179, 0.35);
+  transform: translateY(-1px);
 }
 
 .dialogue-opt-btn:active {
@@ -2137,7 +2141,7 @@ body.modern-mode .modern-bottom-bar {
   cursor: pointer;
   position: relative;
   transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 215, 0, 0.16);
   white-space: nowrap !important;
   user-select: none;
 }
@@ -2146,7 +2150,11 @@ body.modern-mode .modern-bottom-bar {
   transform: translateY(-2px);
   border-color: #ffd700;
   background: linear-gradient(180deg, #533f2b 0%, #2c2016 100%);
-  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.35);
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.35), inset 0 1px 0 rgba(255, 232, 148, 0.28);
+}
+
+.action-dock-btn:hover .dock-btn-icon {
+  transform: scale(1.08);
 }
 
 .action-dock-btn:active {
@@ -2174,6 +2182,7 @@ body.modern-mode .modern-bottom-bar {
   font-size: 19px;
   line-height: 1;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dock-btn-label {
@@ -2829,11 +2838,16 @@ body.modern-mode .modern-bottom-bar {
   box-shadow: 0 6px 18px rgba(255, 215, 0, 0.3), inset 0 0 12px rgba(255, 215, 0, 0.2);
 }
 
+.menu-clean-card:hover .clean-card-icon {
+  transform: scale(1.08);
+}
+
 .clean-card-icon {
   font-size: 28px;
   line-height: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
   margin-bottom: 2px;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .clean-card-name {
@@ -6783,4 +6797,68 @@ body {
   text-align: right;
   font-size: 9px;
   color: #887766;
+}
+
+/* ==========================================================================
+   东方玄幻着陆门户 (#xiyou-landing-portal) · 檀木赤金雕饰升级
+   ========================================================================== */
+#xiyou-landing-portal {
+  overflow-x: hidden;
+}
+
+#xiyou-landing-portal::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(251, 191, 36, 0.08) 0%, transparent 52%),
+    radial-gradient(circle at 80% 85%, rgba(217, 119, 6, 0.08) 0%, transparent 45%);
+  z-index: 0;
+}
+
+#xiyou-landing-portal > * {
+  position: relative;
+  z-index: 1;
+}
+
+#xiyou-landing-portal .xiyou-portal-seal {
+  box-shadow: 0 0 26px rgba(245, 158, 11, 0.36), inset 0 1px 0 rgba(255, 243, 199, 0.45);
+}
+
+#xiyou-landing-portal .xiyou-cta-btn {
+  box-shadow: 0 12px 30px -6px rgba(217, 119, 6, 0.58), inset 0 1px 0 rgba(255, 248, 220, 0.38);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+#xiyou-landing-portal .xiyou-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 38px -6px rgba(245, 158, 11, 0.72), inset 0 1px 0 rgba(255, 248, 220, 0.48);
+}
+
+#xiyou-landing-portal .xiyou-cta-btn:active {
+  transform: translateY(1px);
+}
+
+#xiyou-landing-portal .xiyou-feature-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(253, 230, 138, 0.16);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#xiyou-landing-portal .xiyou-feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 42px;
+  height: 2px;
+  background: linear-gradient(90deg, #fbbf24, transparent);
+}
+
+#xiyou-landing-portal .xiyou-feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(251, 191, 36, 0.62);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.58), 0 0 24px rgba(245, 158, 11, 0.15), inset 0 1px 0 rgba(253, 230, 138, 0.26);
 }
