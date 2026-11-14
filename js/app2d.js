@@ -10226,6 +10226,22 @@ class GameApp2D {
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, width, height);
 
+    // 仙气灵尘微光：让战场草地与远景拥有呼吸质感
+    if (typeof ctx.beginPath === 'function' && typeof ctx.arc === 'function') {
+      const tSec = Date.now() * 0.0012;
+      ctx.save();
+      for (let m = 0; m < 10; m++) {
+        const mx = ((m * 97 + tSec * 14 * (m % 2 === 0 ? 1 : 0.7)) % (width + 20)) - 10;
+        const my = ((m * 61 + Math.sin(tSec + m) * 18) % Math.max(80, height - 30)) + 15;
+        const ma = 0.2 + 0.22 * Math.sin(tSec * 2 + m * 1.3);
+        ctx.fillStyle = m % 3 === 0 ? `rgba(253, 224, 71, ${ma})` : `rgba(187, 247, 208, ${ma})`;
+        ctx.beginPath();
+        ctx.arc(mx, my, m % 2 === 0 ? 2.2 : 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // 1.5 绘制正在生效的法术全景战场环境与全屏特效背景 (舍生取义暗黑虚空、雷霆万钧暴风夜空与天雷、飞沙走石狂风树林等)
     this.renderBattleBackdropEffects(ctx, width, height);
 
@@ -10648,6 +10664,16 @@ class GameApp2D {
 
     // 4. 绘制上层法术技能与刀光特效队列 (烈火炎柱、天雷霹雳、玄冰突刺、金刚护盾等)
     this.renderBattleCanvasEffects(ctx);
+    if (this.battleCritFlashUntil && this.battleCritFlashUntil > Date.now() && typeof ctx.createRadialGradient === 'function') {
+      const flashRatio = Math.max(0, Math.min(1, (this.battleCritFlashUntil - Date.now()) / 200));
+      const flashGrad = ctx.createRadialGradient(width * 0.5, height * 0.5, width * 0.18, width * 0.5, height * 0.5, width * 0.75);
+      flashGrad.addColorStop(0, 'rgba(253, 224, 71, 0)');
+      flashGrad.addColorStop(1, `rgba(249, 115, 22, ${0.26 * flashRatio})`);
+      ctx.save();
+      ctx.fillStyle = flashGrad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
     if (this.currentBattle.status === 'executing' && this.battleCastCue && this.battleCastCue.until > Date.now()) {
       ctx.save();
       ctx.font = 'bold 14px "Microsoft YaHei", sans-serif';
@@ -11609,6 +11635,29 @@ class GameApp2D {
           ctx.stroke();
         }
       }
+      // 特效15.5：暴击/连击爆发金红裂环 (Crit & Combo Burst)
+      else if (fx.type === 'crit_burst') {
+        const cAlpha = Math.max(0, 1 - progress);
+        ctx.strokeStyle = `rgba(253, 224, 71, ${cAlpha})`;
+        ctx.lineWidth = 4 * (1 - progress * 0.6);
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(x, y - 8, 16 + progress * 48, 0, Math.PI * 2);
+        ctx.stroke();
+
+        for (let k = 0; k < 8; k++) {
+          const ang = (k * Math.PI) / 4 + progress * 1.4;
+          const r1 = 12 + progress * 24;
+          const r2 = 24 + progress * 56;
+          ctx.strokeStyle = k % 2 === 0 ? `rgba(254, 240, 138, ${cAlpha})` : `rgba(248, 113, 113, ${cAlpha})`;
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(x + Math.cos(ang) * r1, y - 8 + Math.sin(ang) * r1);
+          ctx.lineTo(x + Math.cos(ang) * r2, y - 8 + Math.sin(ang) * r2);
+          ctx.stroke();
+        }
+      }
       // 特效16：通用秘法 (星云法球爆发)
       else {
         const aAlpha = Math.max(0, 1 - progress);
@@ -11740,11 +11789,15 @@ class GameApp2D {
       if (this.currentBattle !== battle) return;
       this.commitBattlePresentation(battle);
       if ((step.isCrit || effectType === 'sacrifice' || step.type === 'boss_special_cast') && step.type !== 'dodge' && !selfDamage) {
+        this.battleCritFlashUntil = Date.now() + 200;
         const stage = document.getElementById('battle-stage-area');
         if (stage && !this.isReducedMotionEnabled()) {
           stage.classList.add('arena-shake');
           setTimeout(() => stage.classList.remove('arena-shake'), 160 * this.getBattleAnimationScale());
         }
+        positioned.forEach(({ unit }) => {
+          this.spawnBattleSkillEffect('crit_burst', unit._battlePos.x, unit._battlePos.y, 380, { localOnly: true });
+        });
       }
       if (window.Sound && !selfDamage) {
         if (step.type === 'dodge' || step.type === 'boss_intent_cancelled') window.Sound.playFailure();

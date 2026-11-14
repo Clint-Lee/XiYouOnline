@@ -241,6 +241,22 @@ class ParticleSystem {
         });
       }
     }
+
+    // 通用野外与秘境灵气尘芒：为未触发专属气象的场景补充柔和漂浮灵点，强化东方仙境纵深感
+    if (this.spawnTimer % 14 === 0 && this.particles.length < Math.min(this.maxParticles, 42)) {
+      this.particles.push({
+        type: 'spirit_mote',
+        x: Math.random() * viewportW,
+        y: Math.random() * viewportH,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: -0.25 - Math.random() * 0.35,
+        radius: 1.4 + Math.random() * 1.4,
+        alpha: 0.45 + Math.random() * 0.25,
+        pulse: Math.random() * Math.PI * 2,
+        life: 160 + Math.random() * 120,
+        maxLife: 280
+      });
+    }
   }
 
   // 骑乘神驹疾驰时的马蹄踏云烟尘
@@ -454,6 +470,16 @@ class ParticleSystem {
         ctx.beginPath();
         ctx.arc(renderX - p.radius * 0.35, renderY - p.radius * 0.35, p.radius * 0.28, 0, Math.PI * 2);
         ctx.fill();
+      } else if (p.type === 'spirit_mote') {
+        const wave = 0.45 + 0.55 * Math.abs(Math.sin((p.pulse || 0) + (1 - lifeRatio) * 6));
+        const currentAlpha = p.alpha * wave * Math.sin(lifeRatio * Math.PI);
+        ctx.fillStyle = `rgba(253, 230, 138, ${currentAlpha})`;
+        ctx.shadowColor = 'rgba(251, 191, 36, 0.7)';
+        ctx.shadowBlur = 5;
+        ctx.beginPath();
+        ctx.arc(renderX, renderY, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
       }
     }
 
