@@ -144,7 +144,7 @@
       }
     } else {
       if (statusPill) {
-        statusPill.textContent = '🛡️ 天枢 · 统一身份通行证接入';
+        statusPill.textContent = '🛡️ 云檐 · 统一身份通行证接入';
         statusPill.classList.remove('is-authed');
       }
       if (primaryBtnText) {
@@ -154,7 +154,7 @@
         guestBtn.style.display = 'inline-flex';
       }
       if (subHint) {
-        subHint.textContent = '点击主按钮跳转天枢统一认证中心登录解锁云存档；或点击右侧免登录试玩本地历练';
+        subHint.textContent = '点击主按钮跳转云檐统一认证中心登录解锁云存档；或点击右侧免登录试玩本地历练';
       }
     }
   }

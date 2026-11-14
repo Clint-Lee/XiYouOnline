@@ -1,5 +1,5 @@
 /**
- * 天枢 (TianShu) · 官方高质感内置头像图库 - 汉风西游镜像
+ * 云檐趣阁 (CloudEave) · 官方高质感内置头像图库 - 汉风西游镜像
  */
 
 const XIYOU_AVATAR_LIST = [
@@ -94,7 +94,7 @@ const XIYOU_AVATAR_LIST = [
   },
   {
     id: 'minimal_celestial',
-    name: '天枢星轮',
+    name: '云檐星轮',
     svg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="mn-c-bg-xy" cx="50%" cy="50%" r="50%">
